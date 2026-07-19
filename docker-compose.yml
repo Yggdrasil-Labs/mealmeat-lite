@@ -1,0 +1,129 @@
+services:
+  db:
+    # TODO: 发布前执行 `docker pull postgres:16.9` 获取真实 sha256 digest 替换
+    image: postgres:16.9@sha256:placeholder
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrate:
+    build:
+      context: ./server
+      target: production
+    command: ["node", "dist/cli.js", "db", "migrate"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: ./server
+      target: production
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      MEALMATE_BOOTSTRAP_SECRET: ${MEALMATE_BOOTSTRAP_SECRET}
+      MEALMATE_MODELS_FILE: ${MEALMATE_MODELS_FILE}
+      MEALMATE_PUBLIC_DOMAIN: ${MEALMATE_PUBLIC_DOMAIN}
+      TZ: Asia/Shanghai
+    secrets:
+      - db_password
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "node", "dist/healthcheck.js", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    # TODO: 发布前执行 `docker pull caddy:2.9.1` 获取真实 sha256 digest 替换
+    image: caddy:2.9.1@sha256:placeholder
+    profiles: [production]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["sh", "-c", "caddy validate --config /etc/caddy/Caddyfile && caddy run --config /etc/caddy/Caddyfile"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  db_password:
+    file: ${MEALMATE_DB_PASSWORD_FILE}
+
+volumes:
+  pg_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+  internal:

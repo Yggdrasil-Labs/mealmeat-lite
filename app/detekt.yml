@@ -1,0 +1,10 @@
+# Detekt 配置 — 适配 Jetpack Compose 约定
+naming:
+  FunctionNaming:
+    # Composable 函数使用 PascalCase 是 Compose 标准约定
+    ignoreAnnotated:
+      - "Composable"
+  MatchingDeclarationName:
+    # 允许文件包含多个顶级声明（Compose 文件常见 enum + composable）
+    mustBeFirst: false
+    active: false

@@ -1,0 +1,23 @@
+services:
+  caddy-test:
+    # TODO: 发布前与生产 caddy 使用相同 digest
+    image: caddy:2.9.1@sha256:placeholder
+    profiles: [test]
+    restart: "no"
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1::8080"
+    volumes:
+      - ./Caddyfile.test:/etc/caddy/Caddyfile:ro
+    networks:
+      - edge
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      MEALMATE_PUBLIC_DOMAIN: test.invalid

@@ -1,0 +1,33 @@
+# === Node / pnpm ===
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+# === Android / Gradle ===
+.gradle/
+app/build/
+app/app/build/
+app/.idea/
+*.apk
+*.aab
+*.iml
+local.properties
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Test / Coverage ===
+coverage/
+*.lcov

@@ -1,0 +1,9 @@
+:8080 {
+	reverse_proxy app:3000
+
+	header {
+		-X-Forwarded-For
+		-X-Forwarded-Host
+		-X-Forwarded-Proto
+	}
+}

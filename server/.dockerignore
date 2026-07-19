@@ -1,0 +1,7 @@
+node_modules
+dist
+*.md
+.env*
+vitest*.config.ts
+drizzle.config.ts
+coverage

@@ -1,0 +1,25 @@
+{$MEALMATE_PUBLIC_DOMAIN} {
+	reverse_proxy app:3000
+
+	header {
+		-X-Forwarded-For
+		-X-Forwarded-Host
+		-X-Forwarded-Proto
+	}
+
+	log {
+		output stdout
+		format json {
+			fields {
+				request>headers delete
+				request>body delete
+				resp_headers delete
+			}
+		}
+	}
+}
+
+# 内部 healthcheck 端点（容器内 wget 不带 Host header）
+http://127.0.0.1:80 {
+	respond /health/live 200
+}
