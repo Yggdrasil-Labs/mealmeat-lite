@@ -1,39 +1,34 @@
 [versions]
-# Core
-agp = "8.7.3"
-kotlin = "2.1.0"
-ksp = "2.1.0-1.0.29"
+# Core — AGP 9 内建 Kotlin，但仍需声明版本供 KSP/serialization 等插件使用
+agp = "9.0.1"
+kotlin = "2.4.0"
+ksp = "2.4.0-1.0.31"
 
 # AndroidX & Compose
-compose-bom = "2024.12.01"
-activity-compose = "1.9.3"
-navigation-compose = "2.8.5"
-lifecycle = "2.8.7"
-core-ktx = "1.15.0"
-room = "2.6.1"
+compose-bom = "2026.04.01"
+activity-compose = "1.10.1"
+navigation-compose = "2.9.0"
+lifecycle = "2.9.0"
+core-ktx = "1.16.0"
+room = "2.7.1"
 work = "2.10.0"
-hilt = "2.53.1"
+hilt = "2.56.2"
 hilt-navigation-compose = "1.2.0"
 
-# Network
-retrofit = "2.11.0"
-okhttp = "4.12.0"
-kotlinx-serialization = "1.7.3"
-kotlinx-serialization-converter = "1.0.0"
-
-# Material & UI
-material3 = "1.3.1"
+# Network — OkHttp 5 + Retrofit 3 (必须一起升级)
+retrofit = "3.0.0"
+okhttp = "5.0.0"
+kotlinx-serialization = "1.8.1"
 
 # Testing
-junit5 = "5.11.4"
+junit5 = "5.12.2"
 turbine = "1.2.0"
-mockk = "1.13.13"
+mockk = "1.14.2"
 androidx-test-ext = "1.2.1"
-compose-testing = "1.7.6"
 
 # Lint
-ktlint = "12.1.2"
-detekt = "1.23.7"
+ktlint = "12.2.0"
+detekt = "1.23.8"
 
 [libraries]
 # Compose BOM
@@ -65,13 +60,13 @@ hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
 
-# Network
+# Network — OkHttp 5 包名保持 com.squareup.okhttp3
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-sse = { group = "com.squareup.okhttp3", name = "okhttp-sse", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-retrofit-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "kotlinx-serialization-converter" }
+retrofit-kotlinx-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
 
 # Testing
 junit5-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit5" }

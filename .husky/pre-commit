@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+
+# MealMate Lite — pre-commit hook
+# Runs lint checks on staged files before committing.
+
+set -e
+
+STAGED_TS_FILES=$(git diff --cached --name-only --diff-filter=ACM -- 'server/src/**/*.ts')
+
+if [ -n "$STAGED_TS_FILES" ]; then
+  echo "→ Running Biome check on server files..."
+  cd "$(git rev-parse --show-toplevel)/server" || exit 1
+  pnpm lint
+fi
+
+STAGED_KT_FILES=$(git diff --cached --name-only --diff-filter=ACM -- 'app/**/*.kt')
+
+if [ -n "$STAGED_KT_FILES" ]; then
+  echo "→ Running ktlint on Kotlin files..."
+  cd "$(git rev-parse --show-toplevel)/app" || exit 1
+  ./gradlew ktlintCheck --daemon
+fi
+
+echo "✓ Pre-commit checks passed"

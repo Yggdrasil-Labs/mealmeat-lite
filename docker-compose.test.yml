@@ -1,7 +1,6 @@
 services:
   caddy-test:
-    # TODO: 发布前与生产 caddy 使用相同 digest
-    image: caddy:2.9.1@sha256:placeholder
+    image: caddy:2.9.1@sha256:cf1bd22f2415bc99b785ece1df2c49d32985ac4ac42d84df335be17350593693
     profiles: [test]
     restart: "no"
     depends_on:

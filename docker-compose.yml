@@ -1,7 +1,6 @@
 services:
   db:
-    # TODO: 发布前执行 `docker pull postgres:16.9` 获取真实 sha256 digest 替换
-    image: postgres:16.9@sha256:placeholder
+    image: postgres:16.14@sha256:da8cf245a60506e50a0a8cbb0f39c559ca622d92490605b67fcadc74ca1ea8e4
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -14,10 +13,11 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
     logging:
       driver: json-file
       options:
@@ -65,12 +65,13 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD_FILE: /run/secrets/db_password
-      MEALMATE_BOOTSTRAP_SECRET: ${MEALMATE_BOOTSTRAP_SECRET}
+      MEALMATE_BOOTSTRAP_SECRET_FILE: /run/secrets/bootstrap_secret
       MEALMATE_MODELS_FILE: ${MEALMATE_MODELS_FILE}
       MEALMATE_PUBLIC_DOMAIN: ${MEALMATE_PUBLIC_DOMAIN}
       TZ: Asia/Shanghai
     secrets:
       - db_password
+      - bootstrap_secret
     networks:
       - internal
     healthcheck:
@@ -86,8 +87,7 @@ services:
         max-file: "3"
 
   caddy:
-    # TODO: 发布前执行 `docker pull caddy:2.9.1` 获取真实 sha256 digest 替换
-    image: caddy:2.9.1@sha256:placeholder
+    image: caddy:2.9.1@sha256:cf1bd22f2415bc99b785ece1df2c49d32985ac4ac42d84df335be17350593693
     profiles: [production]
     restart: unless-stopped
     depends_on:
@@ -118,6 +118,8 @@ services:
 secrets:
   db_password:
     file: ${MEALMATE_DB_PASSWORD_FILE}
+  bootstrap_secret:
+    file: ${MEALMATE_BOOTSTRAP_SECRET_FILE}
 
 volumes:
   pg_data:
@@ -127,3 +129,4 @@ volumes:
 networks:
   edge:
   internal:
+    internal: true

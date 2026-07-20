@@ -20,7 +20,7 @@ mealmate-lite/
 |---|---|
 | Node.js | 22.x（mise 管理） |
 | pnpm | 10.x（Corepack） |
-| JDK | 17（mise 管理） |
+| JDK | 21（mise 管理） |
 | Docker Engine | ≥ 24 |
 | Docker Compose | ≥ 2.20 |
 

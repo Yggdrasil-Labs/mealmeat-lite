@@ -1,6 +1,5 @@
 # === Build stage ===
-# TODO: 发布前执行 `docker pull node:22.22.3-slim` 获取真实 sha256 digest 替换 placeholder
-FROM node:22.22.3-slim@sha256:placeholder AS build
+FROM node:22.22.3-slim@sha256:16d364eebf6b62da439dc993d9b80940c78b0ca38438452f011ab9a25c752644 AS build
 
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
@@ -15,9 +14,15 @@ COPY tsconfig.json ./
 COPY src/ src/
 RUN pnpm build
 
+# tsc 不复制非 TS 文件（.sql），需手动拷贝 migration SQL 到 dist/
+RUN cp -r src/db/migrations dist/db/migrations
+
 # === Production stage ===
-# TODO: 与 build 阶段使用相同的真实 digest
-FROM node:22.22.3-slim@sha256:placeholder AS production
+FROM node:22.22.3-slim@sha256:16d364eebf6b62da439dc993d9b80940c78b0ca38438452f011ab9a25c752644 AS production
+
+# tini 作为 PID 1 — 正确处理 SIGTERM 信号转发和 zombie 进程回收
+RUN apt-get update && apt-get install -y --no-install-recommends tini \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
@@ -39,4 +44,5 @@ USER appuser
 
 EXPOSE 3000
 
-ENTRYPOINT ["node", "dist/index.js"]
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "dist/index.js"]

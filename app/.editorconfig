@@ -10,5 +10,8 @@ insert_final_newline = true
 [*.{kt,kts}]
 indent_size = 4
 
+[*.{ts,json,md,yml,yaml}]
+indent_size = 2
+
 # ktlint: 允许 @Composable 函数使用 PascalCase
 ktlint_function_naming_ignore_when_annotated_with = Composable

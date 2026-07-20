@@ -11,12 +11,12 @@ plugins {
 
 android {
     namespace = "io.yggdrasil.labs.mealmate.lite"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "io.yggdrasil.labs.mealmate.lite"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
 
@@ -34,12 +34,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 
     buildFeatures {
@@ -58,9 +58,9 @@ android {
                     systemImageSource = "aosp"
                     require64Bit = true
                 }
-                create("pixel6Api35") {
+                create("pixel6Api36") {
                     device = "Pixel 6"
-                    apiLevel = 35
+                    apiLevel = 36
                     systemImageSource = "aosp"
                     require64Bit = true
                 }
