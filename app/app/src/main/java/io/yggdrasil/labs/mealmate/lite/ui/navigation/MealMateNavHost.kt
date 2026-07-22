@@ -2,9 +2,9 @@ package io.yggdrasil.labs.mealmate.lite.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,8 +35,8 @@ enum class TopLevelRoute(
     val label: String,
     val icon: ImageVector,
 ) {
-    Chat("chat", "对话", Icons.Default.Chat),
-    Recipes("recipes", "菜品", Icons.Default.MenuBook),
+    Chat("chat", "对话", Icons.AutoMirrored.Filled.Chat),
+    Recipes("recipes", "菜品", Icons.AutoMirrored.Filled.MenuBook),
     Plans("plans", "计划", Icons.Default.CalendarMonth),
     Settings("settings", "设置", Icons.Default.Settings),
 }

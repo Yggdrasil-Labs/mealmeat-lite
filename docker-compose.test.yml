@@ -1,6 +1,8 @@
 services:
   caddy-test:
-    image: caddy:2.9.1@sha256:cf1bd22f2415bc99b785ece1df2c49d32985ac4ac42d84df335be17350593693
+    build:
+      context: ./caddy
+    image: mealmate-lite-caddy:0.1.0
     profiles: [test]
     restart: "no"
     depends_on:

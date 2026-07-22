@@ -19,7 +19,7 @@ mealmate-lite/
 | 依赖 | 版本 |
 |---|---|
 | Node.js | 22.x（mise 管理） |
-| pnpm | 10.x（Corepack） |
+| pnpm | 10.11.0（仓库 `packageManager` + Corepack） |
 | JDK | 21（mise 管理） |
 | Docker Engine | ≥ 24 |
 | Docker Compose | ≥ 2.20 |
@@ -29,8 +29,8 @@ mealmate-lite/
 ```bash
 # 后端
 cd server
-pnpm install
-pnpm dev
+mise exec -- corepack pnpm install
+mise exec -- corepack pnpm dev
 
 # Android
 cd app
@@ -42,10 +42,10 @@ cd app
 ### 后端
 
 ```bash
-pnpm --dir server lint          # Biome lint + format check
-pnpm --dir server typecheck     # TypeScript 类型检查
-pnpm --dir server test:unit     # 单元测试
-pnpm --dir server test:integration  # 集成测试
+mise exec -- corepack pnpm --dir server lint          # Biome lint + format check
+mise exec -- corepack pnpm --dir server typecheck     # TypeScript 类型检查
+mise exec -- corepack pnpm --dir server test:unit     # 单元测试
+mise exec -- corepack pnpm --dir server test:integration  # 集成测试
 ```
 
 ### Android

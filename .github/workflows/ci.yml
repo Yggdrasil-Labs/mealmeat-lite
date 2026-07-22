@@ -38,29 +38,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Enable Corepack
-        run: corepack enable
+      - uses: jdx/mise-action@v3
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: mise exec -- corepack pnpm install --frozen-lockfile
 
       - name: Lint (Biome)
-        run: pnpm lint
+        run: mise exec -- corepack pnpm lint
 
       - name: Type check
-        run: pnpm typecheck
+        run: mise exec -- corepack pnpm typecheck
 
       - name: Unit tests
-        run: pnpm test:unit
+        run: mise exec -- corepack pnpm test:unit
         env:
           NODE_ENV: test
 
       - name: Integration tests
-        run: pnpm test:integration
+        run: mise exec -- corepack pnpm test:integration
         env:
           NODE_ENV: test
           DB_HOST: localhost
@@ -81,24 +76,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
+      - uses: jdx/mise-action@v3
+
+      - name: Provision Android SDK
+        run: mise exec -- bash ./scripts/provision-android-sdk.sh
 
       - uses: gradle/actions/setup-gradle@v4
 
       - name: ktlint check
-        run: ./gradlew ktlintCheck
+        run: mise exec -- ./gradlew ktlintCheck
 
       - name: detekt
-        run: ./gradlew detekt
+        run: mise exec -- ./gradlew detekt
 
       - name: Lint (Android)
-        run: ./gradlew :app:lintDebug
+        run: mise exec -- ./gradlew :app:lintDebug
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest
+        run: mise exec -- ./gradlew :app:testDebugUnitTest
+
+      - name: Managed device tests
+        run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api36DebugAndroidTest
 
   # ============================================================
   # Docker Compose — 编排语法验证 + 镜像构建
@@ -130,3 +128,6 @@ jobs:
 
       - name: Build app image
         run: docker compose -f docker-compose.yml build app
+
+      - name: Build Caddy health-probe image
+        run: docker compose -f docker-compose.yml build caddy

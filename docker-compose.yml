@@ -72,6 +72,8 @@ services:
     secrets:
       - db_password
       - bootstrap_secret
+    volumes:
+      - ${MEALMATE_MODELS_FILE}:/run/config/models.json:ro
     networks:
       - internal
     healthcheck:
@@ -87,7 +89,9 @@ services:
         max-file: "3"
 
   caddy:
-    image: caddy:2.9.1@sha256:cf1bd22f2415bc99b785ece1df2c49d32985ac4ac42d84df335be17350593693
+    build:
+      context: ./caddy
+    image: mealmate-lite-caddy:0.1.0
     profiles: [production]
     restart: unless-stopped
     depends_on:

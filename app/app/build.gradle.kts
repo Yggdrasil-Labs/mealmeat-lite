@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
@@ -38,10 +37,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    kotlinOptions {
-        jvmTarget = "21"
-    }
-
     buildFeatures {
         compose = true
     }
@@ -52,17 +47,19 @@ android {
         }
         managedDevices {
             localDevices {
-                create("pixel2Api26") {
+                create("pixel2Api27") {
                     device = "Pixel 2"
-                    apiLevel = 26
+                    apiLevel = 27
                     systemImageSource = "aosp"
                     require64Bit = true
+                    testedAbi = "x86_64"
                 }
                 create("pixel6Api36") {
                     device = "Pixel 6"
                     apiLevel = 36
                     systemImageSource = "aosp"
                     require64Bit = true
+                    testedAbi = "x86_64"
                 }
             }
         }
@@ -114,6 +111,7 @@ dependencies {
     // Unit Testing
     testImplementation(libs.junit5.api)
     testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
 

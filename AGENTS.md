@@ -24,7 +24,7 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 Android
 - Android：Kotlin + Jetpack Compose + Room + Hilt + Retrofit
 - 部署：Docker Compose（Node + PG + Caddy）
 - 包管理：pnpm（后端）、Gradle Kotlin DSL（Android）
-- 版本管理：mise（Node 22.22.3 + JDK temurin-21.0.7+6 + Gradle 9.0）
+- 版本管理：mise（Node 22.22.3 + JDK temurin-21.0.7+6）；pnpm 10.11.0 由仓库 `packageManager` + Corepack 固定；Gradle Wrapper 9.1.0
 - Lint/Format：Biome（后端）、ktlint + detekt（Android）
 - 测试：Vitest（后端）、JUnit 5 + Turbine（Android）
 
@@ -33,12 +33,12 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 Android
 ```bash
 # 后端
 cd server
-pnpm install
-pnpm dev              # 开发服务器
-pnpm lint             # Biome check
-pnpm typecheck        # TypeScript 类型检查
-pnpm test:unit        # 单元测试
-pnpm test:integration # 集成测试
+mise exec -- corepack pnpm install
+mise exec -- corepack pnpm dev              # 开发服务器
+mise exec -- corepack pnpm lint             # Biome check
+mise exec -- corepack pnpm typecheck        # TypeScript 类型检查
+mise exec -- corepack pnpm test:unit        # 单元测试
+mise exec -- corepack pnpm test:integration # 集成测试
 
 # Android
 cd app

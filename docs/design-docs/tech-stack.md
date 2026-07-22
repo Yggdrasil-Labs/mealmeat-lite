@@ -239,7 +239,7 @@ secrets:
 | `POSTGRES_DB` / `POSTGRES_USER` | 是 | db 容器分别引用与 `DB_NAME` / `DB_USER` 相同的 Compose 插值值 |
 | `POSTGRES_PASSWORD_FILE` | 是 | db 固定为 `/run/secrets/db_password`，与 app/migrate 挂载同一个只读 `db_password` secret |
 | `MEALMATE_BOOTSTRAP_SECRET` | 是 | 至少 256 位随机值，推荐 64 位十六进制或 43 位 base64url；启动时校验熵编码长度，不接受示例值。初始化后必须保持不变，因为它还隔离派生 cursor、确认令牌和限流来源键的 HMAC key；恢复重置不轮换它 |
-| `MEALMATE_MODELS_FILE` | 是 | 指向只读挂载的模型目录 strict JSON；每项含 `id/displayName/baseURL/model/apiKeyEnv/enabled/isDefault/capabilities:{streaming,tools}`，id 唯一，启用且两项能力均为 true 的项目中必须恰有一个默认模型 |
+| `MEALMATE_MODELS_FILE` | 是 | 部署机模型目录 strict JSON 的源文件路径；Compose 将其只读挂载至容器内 `/run/config/models.json`。每项含 `id/displayName/baseURL/model/apiKeyEnv/enabled/isDefault/capabilities:{streaming,tools}`，id 唯一，启用且两项能力均为 true 的项目中必须恰有一个默认模型 |
 | Provider API Key env | 至少一个 | 环境变量名由模型目录的 `apiKeyEnv` 引用；缺失时对应模型不进入可用 allowlist，全部缺失则 readiness 失败 |
 | `MEALMATE_PUBLIC_DOMAIN` | 是 | Caddy 证书与反向代理域名 |
 | `TZ` | 是 | 固定为 `Asia/Shanghai`；其它值启动失败 |
@@ -303,19 +303,20 @@ mealmate-lite/
 目标命令（仓库骨架阶段即创建，CI 与本地使用同一命令）：
 
 ```bash
-pnpm --dir server lint
-pnpm --dir server typecheck
-pnpm --dir server test:unit
-pnpm --dir server test:integration
-./gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
-./gradlew pixel2Api26DebugAndroidTest pixel6Api35DebugAndroidTest
+mise exec -- corepack pnpm --dir server lint
+mise exec -- corepack pnpm --dir server typecheck
+mise exec -- corepack pnpm --dir server test:unit
+mise exec -- corepack pnpm --dir server test:integration
+mise exec -- bash ./app/scripts/provision-android-sdk.sh
+./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew pixel2Api27DebugAndroidTest pixel6Api36DebugAndroidTest
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up --build --wait
 ```
 
-后端只使用固定精确版本的 `@biomejs/biome`，提交根目录 `biome.json`，`pnpm --dir server lint` 固定执行 `biome check .`。格式化与 lint 由同一配置负责，不再引入 ESLint 或 Prettier；生成的 migration 只允许通过 `files.includes` 明确排除，不允许开发者本地静默跳过检查。
+后端只使用固定精确版本的 `@biomejs/biome`，提交根目录 `biome.json`，`pnpm --dir server lint` 固定执行 `biome check --config-path=.. src/`。格式化与 lint 由同一配置负责，不再引入 ESLint 或 Prettier；生成的 migration 只允许通过 `files.includes` 明确排除，不允许开发者本地静默跳过检查。
 
-`app/build.gradle.kts` 必须声明两个固定的 Gradle Managed Devices：`pixel2Api26`（Pixel 2、API 26、`aosp` x86_64）和 `pixel6Api35`（Pixel 6、API 35、`aosp` x86_64）。CI 不允许用“当前已连接模拟器”替代这两个门禁；升级镜像 API 或设备定义必须通过文档与基线评审。
+`app/build.gradle.kts` 必须声明两个固定的 Gradle Managed Devices：`pixel2Api27`（Pixel 2、API 27、`aosp`、`testedAbi=x86_64`）和 `pixel6Api36`（Pixel 6、API 36、`aosp`、`testedAbi=x86_64`）。CI 不允许用“当前已连接模拟器”替代这两个门禁；升级镜像 API 或设备定义必须通过文档与基线评审。
 
 测试替身与确定性：
 
@@ -399,13 +400,13 @@ app PostgreSQL pool 固定最多 10 个连接、普通语句 `statement_timeout=
 
 | 依赖 | 版本 |
 |---|---|
-| Node.js | 22.x；由仓库 mise 配置固定，CI 读取同一配置 |
-| pnpm | 10.x；`packageManager` 固定精确版本，CI 用 Corepack 激活 |
-| JDK | 17；由仓库 mise 配置固定 vendor/版本，Gradle toolchain 同为 17 |
+| Node.js | 22.22.3；由仓库 mise 配置固定，CI 使用同一精确版本 |
+| pnpm | 10.11.0；根与服务端 `packageManager` 固定相同精确版本，本地与 CI 均通过 mise 的 Node + Corepack 执行 |
+| JDK | Temurin 21.0.7+6；由仓库 mise 配置固定 vendor/版本，并作为 Gradle 的运行 JDK |
 | Android Studio | 仅作为 IDE；必须兼容仓库固定的 AGP，不能成为构建版本来源 |
-| Android SDK | `minSdk=26`、`compileSdk=35`、`targetSdk=35`；CI 安装固定 platform/build-tools |
+| Android SDK | `minSdk=26`、`compileSdk=36`、`targetSdk=36`；`app/scripts/provision-android-sdk.sh` 在本地与 CI 固定安装 `platforms;android-36`、`build-tools;36.0.0`。Gradle Managed Devices 自动获取定义所需的 AOSP 系统镜像 |
 | Gradle / AGP / Kotlin / Compose | Gradle Wrapper、Version Catalog 与 Compose BOM 固定精确版本；依赖升级单独评审，不使用动态版本 |
 | Docker Engine | ≥ 24 |
 | Docker Compose plugin | ≥ 2.20；必须支持 `--wait` 和长格式 `depends_on.condition` |
 
-阶段 0 创建仓库骨架时必须同时提交仓库根 `.mise.toml`、`package.json#packageManager`、`pnpm-lock.yaml`、Gradle Wrapper、Version Catalog 与依赖校验元数据；本地和 CI 都不得绕过这些版本入口。后端 install 使用 frozen lockfile，Gradle 禁止 `+`、`latest.release` 等动态依赖。
+阶段 0 创建仓库骨架时必须同时提交仓库根 `.mise.toml`、`package.json#packageManager`、`pnpm-lock.yaml`、Gradle Wrapper、Version Catalog 与依赖校验元数据；根与子项目 `packageManager` 的 pnpm 版本必须一致，本地和 CI 都不得绕过这些版本入口。后端 install 使用 frozen lockfile，Gradle 禁止 `+`、`latest.release` 等动态依赖。
