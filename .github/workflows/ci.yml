@@ -84,7 +84,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: ktlint check
-        run: mise exec -- ./gradlew ktlintCheck
+        run: mise exec -- ./gradlew --refresh-dependencies ktlintCheck
 
       - name: detekt
         run: mise exec -- ./gradlew detekt
