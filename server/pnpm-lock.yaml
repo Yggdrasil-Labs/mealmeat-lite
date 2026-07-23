@@ -43,8 +43,8 @@ importers:
         specifier: 0.31.1
         version: 0.31.1
       tsc-alias:
-        specifier: 1.8.15
-        version: 1.8.15
+        specifier: 1.8.13
+        version: 1.8.13
       tsx:
         specifier: 4.19.4
         version: 4.19.4
@@ -1248,10 +1248,9 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tsc-alias@1.8.15:
+  tsc-alias@1.8.13:
     resolution: {integrity: sha512-hpuglrm2DoHZE62L8ntYqRNiSQ7J8kvIxEsajzY/QfGOm7EcdhgG5asqoWYi2E2KX0SqUuhOTnV8Ry8D/TnsEA==}
     engines: {node: '>=16.20.2'}
-    deprecated: '[WARNING] Use 1.8.13 instead of 1.8.15, reason: https://github.com/justkey007/tsc-alias/issues/244'
     hasBin: true
 
   tsx@4.19.4:
@@ -2210,7 +2209,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tsc-alias@1.8.15:
+  tsc-alias@1.8.13:
     dependencies:
       chokidar: 3.6.0
       commander: 9.5.0
