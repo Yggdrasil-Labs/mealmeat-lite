@@ -95,6 +95,9 @@ jobs:
       - name: Unit tests
         run: mise exec -- ./gradlew :app:testDebugUnitTest
 
+      - name: Enable KVM access
+        run: sudo chmod 666 /dev/kvm
+
       - name: Managed device tests
         run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api36DebugAndroidTest
 
