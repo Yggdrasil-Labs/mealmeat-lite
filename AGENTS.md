@@ -19,14 +19,14 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 Android
 
 ## 项目事实
 
-- 后端：Node.js 22 + Hono + Drizzle + PostgreSQL 16
+- 后端：Node.js 24 + Hono + Drizzle + PostgreSQL 16
 - AI：Vercel AI SDK + Zod，OpenAI-compatible 多模型
 - Android：Kotlin + Jetpack Compose + Room + Hilt + Retrofit
 - 部署：Docker Compose（Node + PG + Caddy）
 - 包管理：pnpm（后端）、Gradle Kotlin DSL（Android）
-- 版本管理：mise（Node 22.22.3 + JDK temurin-21.0.7+6）；pnpm 10.11.0 由仓库 `packageManager` + Corepack 固定；Gradle Wrapper 9.1.0
+- 版本管理：mise（Node 24.18.0 + JDK temurin-21.0.7+6）；pnpm 11.17.0 由仓库 `packageManager` + Corepack 固定；Gradle Wrapper 9.6.1
 - Lint/Format：Biome（后端）、ktlint + detekt（Android）
-- 测试：Vitest（后端）、JUnit 5 + Turbine（Android）
+- 测试：Vitest（后端）、JUnit 6 + Turbine（Android）
 
 ## 常用命令
 

@@ -1,12 +1,14 @@
 # === Build stage ===
-FROM node:22.22.3-slim@sha256:16d364eebf6b62da439dc993d9b80940c78b0ca38438452f011ab9a25c752644 AS build
+FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
 
-RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+RUN npm install --global corepack@0.35.0 \
+    && corepack enable \
+    && corepack prepare pnpm@11.17.0 --activate
 
 WORKDIR /app
 
 # Install dependencies with frozen lockfile
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Build TypeScript (biome.json 在仓库根目录，build 只需 tsc 不需 lint)
@@ -18,20 +20,22 @@ RUN pnpm build
 RUN cp -r src/db/migrations dist/db/migrations
 
 # === Production stage ===
-FROM node:22.22.3-slim@sha256:16d364eebf6b62da439dc993d9b80940c78b0ca38438452f011ab9a25c752644 AS production
+FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS production
 
 # tini 作为 PID 1 — 正确处理 SIGTERM 信号转发和 zombie 进程回收
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+RUN npm install --global corepack@0.35.0 \
+    && corepack enable \
+    && corepack prepare pnpm@11.17.0 --activate
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
 # Install production dependencies only
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built artifacts

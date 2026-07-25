@@ -1,6 +1,6 @@
 import { zValidator as originalZValidator } from '@hono/zod-validator'
 import type { ValidationTargets } from 'hono'
-import type { ZodSchema } from 'zod'
+import type { ZodType } from 'zod'
 
 /**
  * zValidator wrapper — 确保验证失败时返回结构化 JSON 错误响应
@@ -9,7 +9,7 @@ import type { ZodSchema } from 'zod'
  * 这不符合 API 结构化错误响应约定。此 wrapper 统一返回:
  * { error: { code: 400, message: "Validation failed", issues: [...] } }
  */
-export const zValidator = <T extends ZodSchema, Target extends keyof ValidationTargets>(
+export const zValidator = <T extends ZodType, Target extends keyof ValidationTargets>(
   target: Target,
   schema: T,
 ) =>

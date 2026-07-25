@@ -18,8 +18,8 @@ mealmate-lite/
 
 | 依赖 | 版本 |
 |---|---|
-| Node.js | 22.x（mise 管理） |
-| pnpm | 10.11.0（仓库 `packageManager` + Corepack） |
+| Node.js | 24.x（mise 固定 24.18.0） |
+| pnpm | 11.17.0（仓库 `packageManager` + Corepack） |
 | JDK | 21（mise 管理） |
 | Docker Engine | ≥ 24 |
 | Docker Compose | ≥ 2.20 |

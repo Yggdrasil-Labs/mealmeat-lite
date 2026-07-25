@@ -1,0 +1,12 @@
+nodeVersion: 24.18.0
+engineStrict: true
+
+overrides:
+  "@esbuild-kit/core-utils>esbuild": "0.25.12"
+
+allowBuilds:
+  "@biomejs/biome": true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - hono@4.12.32

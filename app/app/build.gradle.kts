@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.ManagedVirtualDevice
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
@@ -10,12 +12,12 @@ plugins {
 
 android {
     namespace = "io.yggdrasil.labs.mealmate.lite"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.yggdrasil.labs.mealmate.lite"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
 
@@ -49,15 +51,16 @@ android {
             localDevices {
                 create("pixel2Api27") {
                     device = "Pixel 2"
-                    apiLevel = 27
+                    sdkVersion = 27
                     systemImageSource = "aosp"
                     require64Bit = true
                     testedAbi = "x86_64"
                 }
-                create("pixel6Api36") {
+                create("pixel6Api37") {
                     device = "Pixel 6"
-                    apiLevel = 36
-                    systemImageSource = "aosp"
+                    sdkVersion = 37
+                    systemImageSource = "google"
+                    pageAlignment = ManagedVirtualDevice.PageAlignment.FORCE_16KB_PAGES
                     require64Bit = true
                     testedAbi = "x86_64"
                 }
@@ -119,6 +122,10 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
+}
+
+ktlint {
+    version.set("1.8.0")
 }
 
 tasks.withType<Test> {

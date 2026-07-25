@@ -1,4 +1,4 @@
 [tools]
-node = "22.22.3"
+node = "24.18.0"
 java = "temurin-21.0.7+6"
 android-sdk = "22.0"

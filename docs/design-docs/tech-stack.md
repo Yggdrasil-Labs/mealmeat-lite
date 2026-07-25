@@ -27,7 +27,7 @@
 | 反代 | Caddy（自动 HTTPS） |
 | 部署 | Docker Compose（Node + PG + Caddy） |
 | 后端测试 | Vitest |
-| Android 测试 | JUnit 5 + Turbine（JVM）+ AndroidX JUnit 4 / Compose Testing（仪器） |
+| Android 测试 | JUnit 6 + Turbine（JVM）+ AndroidX JUnit 4 / Compose Testing（仪器） |
 | 后端 lint / format | Biome |
 | Android lint | ktlint + detekt |
 | 包管理 | pnpm（后端）、Gradle Kotlin DSL（Android） |
@@ -224,7 +224,7 @@ secrets:
 - 网络分为 `edge` 与 `internal`：Caddy 同时加入两者，app/db/migrate 只加入 `internal`；生产 Compose 不暴露 app 的 3000 和 PostgreSQL 的 5432 到宿主。
 - 使用 `pg_data`、`caddy_data`、`caddy_config` 命名 volume；生产数据不使用源码目录 bind mount。v0.1 不承诺自动备份，但不得把 `docker compose down` 写成删除 volume 的命令。
 - db healthcheck 固定执行 `pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"`；`migrate` 固定执行 `node dist/cli.js db migrate` 且 `restart: "no"`。app 的容器 healthcheck 分别调用 `node dist/healthcheck.js live` 与 readiness 所需的 `node dist/healthcheck.js ready`；Compose 启动门禁以 ready 检查为准。Caddy 启动前先执行 `caddy validate --config /etc/caddy/Caddyfile`，其 healthcheck 请求自身的 `/health/live`。迁移失败、数据库 schema 版本不匹配、必填配置缺失或 secret 文件不可读时 migrate/app 必须非零退出，readiness 不得成功，也不得带旧 schema 运行。
-- app 使用 Node 22 的多阶段镜像、pnpm lockfile frozen install、非 root 用户和 exec-form entrypoint；runtime 镜像不包含编译工具、源码凭据或开发依赖。阶段 0 必须把 Node、PostgreSQL 16 和 Caddy 2 镜像固定到“完整 semver tag + sha256 digest”，Compose/Dockerfile 禁止 floating major、`latest` 或仅 tag 引用；升级 digest 单独提交并重跑全部门禁。
+- app 使用 Node 24 的多阶段镜像、pnpm lockfile frozen install、非 root 用户和 exec-form entrypoint；runtime 镜像不包含编译工具、源码凭据或开发依赖。阶段 0 必须把 Node、PostgreSQL 16 和 Caddy 2 镜像固定到“完整 semver tag + sha256 digest”，Compose/Dockerfile 禁止 floating major、`latest` 或仅 tag 引用；升级 digest 单独提交并重跑全部门禁。
 - 每个常驻服务设置 `restart: unless-stopped`、healthcheck 和 json-file 日志轮转（单文件 10 MB、保留 3 个）；单机 Compose 不依赖仅对 Swarm 生效的 `deploy.resources` 来声称资源限制。
 - app 收到 SIGTERM 后停止接收新 chat/sync 请求，给活动事务和 SSE 最多 30 秒完成，然后退出；未完成聊天不由后台继续，待用户同 ID 重试时按回执租约恢复。
 
@@ -296,7 +296,7 @@ mealmate-lite/
 |---|---|---|
 | 后端单元 | Vitest | Service 逻辑、FC executor、数据转换 |
 | 后端集成 | Vitest + testcontainers | API 端到端、DB 交互 |
-| Android 单元 | JUnit 5 + Turbine | ViewModel 状态流、Repository 逻辑 |
+| Android 单元 | JUnit 6 + Turbine | ViewModel 状态流、Repository 逻辑 |
 | Android UI | AndroidX JUnit 4 + Compose Testing | 组件渲染、用户交互 |
 | Android 集成 | Gradle Managed Devices | 首次 bootstrap、后续设备注册、令牌吊销、离线草稿重发、同步幂等与服务端接收顺序 |
 
@@ -309,14 +309,14 @@ mise exec -- corepack pnpm --dir server test:unit
 mise exec -- corepack pnpm --dir server test:integration
 mise exec -- bash ./app/scripts/provision-android-sdk.sh
 ./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
-mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew pixel2Api27DebugAndroidTest pixel6Api36DebugAndroidTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up --build --wait
 ```
 
 后端只使用固定精确版本的 `@biomejs/biome`，提交根目录 `biome.json`，`pnpm --dir server lint` 固定执行 `biome check --config-path=.. src/`。格式化与 lint 由同一配置负责，不再引入 ESLint 或 Prettier；生成的 migration 只允许通过 `files.includes` 明确排除，不允许开发者本地静默跳过检查。
 
-`app/build.gradle.kts` 必须声明两个固定的 Gradle Managed Devices：`pixel2Api27`（Pixel 2、API 27、`aosp`、`testedAbi=x86_64`）和 `pixel6Api36`（Pixel 6、API 36、`aosp`、`testedAbi=x86_64`）。CI 不允许用“当前已连接模拟器”替代这两个门禁；升级镜像 API 或设备定义必须通过文档与基线评审。
+`app/build.gradle.kts` 必须声明两个固定的 Gradle Managed Devices：`pixel2Api27`（Pixel 2、API 27、`aosp`、`testedAbi=x86_64`）和 `pixel6Api37`（Pixel 6、API 37、`google`、16KB page-size、`testedAbi=x86_64`）。CI 不允许用“当前已连接模拟器”替代这两个门禁；升级镜像 API 或设备定义必须通过文档与基线评审。
 
 测试替身与确定性：
 
@@ -400,12 +400,12 @@ app PostgreSQL pool 固定最多 10 个连接、普通语句 `statement_timeout=
 
 | 依赖 | 版本 |
 |---|---|
-| Node.js | 22.22.3；由仓库 mise 配置固定，CI 使用同一精确版本 |
-| pnpm | 10.11.0；根与服务端 `packageManager` 固定相同精确版本，本地与 CI 均通过 mise 的 Node + Corepack 执行 |
+| Node.js | 24.18.0（Active LTS）；由仓库 mise 配置固定，CI 使用同一精确版本 |
+| pnpm | 11.17.0；根与服务端 `packageManager` 固定相同精确版本，本地与 CI 均通过 mise 的 Node + Corepack 执行 |
 | JDK | Temurin 21.0.7+6；由仓库 mise 配置固定 vendor/版本，并作为 Gradle 的运行 JDK |
 | Android Studio | 仅作为 IDE；必须兼容仓库固定的 AGP，不能成为构建版本来源 |
-| Android SDK | `minSdk=26`、`compileSdk=36`、`targetSdk=36`；`app/scripts/provision-android-sdk.sh` 在本地与 CI 固定安装 `platforms;android-36`、`build-tools;36.0.0`。Gradle Managed Devices 自动获取定义所需的 AOSP 系统镜像 |
-| Gradle / AGP / Kotlin / Compose | Gradle Wrapper、Version Catalog 与 Compose BOM 固定精确版本；依赖升级单独评审，不使用动态版本 |
+| Android SDK | `minSdk=26`、`compileSdk=37`、`targetSdk=37`；`app/scripts/provision-android-sdk.sh` 在本地与 CI 固定安装稳定包 `platforms/android-37.0`、`build-tools/37.0.0`。Gradle Managed Devices 自动获取 API 27 AOSP 与 API 37 Google APIs 16KB 系统镜像 |
+| Gradle / AGP / Kotlin / Compose | Gradle 9.6.1、AGP 9.3.1、Kotlin 2.4.10、Compose BOM 2026.06.01；Wrapper、Version Catalog 与 BOM 均固定精确版本，不使用动态版本 |
 | Docker Engine | ≥ 24 |
 | Docker Compose plugin | ≥ 2.20；必须支持 `--wait` 和长格式 `depends_on.condition` |
 

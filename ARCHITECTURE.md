@@ -14,7 +14,7 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 App。�
 
 | 层 | 选择 |
 |---|---|
-| 后端框架 | Node.js 22 + Hono |
+| 后端框架 | Node.js 24 + Hono |
 | AI | Vercel AI SDK (`ai` + `@ai-sdk/openai`) + Zod |
 | ORM | Drizzle |
 | 数据库 | PostgreSQL 16 |
@@ -27,7 +27,7 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 App。�
 | 反代 | Caddy（自动 HTTPS） |
 | 部署 | Docker Compose |
 | Lint | Biome（后端）、ktlint + detekt（Android） |
-| 测试 | Vitest（后端）、JUnit 5 + Turbine（Android） |
+| 测试 | Vitest（后端）、JUnit 6 + Turbine（Android） |
 | 版本管理 | mise |
 
 ## 3. 仓库结构

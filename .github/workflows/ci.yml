@@ -99,7 +99,7 @@ jobs:
         run: sudo chmod 666 /dev/kvm
 
       - name: Managed device tests
-        run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api36DebugAndroidTest
+        run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
 
   # ============================================================
   # Docker Compose — 编排语法验证 + 镜像构建
