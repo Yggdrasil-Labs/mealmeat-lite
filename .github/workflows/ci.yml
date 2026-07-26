@@ -39,7 +39,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
 
@@ -77,7 +77,7 @@ jobs:
         working-directory: app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
 
@@ -110,7 +110,7 @@ jobs:
   compose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create dummy .env for Compose validation
         run: |
