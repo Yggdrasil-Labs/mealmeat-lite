@@ -1,0 +1,55 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # CodeQL must initialize before Gradle so it can observe Java/Kotlin compilation.
+      - name: Set up mise
+        if: matrix.build-mode == 'manual'
+        uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+
+      - name: Provision Android SDK
+        if: matrix.build-mode == 'manual'
+        run: mise exec -- bash app/scripts/provision-android-sdk.sh
+
+      - name: Build Android app for CodeQL
+        if: matrix.build-mode == 'manual'
+        run: mise exec -- ./app/gradlew :app:assembleDebug
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
