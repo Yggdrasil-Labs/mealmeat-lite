@@ -117,8 +117,8 @@ flowchart TD
 
 **Execution:**
 
-- **Status:** ready-to-commit
-- **Commit SHA:** null
+- **Status:** done
+- **Commit SHA:** cb74cdea3959c4d650766a23a20204c92e367bf9
 - **Attempts:** 1
 - **Blocked Reason:** null
 - **Red Result:** PASS (2026-07-26T17:49)
@@ -130,8 +130,8 @@ flowchart TD
 - [x] Red Result exists and passed
 - [x] Verify Result exists and passed
 - [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Commit SHA belongs to this task only
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
