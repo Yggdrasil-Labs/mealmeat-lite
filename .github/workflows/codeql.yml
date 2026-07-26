@@ -33,10 +33,21 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Initialize CodeQL
+        if: matrix.language != 'java-kotlin'
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+
+      # Stable CodeQL 2.26.1 cannot extract Kotlin 2.4.10. Remove this
+      # temporary workaround once CodeQL 2.26.2 or later is recommended.
+      - name: Initialize CodeQL (Kotlin nightly compatibility)
+        if: matrix.language == 'java-kotlin'
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          tools: nightly
 
       # CodeQL must initialize before Gradle so it can observe Java/Kotlin compilation.
       - name: Set up mise
