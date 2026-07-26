@@ -15,7 +15,8 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 App。�
 | 层 | 选择 |
 |---|---|
 | 后端框架 | Node.js 24 + Hono |
-| AI | Vercel AI SDK (`ai` + `@ai-sdk/openai`) + Zod |
+| AI | Vercel AI SDK (`ai` + `@ai-sdk/openai`) |
+| 公开契约 | OpenAPI 3.1 + JSON Schema 2020-12 + Ajv |
 | ORM | Drizzle |
 | 数据库 | PostgreSQL 16 |
 | Android | Kotlin + Jetpack Compose + Material 3 |
@@ -34,6 +35,7 @@ MealMate Lite 是一个以 AI 对话为核心交互的家庭饮食规划 App。�
 
 ```
 mealmate-lite/
+├── contracts/           # v0.1 HTTP/FC/SSE/Sync 唯一契约事实源与 fixtures
 ├── server/              # Node.js + Hono 后端
 │   ├── src/
 │   │   ├── index.ts     # 服务入口
@@ -59,13 +61,14 @@ mealmate-lite/
 ## 4. 后端分层
 
 ```
-routes/     → 协议适配（HTTP/SSE）、参数校验
+contracts/  → 公开 wire schema、生成投影、错误/SSE/不变量目录
+routes/     → 协议适配（HTTP/SSE）、调用契约校验
 services/   → 业务逻辑、AI 编排、FC executor
 db/         → Drizzle schema、migrations、查询
 middleware/ → 认证、错误处理、request-id
 ```
 
-依赖方向：`routes → services → db`。middleware 横切所有层。
+依赖方向：`contracts ← routes → services → db`；Provider、Drizzle 和 Room 只消费 contracts 的生成物或 mapper，不反向定义公开契约。middleware 横切所有层。
 
 ## 5. Android 分层
 
@@ -111,6 +114,9 @@ UI Layer (Compose Screen/Component)
 - API Key 仅在部署端配置，不进入数据库/客户端/日志
 - 对话按设备隔离，菜谱和计划家庭共享
 - 同步使用服务端接收顺序，非客户端时间戳
+- `contracts/v1/source/` 是 HTTP、FC、SSE、Sync 和 JSONB wire schema 的唯一事实源；生成物禁止手改
+- Drizzle 与 Room 是独立存储模型，只通过显式 mapper 与 wire DTO 转换
+- 阶段 1 退出后 `contracts/v1` 完全冻结，wire shape 变化必须创建新 contract version
 - 所有依赖精确版本，禁止浮动
 
 ## 8. 验证命令
@@ -125,7 +131,7 @@ mise exec -- corepack pnpm --dir server test:unit
 mise exec -- corepack pnpm --dir server test:integration
 
 # Android
-mise exec -- ./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
+mise exec -- ./app/gradlew -p app ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
 
 # Docker
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
@@ -138,3 +144,4 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
 - 完整产品设计：`docs/design-docs/product-design.md`
 - 探索记录与数据契约：`docs/design-docs/brainstorm.md`
 - 版本路线：`docs/roadmap.md`
+- 契约唯一事实源决策：`docs/design-docs/arch-contract-single-source.md`

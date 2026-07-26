@@ -23,6 +23,7 @@
 | `design-docs/product-design.md` | 完整产品功能设计 |
 | `design-docs/tech-stack.md` | 技术选型决策与理由 |
 | `design-docs/brainstorm.md` | 探索记录、竞品、数据契约 |
+| `design-docs/arch-contract-single-source.md` | v0.1 契约唯一事实源架构决策 |
 
 ## 文档落点规则
 

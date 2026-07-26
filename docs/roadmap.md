@@ -113,7 +113,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 | 阶段 | 可开始条件 | 交付物 | 退出条件 | 当前状态 |
 |---|---|---|---|---|
 | 0. 仓库与运行骨架 | 四文档范围稳定 | pnpm/Gradle monorepo、Biome、Android lint、Compose、健康检查、CI 命令 | 本地空实现可构建，DB migration 可重复执行 | 已完成：`main` CI 的 server、app、compose 门禁均通过 |
-| 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | Drizzle migration、Zod DTO、统一错误、Room entities、契约 fixtures | 后端和 Android 对同一 fixture 双向解析；迁移集成测试通过 | 当前阶段，尚未开始实现 |
+| 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误与 SSE 状态机、Drizzle migration、Room entities、契约 fixtures | 21 HTTP/8 FC/6 SSE manifest 完整；后端和 Android 消费同一 fixtures；协议 trace、确定性生成与迁移集成测试通过 | 当前阶段，设计已定稿，尚未开始实现 |
 | 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 未开始 |
 | 3. 菜谱与计划领域 | 阶段 2 完成 | Recipe/WeeklyPlan/PlanItem service、8 个 FC executor、确认草稿 | AC1、AC2、AC3、AC9、AC11 通过 | 未开始 |
 | 4. 对话与 Android 闭环 | 阶段 3 完成 | provider adapter、SSE、4 个页面、Room/WorkManager | AC4、AC7、AC8、AC13 通过 | 未开始 |
@@ -124,7 +124,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 文档侧开发进入门禁（以下全部满足；仍不替代阶段 0 的实际退出条件）：
 
 - [x] `brainstorm.md` 中逻辑数据表的类型、约束、索引、FK 与事务不变量均已确定
-- [x] 所有 HTTP、SSE、FC 与 Sync DTO 可直接转写为 Zod/Kotlin schema，不含泛化 `object` 占位
+- [x] 所有 HTTP、SSE、FC 与 Sync DTO 可转写为 JSON Schema 2020-12 Portable Profile，不含泛化 `object` 占位；SSE 顺序、错误 tuple 和跨字段不变量另有可执行目录
 - [x] 家庭码格式与 KDF 参数已完成产品确认
 - [x] 聊天请求崩溃恢复状态机已完成产品确认
 - [x] `tech-stack.md` 已给出可复制执行的目标命令、外部依赖替身、并发测试屏障和 Compose 启动/健康约束
@@ -360,7 +360,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 | 维度 | 选择 |
 |---|---|
 | 后端 | Node.js + Hono + Drizzle + PostgreSQL |
-| AI | Vercel AI SDK + Zod，部署端配置唯一默认模型 + OpenAI-compatible 多模型切换 |
+| AI | Vercel AI SDK + JSON Schema Provider 投影，部署端配置唯一默认模型 + OpenAI-compatible 多模型切换 |
 | Android | Kotlin + Jetpack Compose + Room + Hilt + Retrofit |
 | 部署 | Docker Compose（Node + PG + Caddy） |
 | 仓库 | Monorepo（server/ + app/） |

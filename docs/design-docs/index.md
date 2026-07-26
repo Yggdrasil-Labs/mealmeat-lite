@@ -5,6 +5,7 @@
 | `product-design.md` | 完整产品功能设计（愿景级，v0.1 范围以 roadmap 为准） |
 | `tech-stack.md` | 技术选型决策与理由 |
 | `brainstorm.md` | 探索记录、竞品调研、数据契约 |
+| `arch-contract-single-source.md` | ARCH-001：v0.1 wire contract 的唯一事实源、投影和冻结规则 |
 
 > 新的长期设计决策直接在本目录新建文件；
 > 一次性 spec/plan 放 `docs/active/{version}/`。

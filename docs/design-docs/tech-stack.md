@@ -12,7 +12,7 @@
 |---|---|
 | 后端框架 | Node.js + Hono |
 | AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/openai`) |
-| FC 参数校验 | Zod |
+| 公开契约与 FC 参数校验 | JSON Schema 2020-12 Portable Profile + Ajv |
 | ORM | Drizzle |
 | 数据库 | PostgreSQL 16 |
 | Android UI | Kotlin + Jetpack Compose + Material 3 |
@@ -77,8 +77,16 @@
 - 统一多 provider 抽象：DeepSeek / OpenAI / 通义 / Anthropic 同一套 API
 - 流式 Function Calling 内置：不用手动拼 delta、解析 tool_calls
 - `streamText()` / `generateText()` 一行完成调用
-- Zod 定义 FC 参数 schema，类型安全
+- FC schema 从 `contracts/v1/source/` 唯一事实源生成；AI SDK 接收 JSONSchema7 投影，执行前仍由权威 Ajv validator 校验
 - 与 Hono SSE 天然配合
+
+### 契约唯一事实源
+
+- `contracts/v1/source/` 唯一定义 HTTP、Function Calling、SSE event、Sync DTO、公共错误和版本化 JSONB wire schema
+- 权威数据 schema 使用 JSON Schema Draft 2020-12 的受限 Portable Profile；TypeScript 类型、Ajv standalone validator、Provider JSONSchema7 和 Kotlin DTO 均为只读生成物
+- SSE 跨帧顺序、错误响应 tuple 和跨字段业务不变量由同一根目录下的 `x-mealmate-*` 目录生成状态表/映射表，以共享 trace/golden fixtures 验证
+- Drizzle 与 Room 不复用 wire model；两端分别通过显式 mapper 转换
+- 完整决策与冻结规则见 [`arch-contract-single-source.md`](./arch-contract-single-source.md)
 
 ### 模型切换机制
 
@@ -125,8 +133,8 @@ v0.1 Android 本地表：
 | `plan_items` | `id` PK、`weekly_plan_id` FK CASCADE、date、meal_type、recipe_id、name_snapshot | UNIQUE `(weekly_plan_id,date,meal_type)`；只能随完整 WeeklyPlan 聚合替换 |
 | `settings_cache` | `key` PK、`value`、`server_version String` | v0.1 仅 `familyPreference` 的服务端已确认值 |
 | `conversation_messages` | 自增本地顺序、role、content、chat_request_id、created_at | 当前设备最多 40 条；完整 user/assistant 轮次原子替换/裁剪 |
-| `pending_actions` | `action_id` PK、type、payload_json、payload_hash、created_at、state、attempt_id?、claimed_at? | 只允许 `recipe.patch/delete`；state 为 pending/sending/failed；sending 必须有 attempt/claim 字段 |
-| `sync_failures` | `action_id` PK、err_code、err_message、authoritative_json?、server_version?、created_at | 保留被拒绝动作，供丢弃或基于权威状态重新编辑 |
+| `pending_actions` | `action_id` PK、type、`payload_schema_version`、payload_json、payload_hash、created_at、state、attempt_id?、claimed_at? | 只允许 `recipe.patch/delete`；version `>= 1`；state 为 pending/sending/failed；sending 必须有 attempt/claim 字段 |
+| `sync_failures` | `action_id` PK、err_code、err_message、`authoritative_schema_version?`、authoritative_json?、server_version?、created_at | payload/version 同空或同非空且 version `>= 1`；保留被拒绝动作，供丢弃或基于权威状态重新编辑 |
 | `sync_state` | `singleton` PK、cursor?、last_success_at? | 仅在整页变更成功提交后推进 cursor |
 | `chat_draft` | `singleton` PK、message、updated_at | 只保存未发送草稿；不属于 pending action，不触发后台发送 |
 
@@ -308,8 +316,8 @@ mise exec -- corepack pnpm --dir server typecheck
 mise exec -- corepack pnpm --dir server test:unit
 mise exec -- corepack pnpm --dir server test:integration
 mise exec -- bash ./app/scripts/provision-android-sdk.sh
-./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
-mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
+mise exec -- ./app/gradlew -p app ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up --build --wait
 ```
@@ -379,7 +387,7 @@ app PostgreSQL pool 固定最多 10 个连接、普通语句 `statement_timeout=
 
 ## v0.1 可靠性与安全约束
 
-- `/api/v1` 的 JSON 请求体上限为 1 MB；同步动作每次最多 100 项，菜品列表 cursor 分页的 `limit` 最大为 100。所有入参使用 Zod strict schema 校验。
+- `/api/v1` 的 JSON 请求体上限为 1 MB；同步动作每次最多 100 项，菜品列表 cursor 分页的 `limit` 最大为 100。所有入参使用权威 Ajv strict validator 校验，禁止类型转换、默认值注入、未知字段和多余字段删除。
 - 公开路由 allowlist 仅包含 `GET /health/live`、`GET /health/ready`、`POST /api/v1/auth/bootstrap` 与 `POST /api/v1/auth/register`；其余接口均要求未吊销 device token。认证失败统一返回 `401 UNAUTHORIZED`，不泄露令牌状态。令牌不自然过期，注销、设备撤销和恢复重置会使其失效。
 - bootstrap secret 必须为部署环境中至少 256 位随机值；AuthConfig 以数据库唯一约束和事务 compare-and-set 初始化，竞争请求返回 `409 ALREADY_INITIALIZED`。家庭码由 CSPRNG 生成 12 位 Crockford Base32（60 bit），按 `XXXX-XXXX-XXXX` 展示；输入忽略大小写、ASCII 空格和连字符，并兼容 `O→0`、`I/L→1`。服务端以 Argon2id（64 MiB、t=3、p=1、16-byte salt、32-byte output）保存 PHC 字符串。device token 为 CSPRNG 生成的 32-byte 值；confirmation token 为隔离 HKDF key 的 HMAC-SHA256 32-byte 输出；两者都以无 padding base64url 传输并只保存 SHA-256。确认 token 只能出现在发起设备的 HTTPS SSE 事件和提交 JSON body。bootstrap、注册和轮换成功时的敏感明文仅向发起设备返回一次。
 - bootstrap/register 分 scope 对 Caddy 验证后的来源限流：IPv4 完整地址、IPv6 /64 经 HMAC 后作为 AuthAttemptThrottle 键；第 5 次连续凭证失败在数据库行锁事务中设置 15 分钟锁定并返回 `429 RATE_LIMITED`/`Retry-After`，成功清零、到期重开周期、服务重启保留。Caddy 覆盖客户端传入的转发地址头，后端仅在直连对端为 Caddy 私有网络时信任其客户端地址头。家庭码轮换使旧码立即失效，部署者恢复重置会吊销所有设备令牌但不删除业务数据。
@@ -390,8 +398,8 @@ app PostgreSQL pool 固定最多 10 个连接、普通语句 `statement_timeout=
 - WeeklyPlan 是同步聚合根；PlanItem 不单独分配同步版本。创建、覆盖或调整单餐都原子更新 WeeklyPlan 版本，并发布一条包含完整 21 餐的 SyncChange。
 - 聊天请求以 `(deviceId, chatRequestId)` 与请求哈希幂等持久化，原 modelId/message 仅存数据库用于恢复且不得进入日志。worker 使用 30 秒租约、10 秒心跳和递增 generation；接受请求前锁定 DeviceToken 行，使每设备最多一个有效聊天租约。同 ID 同内容按状态重放、报告活动或由用户重试 CAS 接管，不同 ID 活动冲突返回 `409 CHAT_DEVICE_BUSY`，同 ID 不同内容返回 `409 IDEMPOTENCY_KEY_REUSED`；创建新 ID 会终结同设备已过期/可重试的旧请求，防止旧上下文稍后插入。写入型工具以聊天请求 ID 和工具序号派生幂等键，并将业务写入、工具结果及 generation 校验置于同一事务；旧 generation 不得继续写入。请求移出最近 20 个完整轮次时，回执清除正文与工具内容、转为 expired 幂等墓碑，同内容重试返回 `410 CHAT_REQUEST_EXPIRED`。
 - 同步上传以逐项 ACK 为准；所有 SyncChange 写事务先取得固定 key `1296911409` 的 `pg_advisory_xact_lock` 并持有到提交，再分配版本，严格保证版本可见顺序；快照读取使用同 key 的 shared lock，客户端时间仅用于展示。`GET /sync` 按 `serverVersion` 升序返回 `{ changes, nextCursor, hasMore }`，每页至多 100 项或 1 MB；首次同步必须持续分页至 `hasMore=false`。被拒绝动作必须带权威资源快照与 `serverVersion`，客户端回滚后保留失败原因；无快照时要求完整重同步。同步回执和删除墓碑在 v0.1 永久保留。
-- API 成功响应为 `{ success: true, data }`；失败响应为 `{ success: false, errCode, errMessage, requestId, retryable, details? }`，HTTP/status/retryable/Retry-After 必须遵循 `brainstorm.md` 的唯一错误目录。日志只记录 requestId、模型、耗时、错误、工具名等元数据；不得记录对话正文、工具参数、API Key、家庭码、bootstrap secret 或 device token。
-- 对话消息、菜谱字段和偏好文本作为不可信输入传给模型；只允许服务端定义的 Zod 工具 schema，且批量创建和同周计划覆盖必须经设备绑定确认令牌后写入。
+- API 成功响应为 `{ success: true, data }`；失败响应为 `{ success: false, errCode, errMessage, requestId, retryable, details? }`，HTTP/status/retryable/Retry-After 必须遵循 `contracts/v1/source/openapi.yaml#x-mealmate-errors` 的唯一错误目录；`brainstorm.md` 的错误表只是定稿前的人类可读设计基线。日志只记录 requestId、模型、耗时、错误、工具名等元数据；不得记录对话正文、工具参数、API Key、家庭码、bootstrap secret 或 device token。
+- 对话消息、菜谱字段和偏好文本作为不可信输入传给模型；只允许从权威契约生成的 Provider 工具 schema，工具执行前再次通过 Ajv 校验，且批量创建和同周计划覆盖必须经设备绑定确认令牌后写入。
 - v0.1 不实现自动备份；数据丢失风险由家庭接受，现有服务器快照或备份不属于 App 功能契约。
 
 ---

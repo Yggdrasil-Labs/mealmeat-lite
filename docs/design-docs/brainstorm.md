@@ -75,21 +75,21 @@
 
 - 服务端创建的实体主键均为应用层生成的 UUIDv7；设备创建的 `chatRequestId`、`actionId`、`commitActionId` 使用 UUID。表中名为 `id` 的字段默认是主键；未标 `?` 的字段均 NOT NULL。所有时间字段使用 PostgreSQL `timestamptz`，业务周使用 `date`；`created_at/updated_at` 由服务端写入当前时间。
 - 所有会产生 SyncChange 的事务必须先取得固定 key `1296911409` 的 PostgreSQL `pg_advisory_xact_lock(1296911409)` 全局写锁，再锁定目标资源、分配全局 sequence `server_version` 并写入业务数据；全局锁持有到事务提交/回滚。锁顺序固定为“全局同步写锁 → 资源行锁”，禁止反向获取。资源、SyncChange 和对应回执在同一事务提交，确保低版本事务不可能晚于高版本事务变为可见。版本号只由服务端生成，锁竞争获得顺序即 v0.1 的服务端接收顺序。
-- 文本在写入前去除首尾空白；数组字段 NOT NULL 且数据库默认空数组，不接受 `null`。API 中缺失字段表示“不修改”，显式 `null` 只允许清空标为 nullable 的字段。字段长度、枚举、数组数量和跨字段业务不变量同时在 Zod/service 校验；数据库可表达的 NOT NULL、CHECK、UNIQUE 与 FK 不得只靠应用层。
-- JSONB 草稿、回执和消息都必须先通过版本化 Zod schema；不允许把任意 JSON 直接解释为数据库操作。
+- 文本在写入前去除首尾空白；数组字段 NOT NULL 且数据库默认空数组，不接受 `null`。API 中缺失字段表示“不修改”；允许清空的 FC 字段使用显式 `{op:"clear"}`，设值使用 `{op:"set",value}`，不依赖 nullable 字段区分缺失与 null。字段长度、枚举、数组数量由权威 JSON Schema 校验，跨字段业务不变量由稳定 invariant ID 和 service 校验；数据库可表达的 NOT NULL、CHECK、UNIQUE 与 FK 不得只靠应用层。
+- JSONB 草稿、回执和消息都必须先通过 `contracts/v1/source/` 中的版本化 schema；不允许把任意 JSON 直接解释为数据库操作。
 
 | 实体 | 字段与类型 | 约束、索引与删除策略 |
 |---|---|---|
 | Recipe | `id uuid`；`name text`；`tags text[]`；`ingredients text[]`；`steps text[]`；`image_url text?`；`notes text?`；`server_version bigint`；`created_at/updated_at timestamptz`；`deleted_at timestamptz?` | `name` 1..100 字；tags ≤20 项且单项 ≤30 字；ingredients/steps 各 ≤100 项，单项分别 ≤200/1000 字；notes ≤5000 字；`server_version` 唯一索引；软删除，不级联删除 PlanItem |
 | WeeklyPlan | `id uuid`；`week_start date`；`server_version bigint`；`created_at/updated_at timestamptz` | `week_start` 必须是 `Asia/Shanghai` 的周一且唯一；`server_version` 唯一索引；同周覆盖为更新现有行，不新增历史版本 |
 | PlanItem | `id uuid`；`weekly_plan_id uuid`；`date date`；`meal_type text`；`recipe_id uuid`；`recipe_name_snapshot text`；`created_at/updated_at timestamptz` | FK `weekly_plan_id → WeeklyPlan`（删除计划时级联）并建索引；FK `recipe_id → Recipe`（RESTRICT）并建索引；`meal_type ∈ breakfast/lunch/dinner`；日期必须落在所属周的 7 天内；唯一 `(weekly_plan_id,date,meal_type)`；名称快照写入后不随 Recipe 改名变化；随 WeeklyPlan 聚合体同步，不单独分配同步版本 |
-| Conversation | `device_id uuid`；`messages jsonb`；`updated_at timestamptz` | PK/FK `device_id → DeviceToken.id`；消息项为 `{ role: "user"\|"assistant", content, chatRequestId, createdAt }`；最多 40 条消息，即 20 个完整 user/assistant 轮次；裁剪与追加在同一事务完成；设备记录保留时不级联删除 |
-| Settings | `key text`；`value jsonb`；`server_version bigint`；`updated_at timestamptz` | `key` 为主键；v0.1 只允许 `familyPreference`，其值为 0..5000 字字符串；`server_version` 唯一索引 |
+| Conversation | `device_id uuid`；`messages_schema_version int`；`messages jsonb`；`updated_at timestamptz` | PK/FK `device_id → DeviceToken.id`；消息项为 `{ role: "user"\|"assistant", content, chatRequestId, createdAt }`；最多 40 条消息，即 20 个完整 user/assistant 轮次；裁剪与追加在同一事务完成；设备记录保留时不级联删除 |
+| Settings | `key text`；`value_schema_version int`；`value jsonb`；`server_version bigint`；`updated_at timestamptz` | `key` 为主键；v0.1 只允许 `familyPreference`，其值为 0..5000 字字符串；`server_version` 唯一索引 |
 | AuthConfig | `singleton boolean`；`family_code_hash text`；`family_code_version bigint`；`initialized_at/updated_at timestamptz` | `singleton=true` 为主键并带 CHECK，保证全库最多一行；`family_code_hash` 保存 Argon2id PHC 字符串；`family_code_version` 初始为 1，每次家庭码轮换递增且不回退 |
 | DeviceToken | `id uuid`；`token_hash text`；`device_name text`；`created_at/last_used_at timestamptz`；`revoked_at timestamptz?` | `token_hash` 为 32-byte token 的 SHA-256 十六进制值并唯一；device_name 1..80 字；认证按 hash 查找并只接受 `revoked_at IS NULL`；撤销不物理删除 |
-| PendingConfirmation | `id uuid`；`token_hash text`；`device_id uuid`；`chat_request_id uuid`；`tool_index int`；`kind text`；`draft_schema_version int`；`draft_payload jsonb`；`target_resource_id uuid?`；`target_version bigint?`；`expires_at timestamptz`；`consumed_at/superseded_at timestamptz?`；`commit_action_id uuid?`；`commit_request_hash text?`；`result jsonb?`；`created_at timestamptz` | `token_hash` 为 32-byte token 的 SHA-256 十六进制值并唯一；复合 FK `(device_id,chat_request_id) → ChatRequestReceipt` RESTRICT；UNIQUE `(device_id,chat_request_id,tool_index)`；kind 为 `recipe_batch` 或 `weekly_plan_replace`；建 `(device_id,kind,created_at)` 索引；部分唯一 `(device_id,commit_action_id)` where not null；消费后保留以重放结果；同设备同 kind 新预览会 supersede 旧预览 |
-| ChatRequestReceipt | `device_id uuid`；`chat_request_id uuid`；`request_hash text`；`model_id text?`；`message text?`；`status text`；`retryable boolean`；`lease_owner uuid?`；`lease_generation int`；`lease_expires_at/heartbeat_at timestamptz?`；`attempt_count int`；`tool_receipts jsonb?`；`final_response text?`；`error_code text?`；`created_at/updated_at timestamptz` | 主键 `(device_id,chat_request_id)`；FK device RESTRICT；status 为 `running/completed/failed/expired`；索引 `(device_id,status,lease_expires_at)`；request hash 覆盖规范化的 modelId + message；正文只用于近期恢复且不进入日志；租约 generation 是写入 fencing token；expired 仅保留幂等墓碑 |
-| SyncActionReceipt | `device_id uuid`；`action_id uuid`；`action_type text`；`payload_hash text`；`status text`；`result jsonb`；`server_version bigint?`；`created_at timestamptz` | 主键 `(device_id,action_id)`；FK device RESTRICT；status 为 `applied/rejected`；索引 `(created_at)`；duplicate 是读取既有回执后的传输态，不是新持久化状态 |
+| PendingConfirmation | `id uuid`；`token_hash text`；`device_id uuid`；`chat_request_id uuid`；`tool_index int`；`kind text`；`draft_schema_version int`；`draft_payload jsonb`；`target_resource_id uuid?`；`target_version bigint?`；`expires_at timestamptz`；`consumed_at/superseded_at timestamptz?`；`commit_action_id uuid?`；`commit_request_hash text?`；`result_schema_version int?`；`result jsonb?`；`created_at timestamptz` | `token_hash` 为 32-byte token 的 SHA-256 十六进制值并唯一；复合 FK `(device_id,chat_request_id) → ChatRequestReceipt` RESTRICT；UNIQUE `(device_id,chat_request_id,tool_index)`；kind 为 `recipe_batch` 或 `weekly_plan_replace`；result 与 result_schema_version 同时为空或同时非空；建 `(device_id,kind,created_at)` 索引；部分唯一 `(device_id,commit_action_id)` where not null；消费后保留以重放结果；同设备同 kind 新预览会 supersede 旧预览 |
+| ChatRequestReceipt | `device_id uuid`；`chat_request_id uuid`；`request_hash text`；`model_id text?`；`message text?`；`status text`；`retryable boolean`；`lease_owner uuid?`；`lease_generation int`；`lease_expires_at/heartbeat_at timestamptz?`；`attempt_count int`；`tool_receipts_schema_version int?`；`tool_receipts jsonb?`；`final_response text?`；`error_code text?`；`created_at/updated_at timestamptz` | 主键 `(device_id,chat_request_id)`；FK device RESTRICT；status 为 `running/completed/failed/expired`；tool_receipts 与版本同时为空或同时非空；索引 `(device_id,status,lease_expires_at)`；request hash 覆盖规范化的 modelId + message；正文只用于近期恢复且不进入日志；租约 generation 是写入 fencing token；expired 仅保留幂等墓碑 |
+| SyncActionReceipt | `device_id uuid`；`action_id uuid`；`action_type text`；`payload_hash text`；`status text`；`result_schema_version int`；`result jsonb`；`server_version bigint?`；`created_at timestamptz` | 主键 `(device_id,action_id)`；FK device RESTRICT；status 为 `applied/rejected`；索引 `(created_at)`；duplicate 是读取既有回执后的传输态，不是新持久化状态 |
 | SyncChange | `server_version bigint`；`resource text`；`resource_id text`；`operation text`；`payload_schema_version int`；`payload jsonb`；`created_at timestamptz` | `server_version` 为主键并在全局同步写锁内由 sequence 分配；UUID 资源 ID 使用小写标准 UUID 文本，Settings 使用 `familyPreference`；索引 `(resource,resource_id,server_version DESC)` 支持快照重建；合法组合见下文；WeeklyPlan payload 始终含完整 21 个 items |
 | AuthAttemptThrottle | `scope text`；`source_key_hash text`；`failure_count int`；`locked_until timestamptz?`；`updated_at timestamptz` | 主键 `(scope,source_key_hash)`；scope 为 `bootstrap/register`；失败计数与锁定在单事务原子更新；来源保存 HMAC-SHA256，不保存明文 IP |
 
@@ -99,7 +99,8 @@
 - bootstrap 成功事务同时创建 AuthConfig、首个 DeviceToken 和默认 `Settings.familyPreference=""`，并为 Settings 分配首个可同步版本；任一写入失败则实例仍视为未初始化。
 - Recipe 软删除前检查所有 `week_start >= 当前周周一` 的计划引用；存在引用则返回冲突。历史 PlanItem 继续保留 `recipe_id` 与名称快照。
 - `server_version` 允许因事务回滚出现空洞，客户端只能比较大小，不能假定连续。
-- SyncChange 数据库 CHECK 限定合法组合：`recipe + upsert/delete`、`weekly_plan + upsert`、`settings + upsert`；payload 必须是 JSON object。每个 `(resource,operation,payload_schema_version)` 在代码中对应唯一 strict Zod schema，未知版本拒绝启动/消费。
+- SyncChange 数据库 CHECK 限定合法组合：`recipe + upsert/delete`、`weekly_plan + upsert`、`settings + upsert`；payload 必须是 JSON object。每个 `(resource,operation,payload_schema_version)` 对应唯一权威 JSON Schema，未知版本拒绝启动/消费。
+- Conversation.messages、Settings.value、PendingConfirmation.draft_payload/result、ChatRequestReceipt.tool_receipts、SyncActionReceipt.result、SyncChange.payload 这 7 个 JSONB carrier 都必须有相邻的 `*_schema_version`。非空 JSONB 的 version 为 `int >= 1`；nullable JSONB 与 version 必须通过 CHECK 保证同时为空或同时非空。服务端只能按 `(kind,schemaVersion)` 选择 `contracts/v1/source/` 中的唯一权威 validator，禁止根据“当前版本”猜测。
 - 物理清理 AuthConfig、DeviceToken、确认草稿、回执、SyncChange 与业务墓碑不属于 v0.1 运行时能力。
 
 聊天回执状态机：
@@ -220,7 +221,7 @@ server/src/
 
 公共约定：
 
-- JSON 字段使用 camelCase；ID 为 UUID 字符串；时间为 UTC RFC 3339 字符串；`weekStart`/`date` 为 `YYYY-MM-DD`；数据库 bigint `serverVersion` 一律编码为十进制字符串，客户端不得转为 IEEE-754 number。未知字段由 Zod strict schema 拒绝。
+- JSON 字段使用 camelCase；ID 为 UUID 字符串；时间为 UTC RFC 3339 字符串；`weekStart`/`date` 为 `YYYY-MM-DD`；数据库 bigint `serverVersion` 一律编码为十进制字符串，客户端不得转为 IEEE-754 number。未知字段由权威 Ajv strict validator 和 Android strict parser 拒绝。
 - 普通成功响应为 `{ "success": true, "data": ... }`；普通失败响应为 `{ "success": false, "errCode": string, "errMessage": string, "requestId": string, "retryable": boolean, "details"?: [{ "field"?: string, "reason": string }] }`。SSE 成功流不套该 envelope。
 - Bearer token 只在 `Authorization` header 中传输。除 bootstrap/register/rotate 的一次性签发字段和 `confirmation-required` 的短期确认 token 外，任何响应都不得回显 token 或家庭码；所有日志和错误详情均不得包含 token、家庭码、bootstrap secret、模型凭据、聊天正文或工具参数。
 - GET 游标都是服务端签名或编码的不透明字符串；客户端不得解析。非法或已无法识别的游标返回 `400 INVALID_CURSOR`。
@@ -267,6 +268,8 @@ server/src/
 - `q` 去首尾空白后，对 name、任一 tag、任一 ingredient 做 Unicode case-insensitive substring OR 匹配；重复 `tag` 参数采用 case-insensitive exact membership AND 语义。cursor 与本次规范化 q/tags/limit 摘要不匹配统一返回 `400 INVALID_CURSOR`。
 
 状态码与公共错误：
+
+> 本表是阶段 1 定稿前的人类可读设计基线。实施后唯一机器权威为 `contracts/v1/source/openapi.yaml#x-mealmate-errors`；两者不允许独立演进。
 
 | HTTP | 使用场景 | errCode |
 |---|---|---|
@@ -343,7 +346,7 @@ MVP 做 8 个 function，覆盖菜谱 + 周计划闭环：
 | Function | 输入 schema | 成功结果 | 写入与确认语义 |
 |---|---|---|---|
 | `add_recipe` | `{ name, tags?: string[], ingredients?: string[], steps?: string[], imageUrl?: string, notes?: string }` | `{ recipe: RecipeView }` | 单菜直接创建；同名允许 |
-| `update_recipe` | `{ recipeId: UUID, patch: { name?, tags?, ingredients?, steps?, imageUrl?: string\|null, notes?: string\|null } }`，patch 至少一项 | `{ recipe: RecipeView }` | 锁定未删除 Recipe 后原子更新；普通 patch 不得清除 `deletedAt` |
+| `update_recipe` | `{ recipeId: UUID, patch: { name?, tags?, ingredients?, steps?, imageUrl?: {op:"set",value:URI}\|{op:"clear"}, notes?: {op:"set",value:string}\|{op:"clear"} } }`，patch 至少一项 | `{ recipe: RecipeView }` | 字段缺失表示不修改，clear 表示清空，set 表示设值；锁定未删除 Recipe 后原子更新；普通 patch 不得清除 `deletedAt` |
 | `search_recipes` | `{ query?: string≤200, tags?: string[≤20], includeDeleted?: boolean=false, limit?: 1..50=20 }`，至少有 query/tags 之一 | `{ items: RecipeView[], truncated: boolean }` | 只读；名称、标签、食材字段不区分大小写 contains；恢复意图才可设 includeDeleted |
 | `batch_generate_recipes` | `{ recipes: RecipeDraft[1..50] }` | 有新增项：给模型 `{ confirmationRequired: true, count, skippedDuplicates, expiresAt }`，给 App 发 `confirmation-required`；全部同名：公共失败 `{ ok:false, errCode:"NO_NEW_RECIPES", errMessage, retryable:false }` | 先按规范化名称跳过同名项；剩余 1..50 项才创建确认草稿且零业务写入。全部跳过时不创建 PendingConfirmation、不发确认事件，由模型说明没有可新增菜谱。用户要求删项/改名时，模型以完整新列表再次调用本工具，新草稿 supersede 同设备旧草稿 |
 | `generate_weekly_plan` | `{ weekStart: MondayDate, items: [{ date, mealType, recipeId }] }`，恰好 21 项且覆盖 7 天三餐 | 无同周计划：`{ plan: WeeklyPlanView, reusedRecipeIds[] }`；已有计划给模型安全摘要并向 App 发包含 WeeklyPlanPreview 的 `confirmation-required` | 新周计划直接原子创建；覆盖已有同周计划时零业务写入并创建带 `targetVersion` 的确认草稿；token 不进入模型上下文 |
@@ -357,7 +360,7 @@ MVP 做 8 个 function，覆盖菜谱 + 周计划闭环：
 
 - 多轮对话驱动：用户通过多轮文字对话逐步完善菜谱信息和调整计划
 - 单轮可触发多个 function
-- 模型决定调用顺序和参数；后端以 Zod 校验参数、校验设备令牌后才执行，并只执行已定义的业务工具。用户提供的菜谱、偏好和消息始终作为不可信数据边界处理，不得当作工具指令。
+- 模型决定调用顺序和参数；后端以权威 Ajv validator 校验参数、校验设备令牌后才执行，并只执行已定义的业务工具。用户提供的菜谱、偏好和消息始终作为不可信数据边界处理，不得当作工具指令。
 - 对按名称写入的更新、删除和替换操作，必须先搜索：零个或多个候选都要求用户澄清。菜谱允许重名；批量预览默认跳过同名项并警告，用户可改名后保留变体。
 - 周计划的“近 7 天”固定指目标 `weekStart` 前 7 个自然日，即 `[weekStart-7天, weekStart)` 中 PlanItem 引用的菜谱。服务端将未删除 Recipe 分为 nonRecent/recent，两组内按 `(lower(name),id)` 排序，先取 nonRecent、再取 recent，总计最多 100 条交给模型；模型仍可调用 `search_recipes` 获取其它候选。若 nonRecent 至少 21 条，`generate_weekly_plan` 发现任一 recent ID 必须以 `VALIDATION_ERROR` 拒绝并让模型重选；不足 21 条时允许 recent，全部未删除菜谱不足 21 条时还允许周内复用。工具成功结果的 `reusedRecipeIds` 精确列出使用 recent 或周内重复的去重 ID，模型必须据此向用户说明。
 - 批量生成菜品和覆盖已有周计划先创建服务端草稿，返回仅对发起预览设备有效、10 分钟内有效的 `confirmationToken`；用户在该设备明确确认后才提交。单个菜品删除按用户明确指令执行。
@@ -391,7 +394,7 @@ App Room（本地缓存 + 离线暂存）
 
 离线写入处理：
 
-- `pending_actions` 仅保存可确定执行的本地轻操作，例如 `recipe.patch`、`recipe.delete`；每项包含 UUID `actionId`、类型、payload 和本地创建时间。
+- `pending_actions` 仅保存可确定执行的本地轻操作，例如 `recipe.patch`、`recipe.delete`；每项包含 UUID `actionId`、类型、`payloadSchemaVersion >= 1`、payload 和本地创建时间。同步失败保存权威联合时同样携带 `authoritativeSchemaVersion`，payload/version 必须同空或同非空；未知版本不得进入重试或回滚逻辑。
 - App 联网后以至多 100 项一批调用 `POST /api/v1/sync/actions`。回执以 `(device_id, actionId)` 唯一，保存动作类型和规范化 payload 哈希；相同 ID 且哈希相同返回原 `duplicate` 结果，哈希不同返回 `409 IDEMPOTENCY_KEY_REUSED`。资源写入、SyncChange 与回执必须在同一事务提交。
 - 服务端逐项返回 `applied`、`duplicate` 或不可重试的业务错误；仅 `applied`/`duplicate` 后才能清除本地动作。`rejected` 必须带 `actionId`、`errCode`、当前资源快照及 `serverVersion`（无快照时标记 `requiresFullResync`）。客户端在一个 Room 事务内先以该权威状态回滚乐观修改，再保留同步失败记录供丢弃或重新编辑。
 - 家庭共享偏好离线时只保存本地草稿，网络恢复后由用户手动保存；不得自动进入 `pending_actions`。
@@ -508,7 +511,7 @@ type SyncChangeDto =
 | 层 | 选择 |
 |---|---|
 | 后端框架 | Node.js + Hono |
-| AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/openai`) + Zod |
+| AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/openai`) + JSON Schema Provider 投影；执行前 Ajv 权威校验 |
 | ORM | Drizzle |
 | 数据库 | PostgreSQL 16 |
 | AI 模型 | 部署端配置唯一默认模型 + 多模型可切换，v0.1 仅 OpenAI-compatible 格式 |
@@ -609,9 +612,9 @@ type SyncChangeDto =
 - 公开注册/社交
 - 复杂权限
 
-### 下一步
+### 开发入口
 
-→ 以本目录四份现有文档作为 v0.1 开发输入；开发前须关闭本文标记的待确认项，并以 [`roadmap.md`](../roadmap.md) 的验收标准作为交付门禁。
+→ 阶段顺序与退出条件以 [`roadmap.md`](../roadmap.md) 为准；阶段 1 的已确认需求、设计和执行任务以 [`../active/0.1.0/contracts-persistence/`](../active/0.1.0/contracts-persistence/) 为准，长期契约边界以 [`arch-contract-single-source.md`](./arch-contract-single-source.md) 为准。
 
 ## 竞品调研（2026-07-11，深度更新）
 
@@ -816,7 +819,7 @@ server/src/
 - 产品功能全景 → [`product-design.md`](./product-design.md)
 - 技术选型 → [`tech-stack.md`](./tech-stack.md)
 - 里程碑规划 → [`roadmap.md`](../roadmap.md)
-- 开发时直接维护并同步这四份现有文档，不新增平行的 spec/design/plan
+- 开发时维护 roadmap、active SDD 和架构决策记录；不得新增平行的 wire contract 事实源。`docs/active/` 的 spec/design/plan 是阶段执行与验收记录，不替代 `contracts/v1/source/`。
 
 ## Decisions
 
