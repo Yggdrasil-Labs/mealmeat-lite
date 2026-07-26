@@ -9,6 +9,13 @@
 | `PRODUCT_SENSE.md` | 产品定位、范围、统一语言 |
 | `roadmap.md` | 版本里程碑、开发阶段、验收标准 |
 
+## 推荐阅读路径
+
+1. 从 `roadmap.md` 确认当前里程碑、阶段门禁和验收标准。
+2. 需要理解产品边界时阅读 `PRODUCT_SENSE.md`；v0.1 的实现范围以 `roadmap.md` 为准。
+3. 需要实现或评审技术方案时阅读 `../ARCHITECTURE.md` 和 `design-docs/tech-stack.md`。
+4. 追溯设计取舍、数据契约或竞品依据时阅读 `design-docs/brainstorm.md`；它是探索记录，不替代路线图中的范围与验收。
+
 ## 设计文档
 
 | 文档 | 内容 |

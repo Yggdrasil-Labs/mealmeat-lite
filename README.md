@@ -27,14 +27,15 @@ mealmate-lite/
 ## 快速开始
 
 ```bash
-# 后端
-cd server
-mise exec -- corepack pnpm install
-mise exec -- corepack pnpm dev
+# 在仓库根目录安装声明的 Node、JDK 和 Android SDK
+mise install
+
+# 后端依赖与开发服务
+mise exec -- corepack pnpm --dir server install --frozen-lockfile
+mise exec -- corepack pnpm --dir server dev
 
 # Android
-cd app
-./gradlew assembleDebug
+mise exec -- ./app/gradlew :app:assembleDebug
 ```
 
 ## 命令参考
@@ -45,13 +46,13 @@ cd app
 mise exec -- corepack pnpm --dir server lint          # Biome lint + format check
 mise exec -- corepack pnpm --dir server typecheck     # TypeScript 类型检查
 mise exec -- corepack pnpm --dir server test:unit     # 单元测试
-mise exec -- corepack pnpm --dir server test:integration  # 集成测试
+mise exec -- corepack pnpm --dir server test:integration # 集成测试
 ```
 
 ### Android
 
 ```bash
-./gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
+mise exec -- ./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
 ```
 
 ### Docker Compose

@@ -116,14 +116,16 @@ UI Layer (Compose Screen/Component)
 ## 8. 验证命令
 
 ```bash
+# 在仓库根目录先执行：mise install
+
 # 后端
-pnpm --dir server lint
-pnpm --dir server typecheck
-pnpm --dir server test:unit
-pnpm --dir server test:integration
+mise exec -- corepack pnpm --dir server lint
+mise exec -- corepack pnpm --dir server typecheck
+mise exec -- corepack pnpm --dir server test:unit
+mise exec -- corepack pnpm --dir server test:integration
 
 # Android
-cd app && ./gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
+mise exec -- ./app/gradlew ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
 
 # Docker
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
