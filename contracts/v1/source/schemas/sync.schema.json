@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/sync.schema.json",
+  "title": "MealMate Sync Types",
+  "description": "同步相关类型定义",
+  "$defs": {
+    "SyncResponse": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SyncChangeDto" }
+        },
+        "nextCursor": { "type": "string" },
+        "hasMore": { "type": "boolean" }
+      },
+      "required": ["changes", "hasMore"],
+      "additionalProperties": false
+    },
+    "SyncChangeDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+            "resource": { "const": "recipe" },
+            "operation": { "const": "upsert" },
+            "data": { "$ref": "recipe.schema.json#/$defs/RecipeView" }
+          },
+          "required": ["serverVersion", "resource", "operation", "data"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+            "resource": { "const": "recipe" },
+            "operation": { "const": "delete" },
+            "data": { "$ref": "recipe.schema.json#/$defs/RecipeTombstone" }
+          },
+          "required": ["serverVersion", "resource", "operation", "data"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+            "resource": { "const": "weekly_plan" },
+            "operation": { "const": "upsert" },
+            "data": { "$ref": "plan.schema.json#/$defs/WeeklyPlanView" }
+          },
+          "required": ["serverVersion", "resource", "operation", "data"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+            "resource": { "const": "settings" },
+            "operation": { "const": "upsert" },
+            "data": { "$ref": "settings.schema.json#/$defs/SettingsDto" }
+          },
+          "required": ["serverVersion", "resource", "operation", "data"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SyncActionsRequest": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SyncActionDto" },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      },
+      "required": ["actions"],
+      "additionalProperties": false
+    },
+    "SyncActionDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "type": { "const": "recipe.patch" },
+            "createdAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "recipeId": { "$ref": "common.schema.json#/$defs/UUID" },
+                "patch": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "tags": { "type": "array", "items": { "type": "string", "maxLength": 30 }, "maxItems": 20 }
+                  },
+                  "minProperties": 1,
+                  "additionalProperties": false
+                }
+              },
+              "required": ["recipeId", "patch"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["actionId", "type", "createdAt", "payload"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "type": { "const": "recipe.delete" },
+            "createdAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "recipeId": { "$ref": "common.schema.json#/$defs/UUID" }
+              },
+              "required": ["recipeId"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["actionId", "type", "createdAt", "payload"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SyncActionsResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SyncActionResultDto" }
+        }
+      },
+      "required": ["results"],
+      "additionalProperties": false
+    },
+    "SyncActionResultDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "status": { "const": "applied" },
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+            "resource": {
+              "oneOf": [
+                { "$ref": "recipe.schema.json#/$defs/RecipeView" },
+                { "$ref": "recipe.schema.json#/$defs/RecipeTombstone" }
+              ]
+            }
+          },
+          "required": ["actionId", "status", "serverVersion", "resource"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "status": { "const": "rejected" },
+            "errCode": { "type": "string" },
+            "errMessage": { "type": "string" },
+            "requiresFullResync": { "const": false },
+            "authoritative": {
+              "oneOf": [
+                { "$ref": "recipe.schema.json#/$defs/RecipeView" },
+                { "$ref": "recipe.schema.json#/$defs/RecipeTombstone" }
+              ]
+            },
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" }
+          },
+          "required": ["actionId", "status", "errCode", "errMessage", "requiresFullResync", "authoritative", "serverVersion"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "status": { "const": "rejected" },
+            "errCode": { "type": "string" },
+            "errMessage": { "type": "string" },
+            "requiresFullResync": { "const": true }
+          },
+          "required": ["actionId", "status", "errCode", "errMessage", "requiresFullResync"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "actionId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "status": { "const": "duplicate" },
+            "original": {
+              "oneOf": [
+                { "$ref": "#/$defs/AppliedResultDto" },
+                { "$ref": "#/$defs/RejectedResultDto" }
+              ]
+            }
+          },
+          "required": ["actionId", "status", "original"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "AppliedResultDto": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "applied" },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+        "resource": {
+          "oneOf": [
+            { "$ref": "recipe.schema.json#/$defs/RecipeView" },
+            { "$ref": "recipe.schema.json#/$defs/RecipeTombstone" }
+          ]
+        }
+      },
+      "required": ["status", "serverVersion", "resource"],
+      "additionalProperties": false
+    },
+    "RejectedResultDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": { "const": "rejected" },
+            "errCode": { "type": "string" },
+            "errMessage": { "type": "string" },
+            "requiresFullResync": { "const": false },
+            "authoritative": {
+              "oneOf": [
+                { "$ref": "recipe.schema.json#/$defs/RecipeView" },
+                { "$ref": "recipe.schema.json#/$defs/RecipeTombstone" }
+              ]
+            },
+            "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" }
+          },
+          "required": ["status", "errCode", "errMessage", "requiresFullResync", "authoritative", "serverVersion"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": { "const": "rejected" },
+            "errCode": { "type": "string" },
+            "errMessage": { "type": "string" },
+            "requiresFullResync": { "const": true }
+          },
+          "required": ["status", "errCode", "errMessage", "requiresFullResync"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ConfirmationCommitRequest": {
+      "type": "object",
+      "properties": {
+        "confirmationToken": { "type": "string" },
+        "commitActionId": { "$ref": "common.schema.json#/$defs/UUID" }
+      },
+      "required": ["confirmationToken", "commitActionId"],
+      "additionalProperties": false
+    },
+    "ConfirmationCommitResultDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "recipe_batch" },
+            "changes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/RecipeUpsertChangeDto" },
+              "minItems": 1,
+              "maxItems": 50
+            }
+          },
+          "required": ["kind", "changes"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "weekly_plan_replace" },
+            "changes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/WeeklyPlanUpsertChangeDto" },
+              "minItems": 1,
+              "maxItems": 1
+            }
+          },
+          "required": ["kind", "changes"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RecipeUpsertChangeDto": {
+      "type": "object",
+      "properties": {
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+        "resource": { "const": "recipe" },
+        "operation": { "const": "upsert" },
+        "data": { "$ref": "recipe.schema.json#/$defs/RecipeView" }
+      },
+      "required": ["serverVersion", "resource", "operation", "data"],
+      "additionalProperties": false
+    },
+    "WeeklyPlanUpsertChangeDto": {
+      "type": "object",
+      "properties": {
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+        "resource": { "const": "weekly_plan" },
+        "operation": { "const": "upsert" },
+        "data": { "$ref": "plan.schema.json#/$defs/WeeklyPlanView" }
+      },
+      "required": ["serverVersion", "resource", "operation", "data"],
+      "additionalProperties": false
+    },
+    "ConfirmationEventDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "confirmationId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "kind": { "const": "recipe_batch" },
+            "state": { "const": "pending" },
+            "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "confirmationToken": { "type": "string" },
+            "preview": { "$ref": "recipe.schema.json#/$defs/RecipeBatchPreview" }
+          },
+          "required": ["confirmationId", "kind", "state", "expiresAt", "confirmationToken", "preview"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "confirmationId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "kind": { "const": "recipe_batch" },
+            "state": { "type": "string", "enum": ["expired", "superseded", "consumed"] },
+            "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "preview": { "$ref": "recipe.schema.json#/$defs/RecipeBatchPreview" }
+          },
+          "required": ["confirmationId", "kind", "state", "expiresAt", "preview"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "confirmationId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "kind": { "const": "weekly_plan_replace" },
+            "state": { "const": "pending" },
+            "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "confirmationToken": { "type": "string" },
+            "preview": { "$ref": "plan.schema.json#/$defs/WeeklyPlanPreview" }
+          },
+          "required": ["confirmationId", "kind", "state", "expiresAt", "confirmationToken", "preview"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "confirmationId": { "$ref": "common.schema.json#/$defs/UUID" },
+            "kind": { "const": "weekly_plan_replace" },
+            "state": { "type": "string", "enum": ["expired", "superseded", "consumed"] },
+            "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+            "preview": { "$ref": "plan.schema.json#/$defs/WeeklyPlanPreview" }
+          },
+          "required": ["confirmationId", "kind", "state", "expiresAt", "preview"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

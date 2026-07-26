@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/recipe.schema.json",
+  "title": "MealMate Recipe Types",
+  "description": "菜品相关类型定义",
+  "$defs": {
+    "RecipeDraft": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 30 },
+          "maxItems": 20
+        },
+        "ingredients": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 100
+        },
+        "steps": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 1000 },
+          "maxItems": 100
+        },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "notes": { "type": "string", "maxLength": 5000 }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "RecipeView": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "name": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "ingredients": { "type": "array", "items": { "type": "string" } },
+        "steps": { "type": "array", "items": { "type": "string" } },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "notes": { "type": "string" },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+        "createdAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "updatedAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" }
+      },
+      "required": ["id", "name", "tags", "ingredients", "steps", "serverVersion", "createdAt", "updatedAt"],
+      "additionalProperties": false
+    },
+    "RecipeTombstone": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "deletedAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" }
+      },
+      "required": ["id", "deletedAt", "serverVersion"],
+      "additionalProperties": false
+    },
+    "RecipeListResponse": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/RecipeView" } },
+        "nextCursor": { "type": "string" },
+        "hasMore": { "type": "boolean" }
+      },
+      "required": ["items", "hasMore"],
+      "additionalProperties": false
+    },
+    "RecipePatchRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 30 },
+          "maxItems": 20
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "ClearPatch": {
+      "type": "object",
+      "properties": { "op": { "const": "clear" } },
+      "required": ["op"],
+      "additionalProperties": false
+    },
+    "SetStringPatch": {
+      "type": "object",
+      "properties": {
+        "op": { "const": "set" },
+        "value": { "type": "string" }
+      },
+      "required": ["op", "value"],
+      "additionalProperties": false
+    },
+    "SetUriPatch": {
+      "type": "object",
+      "properties": {
+        "op": { "const": "set" },
+        "value": { "type": "string", "format": "uri" }
+      },
+      "required": ["op", "value"],
+      "additionalProperties": false
+    },
+    "AddRecipeInput": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "tags": { "type": "array", "items": { "type": "string", "maxLength": 30 }, "maxItems": 20 },
+        "ingredients": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 100 },
+        "steps": { "type": "array", "items": { "type": "string", "maxLength": 1000 }, "maxItems": 100 },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "notes": { "type": "string", "maxLength": 5000 }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "AddRecipeOutput": {
+      "type": "object",
+      "properties": {
+        "recipe": { "$ref": "#/$defs/RecipeView" }
+      },
+      "required": ["recipe"],
+      "additionalProperties": false
+    },
+    "UpdateRecipeInput": {
+      "type": "object",
+      "properties": {
+        "recipeId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "patch": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "tags": { "type": "array", "items": { "type": "string", "maxLength": 30 }, "maxItems": 20 },
+            "ingredients": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 100 },
+            "steps": { "type": "array", "items": { "type": "string", "maxLength": 1000 }, "maxItems": 100 },
+            "imageUrl": { "oneOf": [{ "$ref": "#/$defs/ClearPatch" }, { "$ref": "#/$defs/SetUriPatch" }] },
+            "notes": { "oneOf": [{ "$ref": "#/$defs/ClearPatch" }, { "$ref": "#/$defs/SetStringPatch" }] }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        }
+      },
+      "required": ["recipeId", "patch"],
+      "additionalProperties": false
+    },
+    "UpdateRecipeOutput": {
+      "type": "object",
+      "properties": {
+        "recipe": { "$ref": "#/$defs/RecipeView" }
+      },
+      "required": ["recipe"],
+      "additionalProperties": false
+    },
+    "DeleteRecipeInput": {
+      "type": "object",
+      "properties": {
+        "recipeId": { "$ref": "common.schema.json#/$defs/UUID" }
+      },
+      "required": ["recipeId"],
+      "additionalProperties": false
+    },
+    "DeleteRecipeOutput": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "deletedAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" }
+      },
+      "required": ["id", "deletedAt", "serverVersion"],
+      "additionalProperties": false
+    },
+    "RestoreRecipeInput": {
+      "type": "object",
+      "properties": {
+        "recipeId": { "$ref": "common.schema.json#/$defs/UUID" }
+      },
+      "required": ["recipeId"],
+      "additionalProperties": false
+    },
+    "RestoreRecipeOutput": {
+      "type": "object",
+      "properties": {
+        "recipe": { "$ref": "#/$defs/RecipeView" }
+      },
+      "required": ["recipe"],
+      "additionalProperties": false
+    },
+    "SearchRecipesInput": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "maxLength": 200 },
+        "tags": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+        "includeDeleted": { "type": "boolean", "default": false },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }
+      },
+      "additionalProperties": false
+    },
+    "SearchRecipesOutput": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/RecipeView" } },
+        "truncated": { "type": "boolean" }
+      },
+      "required": ["items", "truncated"],
+      "additionalProperties": false
+    },
+    "BatchGenerateRecipesInput": {
+      "type": "object",
+      "properties": {
+        "recipes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RecipeDraft" },
+          "minItems": 1,
+          "maxItems": 50
+        }
+      },
+      "required": ["recipes"],
+      "additionalProperties": false
+    },
+    "BatchGenerateRecipesOutput": {
+      "type": "object",
+      "properties": {
+        "confirmationRequired": { "const": true },
+        "count": { "type": "integer", "minimum": 1 },
+        "skippedDuplicates": { "type": "array", "items": { "type": "string" } },
+        "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" }
+      },
+      "required": ["confirmationRequired", "count", "skippedDuplicates", "expiresAt"],
+      "additionalProperties": false
+    },
+    "RecipeBatchPreview": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RecipeDraft" },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "skippedDuplicates": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["items", "skippedDuplicates"],
+      "additionalProperties": false
+    }
+  }
+}

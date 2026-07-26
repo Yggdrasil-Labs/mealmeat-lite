@@ -1,6 +1,6 @@
 ---
 id: mealmate-0.1.0-contracts-persistence-plan
-status: not-started
+status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-07-26
 updated: 2026-07-26
@@ -8,18 +8,18 @@ updated: 2026-07-26
 
 # 阶段 1：契约与持久化
 
-- **Branch:** [待填充]
-- **Baseline SHA:** [待填充]
-- **Worktree Path:** [待填充]
-- **Started At:** [待填充]
-- **Updated At:** [待填充]
+- **Branch:** feature/mealmate_0.1.0
+- **Baseline SHA:** c10eb870c979724125456f9128adc6db8e987898
+- **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
+- **Started At:** 2026-07-26T17:30:00+08:00
+- **Updated At:** 2026-07-26T19:08:00+08:00
 - **Goal:** 从唯一权威源生成并验证 v0.1 跨端契约，建立 PostgreSQL 12 实体、Room 9 表及显式 mapper，通过阶段 1 全部门禁。
 - **Architecture:** `contracts/v1/source/` 唯一定义 wire schema 和协议目录，生成 TS/Ajv、Provider JSONSchema7、Kotlin DTO、错误/SSE/不变量表。Drizzle 与 Room 保持独立，只通过显式 mapper 消费生成 DTO。
 - **Tech Stack:** Node.js 24.18.0、TypeScript 7.0.2、Ajv 8.20.0、json-schema-to-ts 3.1.1、OpenAPI Generator 7.22.0、Kotlin 2.4.10、Room 2.8.4、Drizzle 0.45.2、PostgreSQL 16
 - **Commit Mode:** per-task
 - **Batch Commit Tasks:** null
 - **Batch Commit Reason:** null
-- **Effective Execution Mode:** [待填充]
+- **Effective Execution Mode:** per-task
 - **Final Record Mode:** terminal-exception
 
 ## Global Constraints
@@ -112,24 +112,24 @@ flowchart TD
 
 **Acceptance Criteria:**
 
-- [ ] `manifest.json` 精确包含 21 HTTP、8 FC、6 SSE，所有 schema/error/invariant ID 唯一且引用可解析。
-- [ ] 两个空目录生成结果字节相同；注入重复 ID、禁止关键字或陈旧文件时测试分别失败并返回稳定错误分类。
+- [x] `manifest.json` 精确包含 21 HTTP、8 FC、6 SSE，所有 schema/error/invariant ID 唯一且引用可解析。
+- [x] 两个空目录生成结果字节相同；注入重复 ID、禁止关键字或陈旧文件时测试分别失败并返回稳定错误分类。
 
 **Execution:**
 
-- **Status:** pending
+- **Status:** ready-to-commit
 - **Commit SHA:** null
-- **Attempts:** 0
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** PASS (2026-07-26T17:49)
+- **Verify Result:** PASS (2026-07-26T18:57) — 18 tests passed, contract:check passed
+- **AC Result:** 2/2 passed
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
 - [ ] Commit SHA belongs to this task only
 - [ ] Per-task AC checkbox synced
 

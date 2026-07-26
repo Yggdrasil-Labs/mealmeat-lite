@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/plan.schema.json",
+  "title": "MealMate Plan Types",
+  "description": "周计划相关类型定义",
+  "$defs": {
+    "PlanItemView": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "date": { "$ref": "common.schema.json#/$defs/IsoDate" },
+        "mealType": { "$ref": "common.schema.json#/$defs/MealType" },
+        "recipeId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "recipeNameSnapshot": { "type": "string" }
+      },
+      "required": ["id", "date", "mealType", "recipeId", "recipeNameSnapshot"],
+      "additionalProperties": false
+    },
+    "WeeklyPlanView": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "weekStart": { "$ref": "common.schema.json#/$defs/MondayDate" },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PlanItemView" },
+          "minItems": 21,
+          "maxItems": 21
+        },
+        "createdAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "updatedAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" }
+      },
+      "required": ["id", "weekStart", "serverVersion", "items", "createdAt", "updatedAt"],
+      "additionalProperties": false
+    },
+    "WeeklyPlanPreview": {
+      "type": "object",
+      "properties": {
+        "weekStart": { "$ref": "common.schema.json#/$defs/MondayDate" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "$ref": "common.schema.json#/$defs/IsoDate" },
+              "mealType": { "$ref": "common.schema.json#/$defs/MealType" },
+              "recipeId": { "$ref": "common.schema.json#/$defs/UUID" },
+              "recipeNameSnapshot": { "type": "string" }
+            },
+            "required": ["date", "mealType", "recipeId", "recipeNameSnapshot"],
+            "additionalProperties": false
+          },
+          "minItems": 21,
+          "maxItems": 21
+        }
+      },
+      "required": ["weekStart", "items"],
+      "additionalProperties": false
+    },
+    "GenerateWeeklyPlanInput": {
+      "type": "object",
+      "properties": {
+        "weekStart": { "$ref": "common.schema.json#/$defs/MondayDate" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "$ref": "common.schema.json#/$defs/IsoDate" },
+              "mealType": { "$ref": "common.schema.json#/$defs/MealType" },
+              "recipeId": { "$ref": "common.schema.json#/$defs/UUID" }
+            },
+            "required": ["date", "mealType", "recipeId"],
+            "additionalProperties": false
+          },
+          "minItems": 21,
+          "maxItems": 21
+        }
+      },
+      "required": ["weekStart", "items"],
+      "additionalProperties": false
+    },
+    "GenerateWeeklyPlanOutput": {
+      "type": "object",
+      "properties": {
+        "plan": { "$ref": "#/$defs/WeeklyPlanView" },
+        "reusedRecipeIds": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/UUID" }
+        }
+      },
+      "required": ["plan", "reusedRecipeIds"],
+      "additionalProperties": false
+    },
+    "UpdatePlanItemInput": {
+      "type": "object",
+      "properties": {
+        "planItemId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "recipeId": { "$ref": "common.schema.json#/$defs/UUID" }
+      },
+      "required": ["planItemId", "recipeId"],
+      "additionalProperties": false
+    },
+    "UpdatePlanItemOutput": {
+      "type": "object",
+      "properties": {
+        "item": { "$ref": "#/$defs/PlanItemView" }
+      },
+      "required": ["item"],
+      "additionalProperties": false
+    }
+  }
+}

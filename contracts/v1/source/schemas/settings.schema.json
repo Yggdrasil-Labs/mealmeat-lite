@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/settings.schema.json",
+  "title": "MealMate Settings Types",
+  "description": "设置相关类型定义",
+  "$defs": {
+    "SettingsDto": {
+      "type": "object",
+      "properties": {
+        "key": { "const": "familyPreference" },
+        "value": { "type": "string", "maxLength": 5000 }
+      },
+      "required": ["key", "value"],
+      "additionalProperties": false
+    },
+    "SettingsResponse": {
+      "type": "object",
+      "properties": {
+        "familyPreference": { "type": "string", "maxLength": 5000 },
+        "serverVersion": { "$ref": "common.schema.json#/$defs/ServerVersion" }
+      },
+      "required": ["familyPreference", "serverVersion"],
+      "additionalProperties": false
+    },
+    "SettingsUpdateRequest": {
+      "type": "object",
+      "properties": {
+        "familyPreference": { "type": "string", "minLength": 0, "maxLength": 5000 }
+      },
+      "required": ["familyPreference"],
+      "additionalProperties": false
+    },
+    "ModelView": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["id", "displayName", "isDefault"],
+      "additionalProperties": false
+    },
+    "ModelListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ModelView" }
+        }
+      },
+      "required": ["items"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,451 @@
+openapi: 3.1.0
+info:
+  title: MealMate Lite API
+  version: 0.1.0
+  description: AI 对话驱动的家庭饮食规划 API
+
+servers:
+  - url: /
+
+paths:
+  /health/live:
+    get:
+      operationId: healthLive
+      summary: 存活检查
+      responses:
+        '200':
+          description: 服务存活
+
+  /health/ready:
+    get:
+      operationId: healthReady
+      summary: 就绪检查
+      responses:
+        '200':
+          description: 服务就绪
+        '503':
+          description: 服务未就绪
+
+  /api/v1/chat:
+    post:
+      operationId: chat
+      summary: 发送聊天消息
+      responses:
+        '200':
+          description: SSE 流式响应
+
+  /api/v1/chat/history:
+    get:
+      operationId: getChatHistory
+      summary: 获取对话历史
+      responses:
+        '200':
+          description: 对话历史
+
+  /api/v1/recipes:
+    get:
+      operationId: listRecipes
+      summary: 列出菜品
+      responses:
+        '200':
+          description: 菜品列表
+
+  /api/v1/recipes/{id}:
+    patch:
+      operationId: patchRecipe
+      summary: 更新菜品
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 更新后的菜品
+    delete:
+      operationId: deleteRecipe
+      summary: 删除菜品
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除结果
+
+  /api/v1/plans/current:
+    get:
+      operationId: getCurrentPlan
+      summary: 获取本周计划
+      responses:
+        '200':
+          description: 本周计划
+
+  /api/v1/plans/{weekStart}:
+    get:
+      operationId: getPlanByWeek
+      summary: 获取指定周计划
+      parameters:
+        - name: weekStart
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 周计划
+
+  /api/v1/settings:
+    get:
+      operationId: getSettings
+      summary: 获取设置
+      responses:
+        '200':
+          description: 设置
+    put:
+      operationId: updateSettings
+      summary: 更新设置
+      responses:
+        '200':
+          description: 更新后的设置
+
+  /api/v1/models:
+    get:
+      operationId: listModels
+      summary: 列出可用模型
+      responses:
+        '200':
+          description: 模型列表
+
+  /api/v1/auth/bootstrap:
+    post:
+      operationId: bootstrap
+      summary: 初始化实例
+      responses:
+        '200':
+          description: 初始化结果
+
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: 注册设备
+      responses:
+        '200':
+          description: 注册结果
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: 注销当前设备
+      responses:
+        '200':
+          description: 注销结果
+
+  /api/v1/auth/devices:
+    get:
+      operationId: listDevices
+      summary: 列出已注册设备
+      responses:
+        '200':
+          description: 设备列表
+
+  /api/v1/auth/devices/{id}:
+    delete:
+      operationId: revokeDevice
+      summary: 撤销设备
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 撤销结果
+
+  /api/v1/auth/family-code/rotate:
+    post:
+      operationId: rotateFamilyCode
+      summary: 轮换家庭码
+      responses:
+        '200':
+          description: 新家庭码
+
+  /api/v1/confirmations/commit:
+    post:
+      operationId: commitConfirmation
+      summary: 提交确认
+      responses:
+        '200':
+          description: 提交结果
+
+  /api/v1/sync:
+    get:
+      operationId: sync
+      summary: 增量同步
+      responses:
+        '200':
+          description: 同步变更
+
+  /api/v1/sync/actions:
+    post:
+      operationId: syncActions
+      summary: 上传离线动作
+      responses:
+        '200':
+          description: 动作结果
+
+# ============================================================================
+# x-mealmate 扩展
+# ============================================================================
+
+x-mealmate-functions:
+  - name: add_recipe
+    description: 添加菜品
+    inputSchemaId: AddRecipeInput
+    outputSchemaId: AddRecipeOutput
+  - name: update_recipe
+    description: 更新菜品
+    inputSchemaId: UpdateRecipeInput
+    outputSchemaId: UpdateRecipeOutput
+  - name: delete_recipe
+    description: 删除菜品
+    inputSchemaId: DeleteRecipeInput
+    outputSchemaId: DeleteRecipeOutput
+  - name: restore_recipe
+    description: 恢复已删除菜品
+    inputSchemaId: RestoreRecipeInput
+    outputSchemaId: RestoreRecipeOutput
+  - name: search_recipes
+    description: 搜索菜品
+    inputSchemaId: SearchRecipesInput
+    outputSchemaId: SearchRecipesOutput
+  - name: batch_generate_recipes
+    description: 批量生成菜品
+    inputSchemaId: BatchGenerateRecipesInput
+    outputSchemaId: BatchGenerateRecipesOutput
+  - name: generate_weekly_plan
+    description: 生成周计划
+    inputSchemaId: GenerateWeeklyPlanInput
+    outputSchemaId: GenerateWeeklyPlanOutput
+  - name: update_plan_item
+    description: 更新餐次
+    inputSchemaId: UpdatePlanItemInput
+    outputSchemaId: UpdatePlanItemOutput
+
+x-mealmate-sse:
+  - event: start
+    schemaId: SseStartEvent
+    isStart: true
+    isTerminal: false
+  - event: delta
+    schemaId: SseDeltaEvent
+    isStart: false
+    isTerminal: false
+  - event: tool-status
+    schemaId: SseToolStatusEvent
+    isStart: false
+    isTerminal: false
+  - event: confirmation-required
+    schemaId: SseConfirmationRequiredEvent
+    isStart: false
+    isTerminal: false
+  - event: error
+    schemaId: SseErrorEvent
+    isStart: false
+    isTerminal: true
+  - event: done
+    schemaId: SseDoneEvent
+    isStart: false
+    isTerminal: true
+
+x-mealmate-errors:
+  - errCode: BAD_REQUEST
+    httpStatus: 400
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: INVALID_CURSOR
+    httpStatus: 400
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: UNAUTHORIZED
+    httpStatus: 401
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: INVALID_BOOTSTRAP_SECRET
+    httpStatus: 401
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: INVALID_FAMILY_CODE
+    httpStatus: 401
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: RECIPE_NOT_FOUND
+    httpStatus: 404
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: PLAN_NOT_FOUND
+    httpStatus: 404
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: DEVICE_NOT_FOUND
+    httpStatus: 404
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: CONFIRMATION_NOT_FOUND
+    httpStatus: 404
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: CHAT_REQUEST_EXPIRED
+    httpStatus: 410
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: CONFIRMATION_EXPIRED
+    httpStatus: 410
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: ALREADY_INITIALIZED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: NOT_INITIALIZED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: IDEMPOTENCY_KEY_REUSED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: RECIPE_DELETED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: CHAT_REQUEST_SUPERSEDED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: CONFIRMATION_CONSUMED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: CONFIRMATION_SUPERSEDED
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: CONFIRMATION_STALE
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: RECIPE_IN_USE
+    httpStatus: 409
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: CHAT_IN_PROGRESS
+    httpStatus: 409
+    retryable: true
+    retryAfter: { kind: range, minSeconds: 1, maxSeconds: 30 }
+    channels: [json]
+  - errCode: CHAT_DEVICE_BUSY
+    httpStatus: 409
+    retryable: true
+    retryAfter: { kind: range, minSeconds: 1, maxSeconds: 30 }
+    channels: [json]
+  - errCode: VALIDATION_ERROR
+    httpStatus: 422
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: INVALID_WEEK_START
+    httpStatus: 422
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: MODEL_UNAVAILABLE
+    httpStatus: 422
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: NO_NEW_RECIPES
+    httpStatus: 422
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [sse]
+  - errCode: RATE_LIMITED
+    httpStatus: 429
+    retryable: true
+    retryAfter: { kind: range, minSeconds: 1, maxSeconds: 900 }
+    channels: [json]
+  - errCode: INTERNAL_ERROR
+    httpStatus: 500
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json, sse]
+  - errCode: SYNC_CHANGE_TOO_LARGE
+    httpStatus: 500
+    retryable: false
+    retryAfter: { kind: none }
+    channels: [json]
+  - errCode: PROVIDER_ERROR
+    httpStatus: 502
+    retryable: true
+    retryAfter: { kind: fixed, seconds: 5 }
+    channels: [json, sse]
+  - errCode: NOT_READY
+    httpStatus: 503
+    retryable: true
+    retryAfter: { kind: fixed, seconds: 5 }
+    channels: [json]
+  - errCode: SERVICE_BUSY
+    httpStatus: 503
+    retryable: true
+    retryAfter: { kind: fixed, seconds: 1 }
+    channels: [json]
+  - errCode: MODEL_TIMEOUT
+    httpStatus: 504
+    retryable: true
+    retryAfter: { kind: none }
+    channels: [json, sse]
+
+x-mealmate-invariants:
+  - id: WEEK_START_IS_MONDAY
+    appliesTo: [WeeklyPlanView, GenerateWeeklyPlanInput]
+    owners: [server, android, database]
+  - id: WEEKLY_PLAN_HAS_21_SLOTS
+    appliesTo: [WeeklyPlanView, GenerateWeeklyPlanInput]
+    owners: [server, android]
+  - id: SYNC_RESULTS_PRESERVE_INPUT_ORDER
+    appliesTo: [SyncActionsResponse]
+    owners: [server]
+  - id: SERVER_VERSION_WITHIN_DB_BIGINT
+    appliesTo: [ServerVersion]
+    owners: [server, database]
+  - id: CONFIRMATION_STATE_FIELDS_MATCH
+    appliesTo: [ConfirmationEventDto]
+    owners: [server, android]

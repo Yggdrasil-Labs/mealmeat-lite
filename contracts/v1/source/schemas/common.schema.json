@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/common.schema.json",
+  "title": "MealMate Common Types",
+  "description": "通用类型定义",
+  "$defs": {
+    "UUID": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID v7 格式"
+    },
+    "ServerVersion": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+    },
+    "Rfc3339DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC 3339 时间戳"
+    },
+    "IsoDate": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 日期 YYYY-MM-DD"
+    },
+    "MondayDate": {
+      "type": "string",
+      "format": "date",
+      "description": "必须是周一的 ISO 日期"
+    },
+    "MealType": {
+      "type": "string",
+      "enum": ["breakfast", "lunch", "dinner"],
+      "description": "餐次类型"
+    },
+    "SuccessResponse": {
+      "type": "object",
+      "properties": {
+        "success": { "const": true },
+        "data": {}
+      },
+      "required": ["success", "data"],
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "success": { "const": false },
+        "errCode": { "type": "string" },
+        "errMessage": { "type": "string" },
+        "requestId": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "required": ["reason"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["success", "errCode", "errMessage", "requestId", "retryable"],
+      "additionalProperties": false
+    }
+  }
+}

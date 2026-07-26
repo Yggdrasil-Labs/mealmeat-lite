@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/meta/mealmate-contract-meta.schema.json",
+  "title": "MealMate Contract Meta Schema",
+  "description": "验证 openapi.yaml 中 x-mealmate-* 扩展的元数据格式",
+  "type": "object",
+  "properties": {
+    "x-mealmate-functions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FunctionToolDefinition"
+      }
+    },
+    "x-mealmate-sse": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SseEventDefinition"
+      }
+    },
+    "x-mealmate-errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ErrorDefinition"
+      }
+    },
+    "x-mealmate-invariants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InvariantDefinition"
+      }
+    }
+  },
+  "$defs": {
+    "FunctionToolDefinition": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "add_recipe",
+            "update_recipe",
+            "delete_recipe",
+            "restore_recipe",
+            "search_recipes",
+            "batch_generate_recipes",
+            "generate_weekly_plan",
+            "update_plan_item"
+          ]
+        },
+        "description": { "type": "string" },
+        "inputSchemaId": { "type": "string" },
+        "outputSchemaId": { "type": "string" }
+      },
+      "required": ["name", "description", "inputSchemaId", "outputSchemaId"],
+      "additionalProperties": false
+    },
+    "SseEventDefinition": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": ["start", "delta", "tool-status", "confirmation-required", "error", "done"]
+        },
+        "schemaId": { "type": "string" },
+        "isStart": { "type": "boolean" },
+        "isTerminal": { "type": "boolean" }
+      },
+      "required": ["event", "schemaId", "isStart", "isTerminal"],
+      "additionalProperties": false
+    },
+    "ErrorDefinition": {
+      "type": "object",
+      "properties": {
+        "errCode": { "type": "string" },
+        "httpStatus": {
+          "type": "integer",
+          "enum": [400, 401, 404, 409, 410, 422, 429, 500, 502, 503, 504]
+        },
+        "retryable": { "type": "boolean" },
+        "retryAfter": { "$ref": "#/$defs/RetryAfterPolicy" },
+        "channels": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["json", "sse"] },
+          "minItems": 1
+        }
+      },
+      "required": ["errCode", "httpStatus", "retryable", "retryAfter", "channels"],
+      "additionalProperties": false
+    },
+    "RetryAfterPolicy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "kind": { "const": "none" } },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "fixed" },
+            "seconds": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["kind", "seconds"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "range" },
+            "minSeconds": { "type": "integer", "minimum": 1 },
+            "maxSeconds": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["kind", "minSeconds", "maxSeconds"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "InvariantDefinition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "appliesTo": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "owners": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["server", "android", "database"] },
+          "minItems": 1
+        }
+      },
+      "required": ["id", "appliesTo", "owners"],
+      "additionalProperties": false
+    }
+  }
+}

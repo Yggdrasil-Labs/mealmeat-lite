@@ -15,7 +15,9 @@
     "lint:fix": "biome check --config-path=.. --write src/",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "contract:generate": "tsx scripts/contracts/compile.ts",
+    "contract:check": "tsx scripts/contracts/check.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.20",
@@ -25,6 +27,7 @@
     "drizzle-orm": "0.45.2",
     "hono": "4.12.32",
     "postgres": "3.4.9",
+    "yaml": "2.9.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

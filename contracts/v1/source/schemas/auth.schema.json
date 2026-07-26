@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mealmate.yggdrasil.io/contracts/v1/schemas/auth.schema.json",
+  "title": "MealMate Auth Types",
+  "description": "认证相关类型定义",
+  "$defs": {
+    "BootstrapRequest": {
+      "type": "object",
+      "properties": {
+        "bootstrapSecret": { "type": "string", "minLength": 1 },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 80 }
+      },
+      "required": ["bootstrapSecret", "deviceName"],
+      "additionalProperties": false
+    },
+    "BootstrapResponse": {
+      "type": "object",
+      "properties": {
+        "deviceId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "deviceToken": { "type": "string" },
+        "familyCode": { "type": "string" }
+      },
+      "required": ["deviceId", "deviceToken", "familyCode"],
+      "additionalProperties": false
+    },
+    "RegisterRequest": {
+      "type": "object",
+      "properties": {
+        "familyCode": { "type": "string", "minLength": 1 },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 80 }
+      },
+      "required": ["familyCode", "deviceName"],
+      "additionalProperties": false
+    },
+    "RegisterResponse": {
+      "type": "object",
+      "properties": {
+        "deviceId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "deviceToken": { "type": "string" }
+      },
+      "required": ["deviceId", "deviceToken"],
+      "additionalProperties": false
+    },
+    "LogoutResponse": {
+      "type": "object",
+      "properties": {
+        "revoked": { "const": true }
+      },
+      "required": ["revoked"],
+      "additionalProperties": false
+    },
+    "DeviceView": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "deviceName": { "type": "string" },
+        "createdAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "lastUsedAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" },
+        "isCurrent": { "type": "boolean" }
+      },
+      "required": ["id", "deviceName", "createdAt", "lastUsedAt", "isCurrent"],
+      "additionalProperties": false
+    },
+    "DeviceListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DeviceView" }
+        }
+      },
+      "required": ["items"],
+      "additionalProperties": false
+    },
+    "RevokeDeviceResponse": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/UUID" },
+        "revoked": { "const": true }
+      },
+      "required": ["id", "revoked"],
+      "additionalProperties": false
+    },
+    "RotateFamilyCodeResponse": {
+      "type": "object",
+      "properties": {
+        "familyCode": { "type": "string" }
+      },
+      "required": ["familyCode"],
+      "additionalProperties": false
+    }
+  }
+}

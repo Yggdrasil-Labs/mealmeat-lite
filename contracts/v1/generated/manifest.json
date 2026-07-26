@@ -1,0 +1,1092 @@
+{
+  "contractVersion": "v1",
+  "fingerprint": "a0eeef24b8f72cbe33388879a0e01fdae1897b6c4d6092cab600d0a8d3ede416",
+  "httpOperations": [
+    {
+      "operationId": "healthLive",
+      "method": "GET",
+      "path": "/health/live",
+      "responses": {}
+    },
+    {
+      "operationId": "healthReady",
+      "method": "GET",
+      "path": "/health/ready",
+      "responses": {}
+    },
+    {
+      "operationId": "chat",
+      "method": "POST",
+      "path": "/api/v1/chat",
+      "responses": {}
+    },
+    {
+      "operationId": "getChatHistory",
+      "method": "GET",
+      "path": "/api/v1/chat/history",
+      "responses": {}
+    },
+    {
+      "operationId": "listRecipes",
+      "method": "GET",
+      "path": "/api/v1/recipes",
+      "responses": {}
+    },
+    {
+      "operationId": "patchRecipe",
+      "method": "PATCH",
+      "path": "/api/v1/recipes/{id}",
+      "responses": {}
+    },
+    {
+      "operationId": "deleteRecipe",
+      "method": "DELETE",
+      "path": "/api/v1/recipes/{id}",
+      "responses": {}
+    },
+    {
+      "operationId": "getCurrentPlan",
+      "method": "GET",
+      "path": "/api/v1/plans/current",
+      "responses": {}
+    },
+    {
+      "operationId": "getPlanByWeek",
+      "method": "GET",
+      "path": "/api/v1/plans/{weekStart}",
+      "responses": {}
+    },
+    {
+      "operationId": "getSettings",
+      "method": "GET",
+      "path": "/api/v1/settings",
+      "responses": {}
+    },
+    {
+      "operationId": "updateSettings",
+      "method": "PUT",
+      "path": "/api/v1/settings",
+      "responses": {}
+    },
+    {
+      "operationId": "listModels",
+      "method": "GET",
+      "path": "/api/v1/models",
+      "responses": {}
+    },
+    {
+      "operationId": "bootstrap",
+      "method": "POST",
+      "path": "/api/v1/auth/bootstrap",
+      "responses": {}
+    },
+    {
+      "operationId": "register",
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "responses": {}
+    },
+    {
+      "operationId": "logout",
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "responses": {}
+    },
+    {
+      "operationId": "listDevices",
+      "method": "GET",
+      "path": "/api/v1/auth/devices",
+      "responses": {}
+    },
+    {
+      "operationId": "revokeDevice",
+      "method": "DELETE",
+      "path": "/api/v1/auth/devices/{id}",
+      "responses": {}
+    },
+    {
+      "operationId": "rotateFamilyCode",
+      "method": "POST",
+      "path": "/api/v1/auth/family-code/rotate",
+      "responses": {}
+    },
+    {
+      "operationId": "commitConfirmation",
+      "method": "POST",
+      "path": "/api/v1/confirmations/commit",
+      "responses": {}
+    },
+    {
+      "operationId": "sync",
+      "method": "GET",
+      "path": "/api/v1/sync",
+      "responses": {}
+    },
+    {
+      "operationId": "syncActions",
+      "method": "POST",
+      "path": "/api/v1/sync/actions",
+      "responses": {}
+    }
+  ],
+  "functionTools": [
+    {
+      "name": "add_recipe",
+      "description": "添加菜品",
+      "inputSchemaId": "AddRecipeInput",
+      "outputSchemaId": "AddRecipeOutput"
+    },
+    {
+      "name": "update_recipe",
+      "description": "更新菜品",
+      "inputSchemaId": "UpdateRecipeInput",
+      "outputSchemaId": "UpdateRecipeOutput"
+    },
+    {
+      "name": "delete_recipe",
+      "description": "删除菜品",
+      "inputSchemaId": "DeleteRecipeInput",
+      "outputSchemaId": "DeleteRecipeOutput"
+    },
+    {
+      "name": "restore_recipe",
+      "description": "恢复已删除菜品",
+      "inputSchemaId": "RestoreRecipeInput",
+      "outputSchemaId": "RestoreRecipeOutput"
+    },
+    {
+      "name": "search_recipes",
+      "description": "搜索菜品",
+      "inputSchemaId": "SearchRecipesInput",
+      "outputSchemaId": "SearchRecipesOutput"
+    },
+    {
+      "name": "batch_generate_recipes",
+      "description": "批量生成菜品",
+      "inputSchemaId": "BatchGenerateRecipesInput",
+      "outputSchemaId": "BatchGenerateRecipesOutput"
+    },
+    {
+      "name": "generate_weekly_plan",
+      "description": "生成周计划",
+      "inputSchemaId": "GenerateWeeklyPlanInput",
+      "outputSchemaId": "GenerateWeeklyPlanOutput"
+    },
+    {
+      "name": "update_plan_item",
+      "description": "更新餐次",
+      "inputSchemaId": "UpdatePlanItemInput",
+      "outputSchemaId": "UpdatePlanItemOutput"
+    }
+  ],
+  "sseEvents": [
+    {
+      "event": "start",
+      "schemaId": "SseStartEvent",
+      "isStart": true,
+      "isTerminal": false
+    },
+    {
+      "event": "delta",
+      "schemaId": "SseDeltaEvent",
+      "isStart": false,
+      "isTerminal": false
+    },
+    {
+      "event": "tool-status",
+      "schemaId": "SseToolStatusEvent",
+      "isStart": false,
+      "isTerminal": false
+    },
+    {
+      "event": "confirmation-required",
+      "schemaId": "SseConfirmationRequiredEvent",
+      "isStart": false,
+      "isTerminal": false
+    },
+    {
+      "event": "error",
+      "schemaId": "SseErrorEvent",
+      "isStart": false,
+      "isTerminal": true
+    },
+    {
+      "event": "done",
+      "schemaId": "SseDoneEvent",
+      "isStart": false,
+      "isTerminal": true
+    }
+  ],
+  "schemas": [
+    {
+      "id": "BootstrapRequest",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BootstrapResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RegisterRequest",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RegisterResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "LogoutResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceView",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceListResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RevokeDeviceResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RotateFamilyCodeResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatRequest",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatMessage",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatHistoryResponse",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseStartEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseDeltaEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseToolStatusEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseConfirmationRequiredEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseErrorEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseDoneEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UUID",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ServerVersion",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "Rfc3339DateTime",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "IsoDate",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "MondayDate",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "MealType",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SuccessResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ErrorResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "PlanItemView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanPreview",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "GenerateWeeklyPlanInput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "GenerateWeeklyPlanOutput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdatePlanItemInput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdatePlanItemOutput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeDraft",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeView",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeTombstone",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeListResponse",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipePatchRequest",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ClearPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SetStringPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SetUriPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdateRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdateRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RestoreRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RestoreRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SearchRecipesInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SearchRecipesOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeBatchPreview",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsDto",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsResponse",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsUpdateRequest",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelView",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelListResponse",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsRequest",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AppliedResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RejectedResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationCommitRequest",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationCommitResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeUpsertChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanUpsertChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationEventDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    }
+  ],
+  "errors": [
+    {
+      "errCode": "BAD_REQUEST",
+      "httpStatus": 400,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "INVALID_CURSOR",
+      "httpStatus": 400,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "UNAUTHORIZED",
+      "httpStatus": 401,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "INVALID_BOOTSTRAP_SECRET",
+      "httpStatus": 401,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "INVALID_FAMILY_CODE",
+      "httpStatus": 401,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "RECIPE_NOT_FOUND",
+      "httpStatus": 404,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "PLAN_NOT_FOUND",
+      "httpStatus": 404,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "DEVICE_NOT_FOUND",
+      "httpStatus": 404,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CONFIRMATION_NOT_FOUND",
+      "httpStatus": 404,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CHAT_REQUEST_EXPIRED",
+      "httpStatus": 410,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CONFIRMATION_EXPIRED",
+      "httpStatus": 410,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "ALREADY_INITIALIZED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "NOT_INITIALIZED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "IDEMPOTENCY_KEY_REUSED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "RECIPE_DELETED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "CHAT_REQUEST_SUPERSEDED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CONFIRMATION_CONSUMED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CONFIRMATION_SUPERSEDED",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "CONFIRMATION_STALE",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "RECIPE_IN_USE",
+      "httpStatus": 409,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "CHAT_IN_PROGRESS",
+      "httpStatus": 409,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "range",
+        "minSeconds": 1,
+        "maxSeconds": 30
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "CHAT_DEVICE_BUSY",
+      "httpStatus": 409,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "range",
+        "minSeconds": 1,
+        "maxSeconds": 30
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "VALIDATION_ERROR",
+      "httpStatus": 422,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "INVALID_WEEK_START",
+      "httpStatus": 422,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "MODEL_UNAVAILABLE",
+      "httpStatus": 422,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "NO_NEW_RECIPES",
+      "httpStatus": 422,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "sse"
+      ]
+    },
+    {
+      "errCode": "RATE_LIMITED",
+      "httpStatus": 429,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "range",
+        "minSeconds": 1,
+        "maxSeconds": 900
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "INTERNAL_ERROR",
+      "httpStatus": 500,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "SYNC_CHANGE_TOO_LARGE",
+      "httpStatus": 500,
+      "retryable": false,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "PROVIDER_ERROR",
+      "httpStatus": 502,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "fixed",
+        "seconds": 5
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    },
+    {
+      "errCode": "NOT_READY",
+      "httpStatus": 503,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "fixed",
+        "seconds": 5
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "SERVICE_BUSY",
+      "httpStatus": 503,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "fixed",
+        "seconds": 1
+      },
+      "channels": [
+        "json"
+      ]
+    },
+    {
+      "errCode": "MODEL_TIMEOUT",
+      "httpStatus": 504,
+      "retryable": true,
+      "retryAfter": {
+        "kind": "none"
+      },
+      "channels": [
+        "json",
+        "sse"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "WEEK_START_IS_MONDAY",
+      "appliesTo": [
+        "WeeklyPlanView",
+        "GenerateWeeklyPlanInput"
+      ],
+      "owners": [
+        "server",
+        "android",
+        "database"
+      ]
+    },
+    {
+      "id": "WEEKLY_PLAN_HAS_21_SLOTS",
+      "appliesTo": [
+        "WeeklyPlanView",
+        "GenerateWeeklyPlanInput"
+      ],
+      "owners": [
+        "server",
+        "android"
+      ]
+    },
+    {
+      "id": "SYNC_RESULTS_PRESERVE_INPUT_ORDER",
+      "appliesTo": [
+        "SyncActionsResponse"
+      ],
+      "owners": [
+        "server"
+      ]
+    },
+    {
+      "id": "SERVER_VERSION_WITHIN_DB_BIGINT",
+      "appliesTo": [
+        "ServerVersion"
+      ],
+      "owners": [
+        "server",
+        "database"
+      ]
+    },
+    {
+      "id": "CONFIRMATION_STATE_FIELDS_MATCH",
+      "appliesTo": [
+        "ConfirmationEventDto"
+      ],
+      "owners": [
+        "server",
+        "android"
+      ]
+    }
+  ]
+}
