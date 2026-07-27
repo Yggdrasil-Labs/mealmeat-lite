@@ -205,6 +205,34 @@ export interface GeneratedDiff {
 }
 
 // ============================================================================
+// Contract Validation Result (Discriminated Union)
+// ============================================================================
+
+/**
+ * 契约校验结果 — 使用 discriminated union 支持类型收窄
+ *
+ * 用法：
+ * ```typescript
+ * const result = validateContract('RecipeView', data)
+ * if (result.success) {
+ *   // TypeScript 自动收窄 result.value 为 T
+ *   console.log(result.value)
+ * } else {
+ *   // TypeScript 自动收窄 result.error 为 string
+ *   console.error(result.error, result.errors)
+ * }
+ * ```
+ */
+export type ContractValidationResult<T = unknown> =
+  | { success: true; value: T }
+  | { success: false; error: string; errors?: ReadonlyArray<{ path: string; message: string }> }
+
+/**
+ * SSE Trace 校验结果 — 使用 discriminated union 支持类型收窄
+ */
+export type TraceValidationResult = { success: true } | { success: false; error: string }
+
+// ============================================================================
 // Contract Errors
 // ============================================================================
 

@@ -4,6 +4,7 @@
  * 从 contracts/v1/source/ 解析权威源，生成 manifest 和投影文件
  */
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
@@ -89,6 +90,15 @@ export async function compileContractSources(
   await writeFile(
     join(outputRoot, 'protocol-catalog.json'),
     `${JSON.stringify(protocolCatalog, null, 2)}\n`,
+  )
+
+  // 生成 provider-tools.json
+  // 注意：这需要动态 import 以避免循环依赖
+  const { buildProviderTools } = await import('./provider-tools.js')
+  const providerTools = buildProviderTools(manifest, { schemasDir: join(sourceRoot, 'schemas') })
+  await writeFile(
+    join(outputRoot, 'provider-tools.json'),
+    `${JSON.stringify({ tools: providerTools }, null, 2)}\n`,
   )
 
   return manifest
@@ -214,6 +224,9 @@ function extractHttpOperations(openApi: unknown): OperationDescriptor[] {
           operationId: op.operationId as string,
           method: method.toUpperCase() as OperationDescriptor['method'],
           path,
+          // TODO(T1-tech-debt): 解析 openapi.yaml 中的 requestBody 和 responses
+          // 当前 responses 硬编码为空，意味着 manifest 不记录请求/响应 schema 绑定
+          // 影响：T2 下游模块（如 error tuple 校验）无法从 manifest 获取 operation 的响应 schema
           responses: {},
         })
       }
@@ -452,7 +465,17 @@ function extractRefs(jsonContent: string): string[] {
 
 /**
  * JSON Schema Portable Profile 禁止的关键字
+ *
+ * 这些关键字在权威源（contracts/v1/source/schemas/）中被禁止使用。
  * 参考：https://json-schema.org/draft/2020-12/json-schema-core.html#section-9.3
+ *
+ * 与 provider-tools.ts 中的 DANGEROUS_KEYWORDS 关系：
+ * - FORBIDDEN_KEYWORDS：在权威源中完全禁止，编译时就会失败
+ * - DANGEROUS_KEYWORDS：在 Provider JSONSchema7 投影中禁止，生成工具定义时检查
+ *
+ * 两者有部分重叠（$dynamicRef, $dynamicAnchor, unevaluatedItems, unevaluatedProperties），
+ * 但 DANGEROUS_KEYWORDS 额外包含 $vocabulary（JSONSchema7 不支持），
+ * FORBIDDEN_KEYWORDS 额外包含 content* 系列关键字（Portable Profile 限制）。
  */
 const FORBIDDEN_KEYWORDS = [
   '$dynamicRef',
@@ -538,6 +561,411 @@ async function collectFilesWithHashes(dir: string): Promise<Map<string, string>>
   }
 
   return result
+}
+
+// ============================================================================
+// TypeScript Schema 生成
+// ============================================================================
+
+/**
+ * 需要生成类型的公开 schema
+ *
+ * 分为两类：
+ * 1. schemaLocations: 用于 validateContract
+ * 2. toolInputSchemas: 用于 validateToolInput
+ */
+const PUBLIC_SCHEMAS: Record<string, { file: string; defName: string }> = {
+  // validateContract 使用的 schema
+  UUID: { file: 'common.schema.json', defName: 'UUID' },
+  ServerVersion: { file: 'common.schema.json', defName: 'ServerVersion' },
+  Rfc3339DateTime: { file: 'common.schema.json', defName: 'Rfc3339DateTime' },
+  MondayDate: { file: 'common.schema.json', defName: 'MondayDate' },
+  RecipeView: { file: 'recipe.schema.json', defName: 'RecipeView' },
+  RecipeDraft: { file: 'recipe.schema.json', defName: 'RecipeDraft' },
+  RecipePatchRequest: { file: 'recipe.schema.json', defName: 'RecipePatchRequest' },
+  WeeklyPlanView: { file: 'plan.schema.json', defName: 'WeeklyPlanView' },
+}
+
+const TOOL_INPUT_SCHEMAS: Record<string, { file: string; defName: string }> = {
+  add_recipe: { file: 'recipe.schema.json', defName: 'AddRecipeInput' },
+  update_recipe: { file: 'recipe.schema.json', defName: 'UpdateRecipeInput' },
+  delete_recipe: { file: 'recipe.schema.json', defName: 'DeleteRecipeInput' },
+  restore_recipe: { file: 'recipe.schema.json', defName: 'RestoreRecipeInput' },
+  search_recipes: { file: 'recipe.schema.json', defName: 'SearchRecipesInput' },
+  batch_generate_recipes: { file: 'recipe.schema.json', defName: 'BatchGenerateRecipesInput' },
+  generate_weekly_plan: { file: 'plan.schema.json', defName: 'GenerateWeeklyPlanInput' },
+  update_plan_item: { file: 'plan.schema.json', defName: 'UpdatePlanItemInput' },
+}
+
+const SCHEMA_FILES = [
+  'common.schema.json',
+  'auth.schema.json',
+  'recipe.schema.json',
+  'plan.schema.json',
+  'chat.schema.json',
+  'sync.schema.json',
+  'settings.schema.json',
+] as const
+
+type DefEntry = { schema: Record<string, unknown>; file: string }
+type DefsMap = Map<string, DefEntry>
+
+/**
+ * 收集所有 schema 定义
+ */
+function collectAllDefs(schemasDir: string): DefsMap {
+  const allDefs: DefsMap = new Map()
+  for (const file of SCHEMA_FILES) {
+    const content = readFileSync(join(schemasDir, file), 'utf-8')
+    const schema = JSON.parse(content) as Record<string, unknown>
+    const defs = schema.$defs as Record<string, Record<string, unknown>> | undefined
+    if (!defs) continue
+    for (const [name, def] of Object.entries(defs)) {
+      allDefs.set(`${file}#/$defs/${name}`, { schema: def, file })
+      allDefs.set(name, { schema: def, file })
+    }
+  }
+  return allDefs
+}
+
+/**
+ * 解析 $ref 引用
+ */
+function resolveRef(
+  ref: string,
+  currentFile: string,
+  allDefs: DefsMap,
+  visited: Set<string>,
+): { entry: DefEntry; key: string } | null {
+  const key = ref.startsWith('#/$defs/') ? `${currentFile}${ref}` : ref
+  if (visited.has(key)) return null
+  visited.add(key)
+
+  const entry = allDefs.get(key) || allDefs.get(key.split('#/$defs/')[1] || '')
+  if (!entry) throw new ContractError('CONTRACT_UNRESOLVED_REF', `Cannot resolve: ${ref}`)
+  return { entry, key }
+}
+
+/**
+ * 展开 schema 中的值
+ */
+function expandValue(
+  value: unknown,
+  currentFile: string,
+  allDefs: DefsMap,
+  visited: Set<string>,
+): unknown {
+  if (!value || typeof value !== 'object') return value
+  if (Array.isArray(value)) {
+    return value.map((i) => expandValue(i, currentFile, allDefs, new Set(visited)))
+  }
+  return expandSchemaForTypes(
+    value as Record<string, unknown>,
+    currentFile,
+    allDefs,
+    new Set(visited),
+  )
+}
+
+/**
+ * 展开 schema，替换所有 $ref（用于类型生成）
+ *
+ * 与 provider-tools.ts 中的 expandSchema 不同，这里不检查 DANGEROUS_KEYWORDS，
+ * 因为类型生成不受 JSONSchema7 限制
+ */
+function expandSchemaForTypes(
+  schema: Record<string, unknown>,
+  currentFile: string,
+  allDefs: DefsMap,
+  visited: Set<string>,
+): Record<string, unknown> {
+  // 处理 $ref
+  if ('$ref' in schema && typeof schema.$ref === 'string') {
+    const resolved = resolveRef(schema.$ref, currentFile, allDefs, visited)
+    if (!resolved) return {}
+    const { $ref: _, ...rest } = schema
+    const expanded = expandSchemaForTypes(
+      resolved.entry.schema,
+      resolved.entry.file,
+      allDefs,
+      visited,
+    )
+    return { ...expanded, ...rest }
+  }
+
+  // 递归处理属性
+  const result: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(schema)) {
+    if (k === '$defs') continue
+    result[k] = expandValue(v, currentFile, allDefs, visited)
+  }
+  return result
+}
+
+/**
+ * 生成 TypeScript schema 常量和类型文件
+ *
+ * 按照 Design 要求：
+ * 1. 为每个公开 schema 输出完全展开、只读的 `as const` 常量
+ * 2. 使用 `FromSchema<typeof DereferencedSchema>` 推导类型
+ * 3. 定义 ContractType 和 ToolInput 类型映射
+ */
+export async function generateTypeScriptSchemas(
+  schemasDir: string,
+  outputPath: string,
+): Promise<void> {
+  const allDefs = collectAllDefs(schemasDir)
+
+  const lines: string[] = [
+    '/**',
+    ' * Schema 常量与类型 - 由 compile.ts 生成，禁止手改',
+    ' * @generated',
+    ' */',
+    '',
+    "import type { FromSchema } from 'json-schema-to-ts'",
+    "import manifest from '../../../../contracts/v1/generated/manifest.json' with { type: 'json' }",
+    '',
+    '// ============================================================================',
+    '// Schema 文件列表',
+    '// ============================================================================',
+    '',
+    'export const SCHEMA_FILES = [',
+  ]
+
+  for (const file of SCHEMA_FILES) {
+    lines.push(`  '${file}',`)
+  }
+  lines.push('] as const')
+  lines.push('')
+  lines.push('export type SchemaFileName = (typeof SCHEMA_FILES)[number]')
+  lines.push('')
+
+  // 生成 manifest re-exports
+  lines.push('// ============================================================================')
+  lines.push('// Manifest Re-exports')
+  lines.push('// ============================================================================')
+  lines.push('')
+  lines.push('export const schemas = manifest.schemas')
+  lines.push('export const PUBLIC_SCHEMA_IDS = schemas.filter((s) => s.public).map((s) => s.id)')
+  lines.push('export const FUNCTION_TOOL_NAMES = manifest.functionTools.map((f) => f.name)')
+  lines.push(
+    'export const functionToolMap = new Map(manifest.functionTools.map((f) => [f.name, f]))',
+  )
+  lines.push('export const schemaFileMap = new Map(schemas.map((s) => [s.id, s.file]))')
+  lines.push('')
+
+  // 生成公开 schema 常量
+  lines.push('// ============================================================================')
+  lines.push('// 展开的 Schema 常量 (as const)')
+  lines.push('// ============================================================================')
+  lines.push('')
+
+  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+    const entry = allDefs.get(`${loc.file}#/$defs/${loc.defName}`)
+    if (!entry) {
+      throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${schemaId}`)
+    }
+    const expanded = expandSchemaForTypes(entry.schema, entry.file, allDefs, new Set())
+    lines.push(`export const ${schemaId}Schema = ${JSON.stringify(expanded, null, 2)} as const`)
+    lines.push('')
+  }
+
+  // 生成工具输入 schema 常量
+  lines.push('// ============================================================================')
+  lines.push('// 工具输入 Schema 常量 (as const)')
+  lines.push('// ============================================================================')
+  lines.push('')
+
+  for (const [toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
+    const entry = allDefs.get(`${loc.file}#/$defs/${loc.defName}`)
+    if (!entry) {
+      throw new ContractError('CONTRACT_UNRESOLVED_REF', `Tool input schema not found: ${toolName}`)
+    }
+    const expanded = expandSchemaForTypes(entry.schema, entry.file, allDefs, new Set())
+    const constName = `${loc.defName}Schema`
+    lines.push(`export const ${constName} = ${JSON.stringify(expanded, null, 2)} as const`)
+    lines.push('')
+  }
+
+  // 生成 FromSchema 类型
+  lines.push('// ============================================================================')
+  lines.push('// FromSchema 类型推导')
+  lines.push('// ============================================================================')
+  lines.push('')
+
+  for (const schemaId of Object.keys(PUBLIC_SCHEMAS)) {
+    lines.push(`export type ${schemaId} = FromSchema<typeof ${schemaId}Schema>`)
+  }
+  lines.push('')
+
+  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
+    lines.push(`export type ${loc.defName} = FromSchema<typeof ${loc.defName}Schema>`)
+  }
+  lines.push('')
+
+  // 生成 ContractType 映射
+  lines.push('// ============================================================================')
+  lines.push('// 类型映射')
+  lines.push('// ============================================================================')
+  lines.push('')
+  lines.push('/** PublicSchemaId 类型 */')
+  const schemaIds = Object.keys(PUBLIC_SCHEMAS)
+  lines.push(`export type PublicSchemaId = ${schemaIds.map((id) => `'${id}'`).join(' | ')}`)
+  lines.push('')
+
+  lines.push('/** FunctionToolName 类型 */')
+  const toolNames = Object.keys(TOOL_INPUT_SCHEMAS)
+  lines.push(`export type FunctionToolName = ${toolNames.map((name) => `'${name}'`).join(' | ')}`)
+  lines.push('')
+
+  lines.push('/** ContractType - 根据 schema ID 获取类型 */')
+  lines.push('export type ContractType<T extends PublicSchemaId> = {')
+  for (const schemaId of schemaIds) {
+    lines.push(`  ${schemaId}: ${schemaId}`)
+  }
+  lines.push('}[T]')
+  lines.push('')
+
+  lines.push('/** ToolInput - 根据工具名获取输入类型 */')
+  lines.push('export type ToolInput<T extends FunctionToolName> = {')
+  for (const [toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
+    lines.push(`  ${toolName}: ${loc.defName}`)
+  }
+  lines.push('}[T]')
+  lines.push('')
+
+  // 写入文件
+  await writeFile(outputPath, `${lines.join('\n')}\n`)
+}
+
+/**
+ * 生成 Ajv standalone validators
+ *
+ * 按照 Design 要求：使用 Ajv 2020 standalone 生成纯 ESM validator
+ */
+export async function generateStandaloneValidators(
+  schemasDir: string,
+  outputPath: string,
+): Promise<void> {
+  // 动态导入 Ajv 2020-12 和 standalone
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Ajv2020Module = (await import('ajv/dist/2020.js')) as any
+  const Ajv2020 = Ajv2020Module.Ajv2020 || Ajv2020Module.default
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addFormatsModule = (await import('ajv-formats')) as any
+  const addFormats = addFormatsModule.default || addFormatsModule
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const standaloneModule = (await import('ajv/dist/standalone/index.js')) as any
+  const standaloneCode = standaloneModule.default || standaloneModule
+
+  // 创建 Ajv 2020-12 实例（与运行时配置相同）
+  const ajv = new Ajv2020({
+    strict: true,
+    strictSchema: true,
+    strictNumbers: true,
+    strictTypes: true,
+    strictTuples: true,
+    strictRequired: true,
+    allowUnionTypes: true,
+    allErrors: true,
+    coerceTypes: false,
+    useDefaults: false,
+    removeAdditional: false,
+    code: { source: true, esm: true },
+  })
+
+  addFormats(ajv)
+
+  // 加载所有 schema
+  for (const file of SCHEMA_FILES) {
+    const content = readFileSync(join(schemasDir, file), 'utf-8')
+    const schema = JSON.parse(content) as Record<string, unknown>
+    ajv.addSchema({ ...schema, $id: file })
+  }
+
+  // 收集需要编译的 validator 引用
+  const validatorRefs: Record<string, string> = {}
+
+  // 公开 schema validators
+  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+    const ref = `${loc.file}#/$defs/${loc.defName}`
+    const funcName = `validate${schemaId}`
+    ajv.compile({ $ref: ref })
+    validatorRefs[funcName] = ref
+  }
+
+  // 工具输入 validators
+  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
+    const ref = `${loc.file}#/$defs/${loc.defName}`
+    const funcName = `validate${loc.defName}`
+    // 跳过已存在的（RecipeDraft 等可能重复）
+    if (!validatorRefs[funcName]) {
+      ajv.compile({ $ref: ref })
+      validatorRefs[funcName] = ref
+    }
+  }
+
+  // 生成 standalone 代码
+  const code = standaloneCode(ajv, validatorRefs)
+
+  // 生成 TypeScript 包装文件
+  const lines: string[] = [
+    '/**',
+    ' * Ajv Standalone Validators - 由 compile.ts 生成，禁止手改',
+    ' * @generated',
+    ' *',
+    ' * 使用 Ajv 2020 standalone 预编译，运行时不需要 Ajv 库',
+    ' */',
+    '',
+    '/* eslint-disable */',
+    '// @ts-nocheck',
+    '',
+    code,
+    '',
+    '// ============================================================================',
+    '// Validator 查找接口',
+    '// ============================================================================',
+    '',
+    'import type { ErrorObject } from "ajv"',
+    '',
+    '/** Ajv ValidateFunction 类型 */',
+    'export interface ValidateFunction {',
+    '  (data: unknown): boolean',
+    '  errors?: ErrorObject[] | null',
+    '}',
+    '',
+    '/** Schema 位置到 validator 函数的映射 */',
+    'const validatorMap: Record<string, ValidateFunction> = {',
+  ]
+
+  // 公开 schema 映射
+  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+    const key = `${loc.file}#/$defs/${loc.defName}`
+    const funcName = `validate${schemaId}`
+    lines.push(`  '${key}': ${funcName},`)
+  }
+
+  // 工具输入映射
+  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
+    const key = `${loc.file}#/$defs/${loc.defName}`
+    const funcName = `validate${loc.defName}`
+    lines.push(`  '${key}': ${funcName},`)
+  }
+
+  lines.push('}')
+  lines.push('')
+  lines.push('/**')
+  lines.push(' * 获取预编译的 validator')
+  lines.push(' */')
+  lines.push('export function getValidator(file: string, defPath: string): ValidateFunction {')
+  lines.push('  const key = `${file}#${defPath}`')
+  lines.push('  const validator = validatorMap[key]')
+  lines.push('  if (!validator) throw new Error(`No validator for: ${key}`)')
+  lines.push('  return validator')
+  lines.push('}')
+  lines.push('')
+
+  await writeFile(outputPath, `${lines.join('\n')}\n`)
 }
 
 // Re-export types for convenience

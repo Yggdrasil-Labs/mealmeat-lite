@@ -1,0 +1,383 @@
+{
+  "tools": [
+    {
+      "name": "add_recipe",
+      "description": "添加菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "maxItems": 20
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "maxItems": 100
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "maxItems": 100
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_recipe",
+      "description": "更新菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID v7 格式"
+          },
+          "patch": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 30
+                },
+                "maxItems": 20
+              },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "maxItems": 100
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "maxItems": 100
+              },
+              "imageUrl": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "op": {
+                        "const": "clear"
+                      }
+                    },
+                    "required": [
+                      "op"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "op": {
+                        "const": "set"
+                      },
+                      "value": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    },
+                    "required": [
+                      "op",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "notes": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "op": {
+                        "const": "clear"
+                      }
+                    },
+                    "required": [
+                      "op"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "op": {
+                        "const": "set"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "op",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "minProperties": 1,
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "recipeId",
+          "patch"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delete_recipe",
+      "description": "删除菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID v7 格式"
+          }
+        },
+        "required": [
+          "recipeId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "restore_recipe",
+      "description": "恢复已删除菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID v7 格式"
+          }
+        },
+        "required": [
+          "recipeId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "搜索菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20
+          },
+          "includeDeleted": {
+            "type": "boolean",
+            "default": false
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "batch_generate_recipes",
+      "description": "批量生成菜品",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recipes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "maxItems": 20
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "maxItems": 100
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "notes": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "recipes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "generate_weekly_plan",
+      "description": "生成周计划",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string",
+            "format": "date",
+            "description": "必须是周一的 ISO 日期"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "ISO 日期 YYYY-MM-DD"
+                },
+                "mealType": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner"
+                  ],
+                  "description": "餐次类型"
+                },
+                "recipeId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "UUID v7 格式"
+                }
+              },
+              "required": [
+                "date",
+                "mealType",
+                "recipeId"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 21,
+            "maxItems": 21
+          }
+        },
+        "required": [
+          "weekStart",
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_plan_item",
+      "description": "更新餐次",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "planItemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID v7 格式"
+          },
+          "recipeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID v7 格式"
+          }
+        },
+        "required": [
+          "planItemId",
+          "recipeId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
