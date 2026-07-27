@@ -223,26 +223,26 @@ Expected: **PASS** — 覆盖、引用、profile、determinism 和 stale-file ca
 
 **Acceptance Criteria:**
 
-- [ ] 8 个 Provider 工具与权威 valid/invalid corpus 语义等价，无法无损投影时返回 `CONTRACT_PROVIDER_PROJECTION_UNSAFE`。
-- [ ] Ajv 禁止 unknown/coercion/default/removal；错误 tuple、eventId、terminal 和 tool lifecycle 的正反测试全部通过。
+- [x] 8 个 Provider 工具与权威 valid/invalid corpus 语义等价，无法无损投影时返回 `CONTRACT_PROVIDER_PROJECTION_UNSAFE`。
+- [x] Ajv 禁止 unknown/coercion/default/removal；错误 tuple、eventId、terminal 和 tool lifecycle 的正反测试全部通过。
 
 **Execution:**
 
-- **Status:** pending
-- **Commit SHA:** null
-- **Attempts:** 0
+- **Status:** done
+- **Commit SHA:** ae5f0bdd267a9ccd3a672f99b1ee48291b9d4101
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** pass
+- **Verify Result:** pass (typecheck + 63 tests)
+- **AC Result:** pass (2/2)
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Commit SHA belongs to this task only
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
