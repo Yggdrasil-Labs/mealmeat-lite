@@ -101,6 +101,11 @@ export async function compileContractSources(
     `${JSON.stringify({ tools: providerTools }, null, 2)}\n`,
   )
 
+  // 生成增强版 OpenAPI spec (包含 components/schemas)
+  // 用于 OpenAPI Generator 生成 Kotlin DTO
+  const enhancedOpenApi = await generateEnhancedOpenApi(sourceRoot, openApi, schemas)
+  await writeFile(join(outputRoot, 'openapi-with-schemas.yaml'), enhancedOpenApi)
+
   return manifest
 }
 
@@ -966,6 +971,112 @@ export async function generateStandaloneValidators(
   lines.push('')
 
   await writeFile(outputPath, `${lines.join('\n')}\n`)
+}
+
+/**
+ * 生成增强版 OpenAPI spec (包含 components/schemas)
+ *
+ * 将独立的 JSON Schema 文件内联到 OpenAPI spec 的 components/schemas 中，
+ * 使 OpenAPI Generator 能够生成 Kotlin/Swift 等语言的 DTO。
+ */
+async function generateEnhancedOpenApi(
+  sourceRoot: string,
+  originalOpenApi: unknown,
+  schemas: readonly SchemaDescriptor[],
+): Promise<string> {
+  const yaml = await import('yaml')
+
+  // 深拷贝原始 OpenAPI
+  const enhanced = JSON.parse(JSON.stringify(originalOpenApi)) as Record<string, unknown>
+
+  // 确保 components 存在
+  if (!enhanced.components) {
+    enhanced.components = {}
+  }
+  const components = enhanced.components as Record<string, unknown>
+
+  // 确保 schemas 存在
+  if (!components.schemas) {
+    components.schemas = {}
+  }
+  const schemasMap = components.schemas as Record<string, unknown>
+
+  // 加载所有 schema 文件并提取 $defs
+  const schemaFiles = new Set(
+    schemas.filter((s) => s.file.startsWith('schemas/')).map((s) => s.file),
+  )
+
+  for (const file of schemaFiles) {
+    const filePath = join(sourceRoot, file)
+    const content = await readFile(filePath, 'utf-8')
+    const schemaJson = JSON.parse(content) as Record<string, unknown>
+    const defs = schemaJson.$defs as Record<string, unknown> | undefined
+
+    if (defs) {
+      for (const [defName, defSchema] of Object.entries(defs)) {
+        // 内联 schema，移除 $schema 和 $id 等顶级属性
+        const inlinedSchema = { ...defSchema } as Record<string, unknown>
+
+        // 转换 $ref 引用：将文件相对引用转为 OpenAPI 内部引用
+        // 例如：common.schema.json#/$defs/UUID -> #/components/schemas/UUID
+        rewriteRefs(inlinedSchema)
+
+        schemasMap[defName] = inlinedSchema
+      }
+    }
+  }
+
+  // 生成 YAML
+  return yaml.stringify(enhanced, {
+    indent: 2,
+    lineWidth: 120,
+    defaultStringType: 'PLAIN',
+    defaultKeyType: 'PLAIN',
+  })
+}
+
+/**
+ * 递归重写 $ref 引用
+ *
+ * 将所有 $ref 转换为 OpenAPI components/schemas 引用：
+ * - `common.schema.json#/$defs/UUID` -> `#/components/schemas/UUID`
+ * - `#/$defs/RecipeView` -> `#/components/schemas/RecipeView`
+ */
+function rewriteRefs(obj: unknown): void {
+  if (obj === null || typeof obj !== 'object') {
+    return
+  }
+
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      rewriteRefs(item)
+    }
+    return
+  }
+
+  const record = obj as Record<string, unknown>
+
+  // 处理 $ref
+  if (typeof record.$ref === 'string') {
+    const ref = record.$ref
+
+    // 匹配 xxx.schema.json#/$defs/YYY 格式 (跨文件引用)
+    const crossFileMatch = ref.match(/^[^#]+\.schema\.json#\/\$defs\/(.+)$/)
+    if (crossFileMatch) {
+      record.$ref = `#/components/schemas/${crossFileMatch[1]}`
+    } else {
+      // 匹配 #/$defs/YYY 格式 (文件内引用)
+      const localMatch = ref.match(/^#\/\$defs\/(.+)$/)
+      if (localMatch) {
+        record.$ref = `#/components/schemas/${localMatch[1]}`
+      }
+    }
+  }
+
+  // 递归处理子对象
+  for (const value of Object.values(record)) {
+    rewriteRefs(value)
+  }
 }
 
 // Re-export types for convenience
