@@ -99,6 +99,26 @@ export type SseEventName =
   | 'error'
   | 'done'
 
+export interface SseToolLifecycleRule {
+  idField: string
+  statusField: string
+  startedStatus: string
+  terminalStatuses: readonly string[]
+}
+
+export interface SseConfirmationTokenRule {
+  stateField: string
+  tokenField: string
+  tokenRequiredState: string
+  tokenForbiddenStates: readonly string[]
+}
+
+export interface SseErrorCatalogRule {
+  errCodeField: string
+  retryableField: string
+  requestIdField: string
+}
+
 export interface SseEventDescriptor {
   /** 事件名称 */
   event: SseEventName
@@ -108,6 +128,16 @@ export interface SseEventDescriptor {
   isStart: boolean
   /** 是否为终止事件 */
   isTerminal: boolean
+  /** 当前事件之后允许的下一个事件；终态为 [] */
+  nextEvents: readonly SseEventName[]
+  /** tool-status 事件的每工具调用状态机规则 */
+  toolLifecycle?: SseToolLifecycleRule
+  /** confirmation-required 事件的确认 token 规则 */
+  confirmationToken?: SseConfirmationTokenRule
+  /** 事件 data 内互斥为 true 的布尔字段 */
+  mutuallyExclusiveDataFields?: readonly string[]
+  /** error 事件按权威错误目录核验的字段规则 */
+  errorCatalog?: SseErrorCatalogRule
 }
 
 // ============================================================================
@@ -180,6 +210,12 @@ export type InvariantId =
 
 export type InvariantOwner = 'server' | 'android' | 'database'
 
+/** 由权威源提供给各端解释器的同一组正反边界样本。 */
+export interface InvariantVectors {
+  valid: readonly unknown[]
+  invalid: readonly unknown[]
+}
+
 export interface InvariantDefinition {
   /** 不变量 ID */
   id: InvariantId
@@ -187,6 +223,8 @@ export interface InvariantDefinition {
   appliesTo: string[]
   /** 执行责任方 */
   owners: readonly InvariantOwner[]
+  /** 跨端必须共同满足的 canonical input corpus */
+  vectors: InvariantVectors
 }
 
 // ============================================================================
@@ -238,6 +276,7 @@ export type TraceValidationResult = { success: true } | { success: false; error:
 
 export type ContractErrorCode =
   | 'CONTRACT_DUPLICATE_ID'
+  | 'CONTRACT_META_INVALID'
   | 'CONTRACT_UNRESOLVED_REF'
   | 'CONTRACT_PROFILE_VIOLATION'
   | 'CONTRACT_COVERAGE_MISMATCH'

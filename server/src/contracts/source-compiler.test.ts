@@ -6,7 +6,7 @@
  * 2. 两个空目录生成结果字节相同（确定性）
  * 3. 重复 ID、禁止关键字、陈旧文件被正确检测
  */
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -16,6 +16,22 @@ import { compareDirectoryTrees } from './test-utils.js'
 // 契约源根目录
 const CONTRACT_SOURCE_ROOT = join(__dirname, '../../../contracts/v1/source')
 const CONTRACT_OUTPUT_ROOT = join(__dirname, '../../../contracts/v1/generated')
+
+function expectOperationSchemasAreRegistered(
+  manifest: Awaited<ReturnType<typeof compileContractSources>>,
+): void {
+  const registeredSchemaIds = new Set(manifest.schemas.map((schema) => schema.id))
+  for (const operation of manifest.httpOperations) {
+    if (operation.requestSchemaId) {
+      expect(registeredSchemaIds).toContain(operation.requestSchemaId)
+    }
+    for (const responseSchemaId of Object.values(operation.responses)) {
+      if (responseSchemaId) {
+        expect(registeredSchemaIds).toContain(responseSchemaId)
+      }
+    }
+  }
+}
 
 describe('契约源编译器', () => {
   let tempDir1: string
@@ -94,6 +110,16 @@ describe('契约源编译器', () => {
       expect(eventNames).toContain('done')
     })
 
+    it('生成供 Android 消费的 Kotlin 协议目录', async () => {
+      await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
+
+      const catalog = await readFile(join(tempDir1, 'ProtocolCatalog.kt'), 'utf-8')
+      expect(catalog).toContain('object GeneratedProtocolCatalog')
+      expect(catalog).toContain('GeneratedSseEventDefinition')
+      expect(catalog).toContain('ConfirmationEventDto')
+      expect(catalog).toContain('enum class GeneratedInvariantId')
+    })
+
     it('所有 schema ID 唯一', async () => {
       const manifest = await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
 
@@ -139,6 +165,86 @@ describe('契约源编译器', () => {
       expect(manifest.contractVersion).toBe('v1')
       expect(manifest.fingerprint).toMatch(/^[a-f0-9]{64}$/)
     })
+
+    it('为每个 HTTP operation 提取已登记的请求与响应 schema 绑定', async () => {
+      const manifest = await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
+      const operations = new Map(
+        manifest.httpOperations.map((operation) => [operation.operationId, operation]),
+      )
+
+      expect(operations.get('healthLive')).toMatchObject({
+        responses: { 200: 'HealthLiveResponse' },
+      })
+      expect(operations.get('healthReady')).toMatchObject({
+        responses: { 200: 'HealthReadyResponse', 503: 'HealthNotReadyResponse' },
+      })
+      expect(operations.get('chat')).toMatchObject({
+        requestSchemaId: 'ChatRequest',
+        responses: { 200: null },
+      })
+      expect(operations.get('getChatHistory')).toMatchObject({
+        responses: { 200: 'ChatHistoryResponse' },
+      })
+      expect(operations.get('listRecipes')).toMatchObject({
+        responses: { 200: 'RecipeListResponse' },
+      })
+      expect(operations.get('patchRecipe')).toMatchObject({
+        requestSchemaId: 'RecipePatchRequest',
+        responses: { 200: 'RecipeView' },
+      })
+      expect(operations.get('deleteRecipe')).toMatchObject({
+        responses: { 200: 'RecipeTombstone' },
+      })
+      expect(operations.get('getCurrentPlan')).toMatchObject({
+        responses: { 200: 'CurrentWeeklyPlanResponse' },
+      })
+      expect(operations.get('getPlanByWeek')).toMatchObject({
+        responses: { 200: 'WeeklyPlanView' },
+      })
+      expect(operations.get('getSettings')).toMatchObject({
+        responses: { 200: 'SettingsResponse' },
+      })
+      expect(operations.get('updateSettings')).toMatchObject({
+        requestSchemaId: 'SettingsUpdateRequest',
+        responses: { 200: 'SettingsResponse' },
+      })
+      expect(operations.get('listModels')).toMatchObject({
+        responses: { 200: 'ModelListResponse' },
+      })
+      expect(operations.get('bootstrap')).toMatchObject({
+        requestSchemaId: 'BootstrapRequest',
+        responses: { 200: 'BootstrapResponse' },
+      })
+      expect(operations.get('register')).toMatchObject({
+        requestSchemaId: 'RegisterRequest',
+        responses: { 200: 'RegisterResponse' },
+      })
+      expect(operations.get('logout')).toMatchObject({
+        responses: { 200: 'LogoutResponse' },
+      })
+      expect(operations.get('listDevices')).toMatchObject({
+        responses: { 200: 'DeviceListResponse' },
+      })
+      expect(operations.get('revokeDevice')).toMatchObject({
+        responses: { 200: 'RevokeDeviceResponse' },
+      })
+      expect(operations.get('rotateFamilyCode')).toMatchObject({
+        responses: { 200: 'RotateFamilyCodeResponse' },
+      })
+      expect(operations.get('commitConfirmation')).toMatchObject({
+        requestSchemaId: 'ConfirmationCommitRequest',
+        responses: { 200: 'ConfirmationCommitResultDto' },
+      })
+      expect(operations.get('sync')).toMatchObject({
+        responses: { 200: 'SyncResponse' },
+      })
+      expect(operations.get('syncActions')).toMatchObject({
+        requestSchemaId: 'SyncActionsRequest',
+        responses: { 200: 'SyncActionsResponse' },
+      })
+
+      expectOperationSchemasAreRegistered(manifest)
+    })
   })
 
   describe('确定性生成', () => {
@@ -161,9 +267,119 @@ describe('契约源编译器', () => {
       expect(diff.modified).toHaveLength(0)
       expect(diff.deleted).toHaveLength(0)
     })
+
+    it('schema inventory 对目录项与 $defs 名称都使用稳定排序', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+      await writeFile(
+        join(fixtureRoot, 'schemas', 'zz-order.schema.json'),
+        JSON.stringify(
+          {
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $id: 'zz-order.schema.json',
+            // 故意反序；生成目录不能继承 JSON 的插入顺序。
+            $defs: { ZetaOrderProbe: { type: 'string' }, AlphaOrderProbe: { type: 'string' } },
+          },
+          null,
+          2,
+        ),
+      )
+
+      const manifest = await compileContractSources(fixtureRoot, tempDir2)
+      const probes = manifest.schemas
+        .filter((schema) => schema.file === 'schemas/zz-order.schema.json')
+        .map((schema) => schema.id)
+      expect(probes).toEqual(['AlphaOrderProbe', 'ZetaOrderProbe'])
+    })
   })
 
   describe('错误检测', () => {
+    it('重复 operationId 时抛出 CONTRACT_DUPLICATE_ID', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+
+      const openApiPath = join(fixtureRoot, 'openapi.yaml')
+      const openApi = await readFile(openApiPath, 'utf-8')
+      await writeFile(
+        openApiPath,
+        openApi.replace('operationId: healthReady', 'operationId: healthLive'),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_DUPLICATE_ID',
+      })
+    })
+
+    it('HTTP operation 引用未登记 schema 时抛出 CONTRACT_UNRESOLVED_REF', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+
+      const openApiPath = join(fixtureRoot, 'openapi.yaml')
+      const openApi = await readFile(openApiPath, 'utf-8')
+      await writeFile(
+        openApiPath,
+        openApi.replace(
+          'schemas/common.schema.json#/$defs/HealthLiveResponse',
+          'schemas/common.schema.json#/$defs/DoesNotExist',
+        ),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_UNRESOLVED_REF',
+      })
+    })
+
+    it('x-mealmate 元数据字段类型错误时抛出 CONTRACT_META_INVALID', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+
+      const openApiPath = join(fixtureRoot, 'openapi.yaml')
+      const openApi = await readFile(openApiPath, 'utf-8')
+      await writeFile(
+        openApiPath,
+        openApi.replace(
+          'nextEvents: [delta, tool-status, confirmation-required, error, done]',
+          'nextEvents: delta',
+        ),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_META_INVALID',
+      })
+    })
+
+    it('缺少必需的 x-mealmate 清单时抛出 CONTRACT_META_INVALID', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+
+      const openApiPath = join(fixtureRoot, 'openapi.yaml')
+      const openApi = await readFile(openApiPath, 'utf-8')
+      await writeFile(
+        openApiPath,
+        openApi.replace('x-mealmate-invariants:', 'x-mealmate-invariants-removed:'),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_META_INVALID',
+      })
+    })
+
+    it('x-mealmate inventory 包含未声明错误码时抛出 CONTRACT_META_INVALID', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+
+      const openApiPath = join(fixtureRoot, 'openapi.yaml')
+      const openApi = await readFile(openApiPath, 'utf-8')
+      await writeFile(
+        openApiPath,
+        openApi.replace('errCode: BAD_REQUEST', 'errCode: UNKNOWN_ERROR'),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_META_INVALID',
+      })
+    })
+
     it('覆盖数量不匹配时抛出 CONTRACT_COVERAGE_MISMATCH', async () => {
       // 通过修改临时源来测试
       // 当前源应该是正确的，所以这个测试验证编译器能正确计数
@@ -339,6 +555,47 @@ describe('契约源编译器', () => {
 
       // 验证编译器检测到路径遍历
       await expect(compileContractSources(tempDir1, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_UNSAFE_PATH',
+      })
+    })
+
+    it('相邻前缀目录不能绕过跨文件引用路径边界', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+      const recipePath = join(fixtureRoot, 'schemas', 'recipe.schema.json')
+      const recipe = await readFile(recipePath, 'utf-8')
+      await writeFile(
+        recipePath,
+        recipe.replace(
+          'common.schema.json#/$defs/UUID',
+          '../schemas-escape/outside.schema.json#/$defs/UUID',
+        ),
+      )
+      await mkdir(join(fixtureRoot, 'schemas-escape'))
+      await writeFile(
+        join(fixtureRoot, 'schemas-escape', 'outside.schema.json'),
+        JSON.stringify({ $defs: { UUID: { type: 'string' } } }),
+      )
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
+        code: 'CONTRACT_UNSAFE_PATH',
+      })
+    })
+
+    it('跨文件引用不能通过 schemas 内 symlink 读取目录外内容', async () => {
+      const fixtureRoot = join(tempDir1, 'source')
+      await cp(CONTRACT_SOURCE_ROOT, fixtureRoot, { recursive: true })
+      const recipePath = join(fixtureRoot, 'schemas', 'recipe.schema.json')
+      const recipe = await readFile(recipePath, 'utf-8')
+      await writeFile(
+        recipePath,
+        recipe.replace('common.schema.json#/$defs/UUID', 'escape.schema.json#/$defs/UUID'),
+      )
+      const outsideSchema = join(fixtureRoot, 'outside.schema.json')
+      await writeFile(outsideSchema, JSON.stringify({ $defs: { UUID: { type: 'string' } } }))
+      await symlink(outsideSchema, join(fixtureRoot, 'schemas', 'escape.schema.json'))
+
+      await expect(compileContractSources(fixtureRoot, tempDir2)).rejects.toMatchObject({
         code: 'CONTRACT_UNSAFE_PATH',
       })
     })

@@ -386,33 +386,97 @@
   "sseEvents": [
     {
       "event": "start",
+      "schemaId": "SseStartEvent",
       "isStart": true,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "mutuallyExclusiveDataFields": [
+        "replayed",
+        "resumed"
+      ]
     },
     {
       "event": "delta",
+      "schemaId": "SseDeltaEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ]
     },
     {
       "event": "tool-status",
+      "schemaId": "SseToolStatusEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "toolLifecycle": {
+        "idField": "toolCallId",
+        "statusField": "status",
+        "startedStatus": "started",
+        "terminalStatuses": [
+          "succeeded",
+          "failed"
+        ]
+      }
     },
     {
       "event": "confirmation-required",
+      "schemaId": "SseConfirmationRequiredEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "confirmationToken": {
+        "stateField": "state",
+        "tokenField": "confirmationToken",
+        "tokenRequiredState": "pending",
+        "tokenForbiddenStates": [
+          "expired",
+          "superseded",
+          "consumed"
+        ]
+      }
     },
     {
       "event": "error",
+      "schemaId": "SseErrorEvent",
       "isStart": false,
-      "isTerminal": true
+      "isTerminal": true,
+      "nextEvents": [],
+      "errorCatalog": {
+        "errCodeField": "errCode",
+        "retryableField": "retryable",
+        "requestIdField": "requestId"
+      }
     },
     {
       "event": "done",
+      "schemaId": "SseDoneEvent",
       "isStart": false,
-      "isTerminal": true
+      "isTerminal": true,
+      "nextEvents": []
     }
   ],
   "invariants": [
@@ -426,7 +490,16 @@
         "server",
         "android",
         "database"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          "2026-07-27"
+        ],
+        "invalid": [
+          "2026-07-26",
+          "not-a-date"
+        ]
+      }
     },
     {
       "id": "WEEKLY_PLAN_HAS_21_SLOTS",
@@ -437,7 +510,45 @@
       "owners": [
         "server",
         "android"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "items": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "items": []
+          },
+          21,
+          {
+            "items": 21
+          }
+        ]
+      }
     },
     {
       "id": "SYNC_RESULTS_PRESERVE_INPUT_ORDER",
@@ -445,8 +556,44 @@
         "SyncActionsResponse"
       ],
       "owners": [
-        "server"
-      ]
+        "server",
+        "android"
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "inputActionIds": [
+              "a",
+              "b"
+            ],
+            "resultActionIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "inputActionIds": [
+              "a",
+              "b"
+            ],
+            "resultActionIds": [
+              "b",
+              "a"
+            ]
+          },
+          {
+            "inputActionIds": [
+              "a"
+            ],
+            "resultActionIds": [
+              "a",
+              "b"
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "SERVER_VERSION_WITHIN_DB_BIGINT",
@@ -455,8 +602,20 @@
       ],
       "owners": [
         "server",
+        "android",
         "database"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          "1",
+          "9223372036854775807"
+        ],
+        "invalid": [
+          "0",
+          "9223372036854775808",
+          "01"
+        ]
+      }
     },
     {
       "id": "CONFIRMATION_STATE_FIELDS_MATCH",
@@ -466,7 +625,30 @@
       "owners": [
         "server",
         "android"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "state": "pending",
+            "confirmationToken": "token-1"
+          },
+          {
+            "state": "expired"
+          }
+        ],
+        "invalid": [
+          {
+            "state": "pending"
+          },
+          {
+            "state": "consumed",
+            "confirmationToken": "token-1"
+          },
+          {
+            "state": "unknown"
+          }
+        ]
+      }
     }
   ]
 }

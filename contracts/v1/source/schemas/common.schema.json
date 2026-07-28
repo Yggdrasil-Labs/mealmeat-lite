@@ -7,7 +7,8 @@
     "UUID": {
       "type": "string",
       "format": "uuid",
-      "description": "UUID v7 格式"
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "小写 canonical UUID 格式"
     },
     "ServerVersion": {
       "type": "string",
@@ -17,7 +18,8 @@
     "Rfc3339DateTime": {
       "type": "string",
       "format": "date-time",
-      "description": "UTC RFC 3339 时间戳"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+      "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
     },
     "IsoDate": {
       "type": "string",
@@ -34,6 +36,31 @@
       "enum": ["breakfast", "lunch", "dinner"],
       "description": "餐次类型"
     },
+    "HealthLiveResponse": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "ok" }
+      },
+      "required": ["status"],
+      "additionalProperties": false
+    },
+    "HealthReadyResponse": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "ready" }
+      },
+      "required": ["status"],
+      "additionalProperties": false
+    },
+    "HealthNotReadyResponse": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "not ready" },
+        "reason": { "type": "string" }
+      },
+      "required": ["status"],
+      "additionalProperties": false
+    },
     "SuccessResponse": {
       "type": "object",
       "properties": {
@@ -49,7 +76,7 @@
         "success": { "const": false },
         "errCode": { "type": "string" },
         "errMessage": { "type": "string" },
-        "requestId": { "type": "string" },
+        "requestId": { "type": "string", "minLength": 1 },
         "retryable": { "type": "boolean" },
         "details": {
           "type": "array",

@@ -1,132 +1,182 @@
 {
   "contractVersion": "v1",
-  "fingerprint": "a0eeef24b8f72cbe33388879a0e01fdae1897b6c4d6092cab600d0a8d3ede416",
+  "fingerprint": "a1d517986f6c20a30d12137ac10c145555cf58978bbe7c35f0d3df8efed3ce9c",
   "httpOperations": [
     {
       "operationId": "healthLive",
       "method": "GET",
       "path": "/health/live",
-      "responses": {}
+      "responses": {
+        "200": "HealthLiveResponse"
+      }
     },
     {
       "operationId": "healthReady",
       "method": "GET",
       "path": "/health/ready",
-      "responses": {}
+      "responses": {
+        "200": "HealthReadyResponse",
+        "503": "HealthNotReadyResponse"
+      }
     },
     {
       "operationId": "chat",
       "method": "POST",
       "path": "/api/v1/chat",
-      "responses": {}
+      "requestSchemaId": "ChatRequest",
+      "responses": {
+        "200": null
+      }
     },
     {
       "operationId": "getChatHistory",
       "method": "GET",
       "path": "/api/v1/chat/history",
-      "responses": {}
+      "responses": {
+        "200": "ChatHistoryResponse"
+      }
     },
     {
       "operationId": "listRecipes",
       "method": "GET",
       "path": "/api/v1/recipes",
-      "responses": {}
+      "responses": {
+        "200": "RecipeListResponse"
+      }
     },
     {
       "operationId": "patchRecipe",
       "method": "PATCH",
       "path": "/api/v1/recipes/{id}",
-      "responses": {}
+      "requestSchemaId": "RecipePatchRequest",
+      "responses": {
+        "200": "RecipeView"
+      }
     },
     {
       "operationId": "deleteRecipe",
       "method": "DELETE",
       "path": "/api/v1/recipes/{id}",
-      "responses": {}
+      "responses": {
+        "200": "RecipeTombstone"
+      }
     },
     {
       "operationId": "getCurrentPlan",
       "method": "GET",
       "path": "/api/v1/plans/current",
-      "responses": {}
+      "responses": {
+        "200": "CurrentWeeklyPlanResponse"
+      }
     },
     {
       "operationId": "getPlanByWeek",
       "method": "GET",
       "path": "/api/v1/plans/{weekStart}",
-      "responses": {}
+      "responses": {
+        "200": "WeeklyPlanView"
+      }
     },
     {
       "operationId": "getSettings",
       "method": "GET",
       "path": "/api/v1/settings",
-      "responses": {}
+      "responses": {
+        "200": "SettingsResponse"
+      }
     },
     {
       "operationId": "updateSettings",
       "method": "PUT",
       "path": "/api/v1/settings",
-      "responses": {}
+      "requestSchemaId": "SettingsUpdateRequest",
+      "responses": {
+        "200": "SettingsResponse"
+      }
     },
     {
       "operationId": "listModels",
       "method": "GET",
       "path": "/api/v1/models",
-      "responses": {}
+      "responses": {
+        "200": "ModelListResponse"
+      }
     },
     {
       "operationId": "bootstrap",
       "method": "POST",
       "path": "/api/v1/auth/bootstrap",
-      "responses": {}
+      "requestSchemaId": "BootstrapRequest",
+      "responses": {
+        "200": "BootstrapResponse"
+      }
     },
     {
       "operationId": "register",
       "method": "POST",
       "path": "/api/v1/auth/register",
-      "responses": {}
+      "requestSchemaId": "RegisterRequest",
+      "responses": {
+        "200": "RegisterResponse"
+      }
     },
     {
       "operationId": "logout",
       "method": "POST",
       "path": "/api/v1/auth/logout",
-      "responses": {}
+      "responses": {
+        "200": "LogoutResponse"
+      }
     },
     {
       "operationId": "listDevices",
       "method": "GET",
       "path": "/api/v1/auth/devices",
-      "responses": {}
+      "responses": {
+        "200": "DeviceListResponse"
+      }
     },
     {
       "operationId": "revokeDevice",
       "method": "DELETE",
       "path": "/api/v1/auth/devices/{id}",
-      "responses": {}
+      "responses": {
+        "200": "RevokeDeviceResponse"
+      }
     },
     {
       "operationId": "rotateFamilyCode",
       "method": "POST",
       "path": "/api/v1/auth/family-code/rotate",
-      "responses": {}
+      "responses": {
+        "200": "RotateFamilyCodeResponse"
+      }
     },
     {
       "operationId": "commitConfirmation",
       "method": "POST",
       "path": "/api/v1/confirmations/commit",
-      "responses": {}
+      "requestSchemaId": "ConfirmationCommitRequest",
+      "responses": {
+        "200": "ConfirmationCommitResultDto"
+      }
     },
     {
       "operationId": "sync",
       "method": "GET",
       "path": "/api/v1/sync",
-      "responses": {}
+      "responses": {
+        "200": "SyncResponse"
+      }
     },
     {
       "operationId": "syncActions",
       "method": "POST",
       "path": "/api/v1/sync/actions",
-      "responses": {}
+      "requestSchemaId": "SyncActionsRequest",
+      "responses": {
+        "200": "SyncActionsResponse"
+      }
     }
   ],
   "functionTools": [
@@ -184,37 +234,95 @@
       "event": "start",
       "schemaId": "SseStartEvent",
       "isStart": true,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "mutuallyExclusiveDataFields": [
+        "replayed",
+        "resumed"
+      ]
     },
     {
       "event": "delta",
       "schemaId": "SseDeltaEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ]
     },
     {
       "event": "tool-status",
       "schemaId": "SseToolStatusEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "toolLifecycle": {
+        "idField": "toolCallId",
+        "statusField": "status",
+        "startedStatus": "started",
+        "terminalStatuses": [
+          "succeeded",
+          "failed"
+        ]
+      }
     },
     {
       "event": "confirmation-required",
       "schemaId": "SseConfirmationRequiredEvent",
       "isStart": false,
-      "isTerminal": false
+      "isTerminal": false,
+      "nextEvents": [
+        "delta",
+        "tool-status",
+        "confirmation-required",
+        "error",
+        "done"
+      ],
+      "confirmationToken": {
+        "stateField": "state",
+        "tokenField": "confirmationToken",
+        "tokenRequiredState": "pending",
+        "tokenForbiddenStates": [
+          "expired",
+          "superseded",
+          "consumed"
+        ]
+      }
     },
     {
       "event": "error",
       "schemaId": "SseErrorEvent",
       "isStart": false,
-      "isTerminal": true
+      "isTerminal": true,
+      "nextEvents": [],
+      "errorCatalog": {
+        "errCodeField": "errCode",
+        "retryableField": "retryable",
+        "requestIdField": "requestId"
+      }
     },
     {
       "event": "done",
       "schemaId": "SseDoneEvent",
       "isStart": false,
-      "isTerminal": true
+      "isTerminal": true,
+      "nextEvents": []
     }
   ],
   "schemas": [
@@ -226,6 +334,24 @@
     },
     {
       "id": "BootstrapResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceListResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceView",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "LogoutResponse",
       "file": "schemas/auth.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -243,24 +369,6 @@
       "public": true
     },
     {
-      "id": "LogoutResponse",
-      "file": "schemas/auth.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "DeviceView",
-      "file": "schemas/auth.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "DeviceListResponse",
-      "file": "schemas/auth.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
       "id": "RevokeDeviceResponse",
       "file": "schemas/auth.schema.json",
       "dialect": "2020-12",
@@ -273,7 +381,7 @@
       "public": true
     },
     {
-      "id": "ChatRequest",
+      "id": "ChatHistoryResponse",
       "file": "schemas/chat.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -285,25 +393,7 @@
       "public": true
     },
     {
-      "id": "ChatHistoryResponse",
-      "file": "schemas/chat.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SseStartEvent",
-      "file": "schemas/chat.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SseDeltaEvent",
-      "file": "schemas/chat.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SseToolStatusEvent",
+      "id": "ChatRequest",
       "file": "schemas/chat.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -315,7 +405,7 @@
       "public": true
     },
     {
-      "id": "SseErrorEvent",
+      "id": "SseDeltaEvent",
       "file": "schemas/chat.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -327,19 +417,43 @@
       "public": true
     },
     {
-      "id": "UUID",
+      "id": "SseErrorEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseStartEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseToolStatusEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ErrorResponse",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "ServerVersion",
+      "id": "HealthLiveResponse",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "Rfc3339DateTime",
+      "id": "HealthNotReadyResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "HealthReadyResponse",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -351,13 +465,25 @@
       "public": true
     },
     {
+      "id": "MealType",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
       "id": "MondayDate",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "MealType",
+      "id": "Rfc3339DateTime",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ServerVersion",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -369,25 +495,13 @@
       "public": true
     },
     {
-      "id": "ErrorResponse",
+      "id": "UUID",
       "file": "schemas/common.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "PlanItemView",
-      "file": "schemas/plan.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "WeeklyPlanView",
-      "file": "schemas/plan.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "WeeklyPlanPreview",
+      "id": "CurrentWeeklyPlanResponse",
       "file": "schemas/plan.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -405,6 +519,12 @@
       "public": true
     },
     {
+      "id": "PlanItemView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
       "id": "UpdatePlanItemInput",
       "file": "schemas/plan.schema.json",
       "dialect": "2020-12",
@@ -417,19 +537,67 @@
       "public": true
     },
     {
+      "id": "WeeklyPlanPreview",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ClearPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeBatchPreview",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
       "id": "RecipeDraft",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "RecipeView",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "RecipeTombstone",
       "file": "schemas/recipe.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -447,55 +615,13 @@
       "public": true
     },
     {
-      "id": "ClearPatch",
+      "id": "RecipeTombstone",
       "file": "schemas/recipe.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "SetStringPatch",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SetUriPatch",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "AddRecipeInput",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "AddRecipeOutput",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "UpdateRecipeInput",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "UpdateRecipeOutput",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "DeleteRecipeInput",
-      "file": "schemas/recipe.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "DeleteRecipeOutput",
+      "id": "RecipeView",
       "file": "schemas/recipe.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -525,20 +651,38 @@
       "public": true
     },
     {
-      "id": "BatchGenerateRecipesInput",
+      "id": "SetStringPatch",
       "file": "schemas/recipe.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "BatchGenerateRecipesOutput",
+      "id": "SetUriPatch",
       "file": "schemas/recipe.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "RecipeBatchPreview",
+      "id": "UpdateRecipeInput",
       "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdateRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelListResponse",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelView",
+      "file": "schemas/settings.schema.json",
       "dialect": "2020-12",
       "public": true
     },
@@ -561,61 +705,7 @@
       "public": true
     },
     {
-      "id": "ModelView",
-      "file": "schemas/settings.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "ModelListResponse",
-      "file": "schemas/settings.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncResponse",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncChangeDto",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncActionsRequest",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncActionDto",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncActionsResponse",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "SyncActionResultDto",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
       "id": "AppliedResultDto",
-      "file": "schemas/sync.schema.json",
-      "dialect": "2020-12",
-      "public": true
-    },
-    {
-      "id": "RejectedResultDto",
       "file": "schemas/sync.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -633,19 +723,61 @@
       "public": true
     },
     {
+      "id": "ConfirmationEventDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
       "id": "RecipeUpsertChangeDto",
       "file": "schemas/sync.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "WeeklyPlanUpsertChangeDto",
+      "id": "RejectedResultDto",
       "file": "schemas/sync.schema.json",
       "dialect": "2020-12",
       "public": true
     },
     {
-      "id": "ConfirmationEventDto",
+      "id": "SyncActionDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsRequest",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanUpsertChangeDto",
       "file": "schemas/sync.schema.json",
       "dialect": "2020-12",
       "public": true
@@ -1046,7 +1178,16 @@
         "server",
         "android",
         "database"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          "2026-07-27"
+        ],
+        "invalid": [
+          "2026-07-26",
+          "not-a-date"
+        ]
+      }
     },
     {
       "id": "WEEKLY_PLAN_HAS_21_SLOTS",
@@ -1057,7 +1198,45 @@
       "owners": [
         "server",
         "android"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "items": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "items": []
+          },
+          21,
+          {
+            "items": 21
+          }
+        ]
+      }
     },
     {
       "id": "SYNC_RESULTS_PRESERVE_INPUT_ORDER",
@@ -1065,8 +1244,44 @@
         "SyncActionsResponse"
       ],
       "owners": [
-        "server"
-      ]
+        "server",
+        "android"
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "inputActionIds": [
+              "a",
+              "b"
+            ],
+            "resultActionIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "inputActionIds": [
+              "a",
+              "b"
+            ],
+            "resultActionIds": [
+              "b",
+              "a"
+            ]
+          },
+          {
+            "inputActionIds": [
+              "a"
+            ],
+            "resultActionIds": [
+              "a",
+              "b"
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "SERVER_VERSION_WITHIN_DB_BIGINT",
@@ -1075,8 +1290,20 @@
       ],
       "owners": [
         "server",
+        "android",
         "database"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          "1",
+          "9223372036854775807"
+        ],
+        "invalid": [
+          "0",
+          "9223372036854775808",
+          "01"
+        ]
+      }
     },
     {
       "id": "CONFIRMATION_STATE_FIELDS_MATCH",
@@ -1086,7 +1313,30 @@
       "owners": [
         "server",
         "android"
-      ]
+      ],
+      "vectors": {
+        "valid": [
+          {
+            "state": "pending",
+            "confirmationToken": "token-1"
+          },
+          {
+            "state": "expired"
+          }
+        ],
+        "invalid": [
+          {
+            "state": "pending"
+          },
+          {
+            "state": "consumed",
+            "confirmationToken": "token-1"
+          },
+          {
+            "state": "unknown"
+          }
+        ]
+      }
     }
   ]
 }

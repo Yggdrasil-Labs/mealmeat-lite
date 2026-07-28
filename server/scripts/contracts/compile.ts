@@ -42,7 +42,7 @@ async function main() {
   // 生成 TypeScript schema 常量和类型
   console.log('\nGenerating TypeScript schemas...')
   console.log('  Output:', typesOutputPath)
-  await generateTypeScriptSchemas(schemasDir, typesOutputPath)
+  await generateTypeScriptSchemas(schemasDir, typesOutputPath, manifest)
   console.log('  ✓ schemas.ts generated')
 
   // 生成 Ajv standalone validators

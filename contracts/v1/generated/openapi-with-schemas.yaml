@@ -13,6 +13,10 @@ paths:
       responses:
         "200":
           description: 服务存活
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLiveResponse"
   /health/ready:
     get:
       operationId: healthReady
@@ -20,15 +24,33 @@ paths:
       responses:
         "200":
           description: 服务就绪
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReadyResponse"
         "503":
           description: 服务未就绪
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthNotReadyResponse"
   /api/v1/chat:
     post:
       operationId: chat
       summary: 发送聊天消息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
       responses:
         "200":
           description: SSE 流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
   /api/v1/chat/history:
     get:
       operationId: getChatHistory
@@ -36,6 +58,10 @@ paths:
       responses:
         "200":
           description: 对话历史
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatHistoryResponse"
   /api/v1/recipes:
     get:
       operationId: listRecipes
@@ -43,6 +69,10 @@ paths:
       responses:
         "200":
           description: 菜品列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeListResponse"
   /api/v1/recipes/{id}:
     patch:
       operationId: patchRecipe
@@ -54,9 +84,19 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipePatchRequest"
       responses:
         "200":
           description: 更新后的菜品
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeView"
     delete:
       operationId: deleteRecipe
       summary: 删除菜品
@@ -70,6 +110,10 @@ paths:
       responses:
         "200":
           description: 删除结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeTombstone"
   /api/v1/plans/current:
     get:
       operationId: getCurrentPlan
@@ -77,6 +121,10 @@ paths:
       responses:
         "200":
           description: 本周计划
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentWeeklyPlanResponse"
   /api/v1/plans/{weekStart}:
     get:
       operationId: getPlanByWeek
@@ -91,6 +139,10 @@ paths:
       responses:
         "200":
           description: 周计划
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyPlanView"
   /api/v1/settings:
     get:
       operationId: getSettings
@@ -98,12 +150,26 @@ paths:
       responses:
         "200":
           description: 设置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
     put:
       operationId: updateSettings
       summary: 更新设置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdateRequest"
       responses:
         "200":
           description: 更新后的设置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
   /api/v1/models:
     get:
       operationId: listModels
@@ -111,20 +177,44 @@ paths:
       responses:
         "200":
           description: 模型列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
   /api/v1/auth/bootstrap:
     post:
       operationId: bootstrap
       summary: 初始化实例
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BootstrapRequest"
       responses:
         "200":
           description: 初始化结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapResponse"
   /api/v1/auth/register:
     post:
       operationId: register
       summary: 注册设备
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
         "200":
           description: 注册结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -132,6 +222,10 @@ paths:
       responses:
         "200":
           description: 注销结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
   /api/v1/auth/devices:
     get:
       operationId: listDevices
@@ -139,6 +233,10 @@ paths:
       responses:
         "200":
           description: 设备列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceListResponse"
   /api/v1/auth/devices/{id}:
     delete:
       operationId: revokeDevice
@@ -153,6 +251,10 @@ paths:
       responses:
         "200":
           description: 撤销结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokeDeviceResponse"
   /api/v1/auth/family-code/rotate:
     post:
       operationId: rotateFamilyCode
@@ -160,13 +262,27 @@ paths:
       responses:
         "200":
           description: 新家庭码
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RotateFamilyCodeResponse"
   /api/v1/confirmations/commit:
     post:
       operationId: commitConfirmation
       summary: 提交确认
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmationCommitRequest"
       responses:
         "200":
           description: 提交结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmationCommitResultDto"
   /api/v1/sync:
     get:
       operationId: sync
@@ -174,13 +290,27 @@ paths:
       responses:
         "200":
           description: 同步变更
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResponse"
   /api/v1/sync/actions:
     post:
       operationId: syncActions
       summary: 上传离线动作
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncActionsRequest"
       responses:
         "200":
           description: 动作结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncActionsResponse"
 x-mealmate-functions:
   - name: add_recipe
     description: 添加菜品
@@ -219,26 +349,74 @@ x-mealmate-sse:
     schemaId: SseStartEvent
     isStart: true
     isTerminal: false
+    nextEvents:
+      - delta
+      - tool-status
+      - confirmation-required
+      - error
+      - done
+    mutuallyExclusiveDataFields:
+      - replayed
+      - resumed
   - event: delta
     schemaId: SseDeltaEvent
     isStart: false
     isTerminal: false
+    nextEvents:
+      - delta
+      - tool-status
+      - confirmation-required
+      - error
+      - done
   - event: tool-status
     schemaId: SseToolStatusEvent
     isStart: false
     isTerminal: false
+    nextEvents:
+      - delta
+      - tool-status
+      - confirmation-required
+      - error
+      - done
+    toolLifecycle:
+      idField: toolCallId
+      statusField: status
+      startedStatus: started
+      terminalStatuses:
+        - succeeded
+        - failed
   - event: confirmation-required
     schemaId: SseConfirmationRequiredEvent
     isStart: false
     isTerminal: false
+    nextEvents:
+      - delta
+      - tool-status
+      - confirmation-required
+      - error
+      - done
+    confirmationToken:
+      stateField: state
+      tokenField: confirmationToken
+      tokenRequiredState: pending
+      tokenForbiddenStates:
+        - expired
+        - superseded
+        - consumed
   - event: error
     schemaId: SseErrorEvent
     isStart: false
     isTerminal: true
+    nextEvents: []
+    errorCatalog:
+      errCodeField: errCode
+      retryableField: retryable
+      requestIdField: requestId
   - event: done
     schemaId: SseDoneEvent
     isStart: false
     isTerminal: true
+    nextEvents: []
 x-mealmate-errors:
   - errCode: BAD_REQUEST
     httpStatus: 400
@@ -499,6 +677,12 @@ x-mealmate-invariants:
       - server
       - android
       - database
+    vectors:
+      valid:
+        - 2026-07-27
+      invalid:
+        - 2026-07-26
+        - not-a-date
   - id: WEEKLY_PLAN_HAS_21_SLOTS
     appliesTo:
       - WeeklyPlanView
@@ -506,23 +690,91 @@ x-mealmate-invariants:
     owners:
       - server
       - android
+    vectors:
+      valid:
+        - items:
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+            - null
+      invalid:
+        - items: []
+        - 21
+        - items: 21
   - id: SYNC_RESULTS_PRESERVE_INPUT_ORDER
     appliesTo:
       - SyncActionsResponse
     owners:
       - server
+      - android
+    vectors:
+      valid:
+        - inputActionIds:
+            - a
+            - b
+          resultActionIds:
+            - a
+            - b
+      invalid:
+        - inputActionIds:
+            - a
+            - b
+          resultActionIds:
+            - b
+            - a
+        - inputActionIds:
+            - a
+          resultActionIds:
+            - a
+            - b
   - id: SERVER_VERSION_WITHIN_DB_BIGINT
     appliesTo:
       - ServerVersion
     owners:
       - server
+      - android
       - database
+    vectors:
+      valid:
+        - "1"
+        - "9223372036854775807"
+      invalid:
+        - "0"
+        - "9223372036854775808"
+        - "01"
   - id: CONFIRMATION_STATE_FIELDS_MATCH
     appliesTo:
       - ConfirmationEventDto
     owners:
       - server
       - android
+    vectors:
+      valid:
+        - state: pending
+          confirmationToken: token-1
+        - state: expired
+      invalid:
+        - state: pending
+        - state: consumed
+          confirmationToken: token-1
+        - state: unknown
 components:
   schemas:
     BootstrapRequest:
@@ -553,6 +805,44 @@ components:
         - deviceToken
         - familyCode
       additionalProperties: false
+    DeviceListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceView"
+      required:
+        - items
+      additionalProperties: false
+    DeviceView:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        deviceName:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+        lastUsedAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+        isCurrent:
+          type: boolean
+      required:
+        - id
+        - deviceName
+        - createdAt
+        - lastUsedAt
+        - isCurrent
+      additionalProperties: false
+    LogoutResponse:
+      type: object
+      properties:
+        revoked:
+          const: true
+      required:
+        - revoked
+      additionalProperties: false
     RegisterRequest:
       type: object
       properties:
@@ -578,44 +868,6 @@ components:
         - deviceId
         - deviceToken
       additionalProperties: false
-    LogoutResponse:
-      type: object
-      properties:
-        revoked:
-          const: true
-      required:
-        - revoked
-      additionalProperties: false
-    DeviceView:
-      type: object
-      properties:
-        id:
-          $ref: "#/components/schemas/UUID"
-        deviceName:
-          type: string
-        createdAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-        lastUsedAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-        isCurrent:
-          type: boolean
-      required:
-        - id
-        - deviceName
-        - createdAt
-        - lastUsedAt
-        - isCurrent
-      additionalProperties: false
-    DeviceListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/DeviceView"
-      required:
-        - items
-      additionalProperties: false
     RevokeDeviceResponse:
       type: object
       properties:
@@ -635,23 +887,16 @@ components:
       required:
         - familyCode
       additionalProperties: false
-    ChatRequest:
+    ChatHistoryResponse:
       type: object
       properties:
-        chatRequestId:
-          $ref: "#/components/schemas/UUID"
-        modelId:
-          type: string
-          minLength: 1
-          maxLength: 100
-        message:
-          type: string
-          minLength: 1
-          maxLength: 10000
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+          maxItems: 40
       required:
-        - chatRequestId
-        - modelId
-        - message
+        - messages
       additionalProperties: false
     ChatMessage:
       type: object
@@ -673,16 +918,59 @@ components:
         - chatRequestId
         - createdAt
       additionalProperties: false
-    ChatHistoryResponse:
+    ChatRequest:
       type: object
       properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/ChatMessage"
-          maxItems: 40
+        chatRequestId:
+          $ref: "#/components/schemas/UUID"
+        modelId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
       required:
-        - messages
+        - chatRequestId
+        - modelId
+        - message
+      additionalProperties: false
+    SseConfirmationRequiredEvent:
+      $ref: "#/components/schemas/ConfirmationEventDto"
+    SseDeltaEvent:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+      additionalProperties: false
+    SseDoneEvent:
+      type: object
+      properties:
+        chatRequestId:
+          $ref: "#/components/schemas/UUID"
+      required:
+        - chatRequestId
+      additionalProperties: false
+    SseErrorEvent:
+      type: object
+      properties:
+        errCode:
+          type: string
+        errMessage:
+          type: string
+        retryable:
+          type: boolean
+        requestId:
+          type: string
+          minLength: 1
+      required:
+        - errCode
+        - errMessage
+        - retryable
+        - requestId
       additionalProperties: false
     SseStartEvent:
       type: object
@@ -697,14 +985,6 @@ components:
         - chatRequestId
         - replayed
         - resumed
-      additionalProperties: false
-    SseDeltaEvent:
-      type: object
-      properties:
-        text:
-          type: string
-      required:
-        - text
       additionalProperties: false
     SseToolStatusEvent:
       type: object
@@ -726,70 +1006,6 @@ components:
         - toolName
         - status
       additionalProperties: false
-    SseConfirmationRequiredEvent:
-      $ref: "#/components/schemas/ConfirmationEventDto"
-    SseErrorEvent:
-      type: object
-      properties:
-        errCode:
-          type: string
-        errMessage:
-          type: string
-        retryable:
-          type: boolean
-        requestId:
-          type: string
-      required:
-        - errCode
-        - errMessage
-        - retryable
-        - requestId
-      additionalProperties: false
-    SseDoneEvent:
-      type: object
-      properties:
-        chatRequestId:
-          $ref: "#/components/schemas/UUID"
-      required:
-        - chatRequestId
-      additionalProperties: false
-    UUID:
-      type: string
-      format: uuid
-      description: UUID v7 格式
-    ServerVersion:
-      type: string
-      pattern: ^[1-9][0-9]*$
-      description: 服务端版本号，正整数十进制字符串，上限 9223372036854775807
-    Rfc3339DateTime:
-      type: string
-      format: date-time
-      description: UTC RFC 3339 时间戳
-    IsoDate:
-      type: string
-      format: date
-      description: ISO 日期 YYYY-MM-DD
-    MondayDate:
-      type: string
-      format: date
-      description: 必须是周一的 ISO 日期
-    MealType:
-      type: string
-      enum:
-        - breakfast
-        - lunch
-        - dinner
-      description: 餐次类型
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          const: true
-        data: {}
-      required:
-        - success
-        - data
-      additionalProperties: false
     ErrorResponse:
       type: object
       properties:
@@ -801,6 +1017,7 @@ components:
           type: string
         requestId:
           type: string
+          minLength: 1
         retryable:
           type: boolean
         details:
@@ -822,83 +1039,75 @@ components:
         - requestId
         - retryable
       additionalProperties: false
-    PlanItemView:
+    HealthLiveResponse:
       type: object
       properties:
-        id:
-          $ref: "#/components/schemas/UUID"
-        date:
-          $ref: "#/components/schemas/IsoDate"
-        mealType:
-          $ref: "#/components/schemas/MealType"
-        recipeId:
-          $ref: "#/components/schemas/UUID"
-        recipeNameSnapshot:
+        status:
+          const: ok
+      required:
+        - status
+      additionalProperties: false
+    HealthNotReadyResponse:
+      type: object
+      properties:
+        status:
+          const: not ready
+        reason:
           type: string
       required:
-        - id
-        - date
-        - mealType
-        - recipeId
-        - recipeNameSnapshot
+        - status
       additionalProperties: false
-    WeeklyPlanView:
+    HealthReadyResponse:
       type: object
       properties:
-        id:
-          $ref: "#/components/schemas/UUID"
-        weekStart:
-          $ref: "#/components/schemas/MondayDate"
-        serverVersion:
-          $ref: "#/components/schemas/ServerVersion"
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanItemView"
-          minItems: 21
-          maxItems: 21
-        createdAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-        updatedAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
+        status:
+          const: ready
       required:
-        - id
-        - weekStart
-        - serverVersion
-        - items
-        - createdAt
-        - updatedAt
+        - status
       additionalProperties: false
-    WeeklyPlanPreview:
+    IsoDate:
+      type: string
+      format: date
+      description: ISO 日期 YYYY-MM-DD
+    MealType:
+      type: string
+      enum:
+        - breakfast
+        - lunch
+        - dinner
+      description: 餐次类型
+    MondayDate:
+      type: string
+      format: date
+      description: 必须是周一的 ISO 日期
+    Rfc3339DateTime:
+      type: string
+      format: date-time
+      pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|\+00:00)$
+      description: UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset
+    ServerVersion:
+      type: string
+      pattern: ^[1-9][0-9]*$
+      description: 服务端版本号，正整数十进制字符串，上限 9223372036854775807
+    SuccessResponse:
       type: object
       properties:
-        weekStart:
-          $ref: "#/components/schemas/MondayDate"
-        items:
-          type: array
-          items:
-            type: object
-            properties:
-              date:
-                $ref: "#/components/schemas/IsoDate"
-              mealType:
-                $ref: "#/components/schemas/MealType"
-              recipeId:
-                $ref: "#/components/schemas/UUID"
-              recipeNameSnapshot:
-                type: string
-            required:
-              - date
-              - mealType
-              - recipeId
-              - recipeNameSnapshot
-            additionalProperties: false
-          minItems: 21
-          maxItems: 21
+        success:
+          const: true
+        data: {}
       required:
-        - weekStart
-        - items
+        - success
+        - data
       additionalProperties: false
+    UUID:
+      type: string
+      format: uuid
+      pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+      description: 小写 canonical UUID 格式
+    CurrentWeeklyPlanResponse:
+      oneOf:
+        - $ref: "#/components/schemas/WeeklyPlanView"
+        - type: "null"
     GenerateWeeklyPlanInput:
       type: object
       properties:
@@ -939,6 +1148,26 @@ components:
         - plan
         - reusedRecipeIds
       additionalProperties: false
+    PlanItemView:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        date:
+          $ref: "#/components/schemas/IsoDate"
+        mealType:
+          $ref: "#/components/schemas/MealType"
+        recipeId:
+          $ref: "#/components/schemas/UUID"
+        recipeNameSnapshot:
+          type: string
+      required:
+        - id
+        - date
+        - mealType
+        - recipeId
+        - recipeNameSnapshot
+      additionalProperties: false
     UpdatePlanItemInput:
       type: object
       properties:
@@ -958,154 +1187,62 @@ components:
       required:
         - item
       additionalProperties: false
-    RecipeDraft:
+    WeeklyPlanPreview:
       type: object
       properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        tags:
+        weekStart:
+          $ref: "#/components/schemas/MondayDate"
+        items:
           type: array
           items:
-            type: string
-            maxLength: 30
-          maxItems: 20
-        ingredients:
-          type: array
-          items:
-            type: string
-            maxLength: 200
-          maxItems: 100
-        steps:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
-          maxItems: 100
-        imageUrl:
-          type: string
-          format: uri
-        notes:
-          type: string
-          maxLength: 5000
+            type: object
+            properties:
+              date:
+                $ref: "#/components/schemas/IsoDate"
+              mealType:
+                $ref: "#/components/schemas/MealType"
+              recipeId:
+                $ref: "#/components/schemas/UUID"
+              recipeNameSnapshot:
+                type: string
+            required:
+              - date
+              - mealType
+              - recipeId
+              - recipeNameSnapshot
+            additionalProperties: false
+          minItems: 21
+          maxItems: 21
       required:
-        - name
+        - weekStart
+        - items
       additionalProperties: false
-    RecipeView:
+    WeeklyPlanView:
       type: object
       properties:
         id:
           $ref: "#/components/schemas/UUID"
-        name:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        ingredients:
-          type: array
-          items:
-            type: string
-        steps:
-          type: array
-          items:
-            type: string
-        imageUrl:
-          type: string
-          format: uri
-        notes:
-          type: string
+        weekStart:
+          $ref: "#/components/schemas/MondayDate"
         serverVersion:
           $ref: "#/components/schemas/ServerVersion"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanItemView"
+          minItems: 21
+          maxItems: 21
         createdAt:
           $ref: "#/components/schemas/Rfc3339DateTime"
         updatedAt:
           $ref: "#/components/schemas/Rfc3339DateTime"
       required:
         - id
-        - name
-        - tags
-        - ingredients
-        - steps
+        - weekStart
         - serverVersion
+        - items
         - createdAt
         - updatedAt
-      additionalProperties: false
-    RecipeTombstone:
-      type: object
-      properties:
-        id:
-          $ref: "#/components/schemas/UUID"
-        deletedAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-        serverVersion:
-          $ref: "#/components/schemas/ServerVersion"
-      required:
-        - id
-        - deletedAt
-        - serverVersion
-      additionalProperties: false
-    RecipeListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RecipeView"
-        nextCursor:
-          type: string
-        hasMore:
-          type: boolean
-      required:
-        - items
-        - hasMore
-      additionalProperties: false
-    RecipePatchRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        tags:
-          type: array
-          items:
-            type: string
-            maxLength: 30
-          maxItems: 20
-      minProperties: 1
-      additionalProperties: false
-    ClearPatch:
-      type: object
-      properties:
-        op:
-          const: clear
-      required:
-        - op
-      additionalProperties: false
-    SetStringPatch:
-      type: object
-      properties:
-        op:
-          const: set
-        value:
-          type: string
-      required:
-        - op
-        - value
-      additionalProperties: false
-    SetUriPatch:
-      type: object
-      properties:
-        op:
-          const: set
-        value:
-          type: string
-          format: uri
-      required:
-        - op
-        - value
       additionalProperties: false
     AddRecipeInput:
       type: object
@@ -1148,6 +1285,275 @@ components:
           $ref: "#/components/schemas/RecipeView"
       required:
         - recipe
+      additionalProperties: false
+    BatchGenerateRecipesInput:
+      type: object
+      properties:
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeDraft"
+          minItems: 1
+          maxItems: 50
+      required:
+        - recipes
+      additionalProperties: false
+    BatchGenerateRecipesOutput:
+      type: object
+      properties:
+        confirmationRequired:
+          const: true
+        count:
+          type: integer
+          minimum: 1
+        skippedDuplicates:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+      required:
+        - confirmationRequired
+        - count
+        - skippedDuplicates
+        - expiresAt
+      additionalProperties: false
+    ClearPatch:
+      type: object
+      properties:
+        op:
+          const: clear
+      required:
+        - op
+      additionalProperties: false
+    DeleteRecipeInput:
+      type: object
+      properties:
+        recipeId:
+          $ref: "#/components/schemas/UUID"
+      required:
+        - recipeId
+      additionalProperties: false
+    DeleteRecipeOutput:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        deletedAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+        serverVersion:
+          $ref: "#/components/schemas/ServerVersion"
+      required:
+        - id
+        - deletedAt
+        - serverVersion
+      additionalProperties: false
+    RecipeBatchPreview:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeDraft"
+          minItems: 1
+          maxItems: 50
+        skippedDuplicates:
+          type: array
+          items:
+            type: string
+      required:
+        - items
+        - skippedDuplicates
+      additionalProperties: false
+    RecipeDraft:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 30
+          maxItems: 20
+        ingredients:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          maxItems: 100
+        steps:
+          type: array
+          items:
+            type: string
+            maxLength: 1000
+          maxItems: 100
+        imageUrl:
+          type: string
+          format: uri
+        notes:
+          type: string
+          maxLength: 5000
+      required:
+        - name
+      additionalProperties: false
+    RecipeListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeView"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+      required:
+        - items
+        - hasMore
+      additionalProperties: false
+    RecipePatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 30
+          maxItems: 20
+      minProperties: 1
+      additionalProperties: false
+    RecipeTombstone:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        deletedAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+        serverVersion:
+          $ref: "#/components/schemas/ServerVersion"
+      required:
+        - id
+        - deletedAt
+        - serverVersion
+      additionalProperties: false
+    RecipeView:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        ingredients:
+          type: array
+          items:
+            type: string
+        steps:
+          type: array
+          items:
+            type: string
+        imageUrl:
+          type: string
+          format: uri
+        notes:
+          type: string
+        serverVersion:
+          $ref: "#/components/schemas/ServerVersion"
+        createdAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/Rfc3339DateTime"
+      required:
+        - id
+        - name
+        - tags
+        - ingredients
+        - steps
+        - serverVersion
+        - createdAt
+        - updatedAt
+      additionalProperties: false
+    RestoreRecipeInput:
+      type: object
+      properties:
+        recipeId:
+          $ref: "#/components/schemas/UUID"
+      required:
+        - recipeId
+      additionalProperties: false
+    RestoreRecipeOutput:
+      type: object
+      properties:
+        recipe:
+          $ref: "#/components/schemas/RecipeView"
+      required:
+        - recipe
+      additionalProperties: false
+    SearchRecipesInput:
+      type: object
+      properties:
+        query:
+          type: string
+          maxLength: 200
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        includeDeleted:
+          type: boolean
+          default: false
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      additionalProperties: false
+    SearchRecipesOutput:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeView"
+        truncated:
+          type: boolean
+      required:
+        - items
+        - truncated
+      additionalProperties: false
+    SetStringPatch:
+      type: object
+      properties:
+        op:
+          const: set
+        value:
+          type: string
+      required:
+        - op
+        - value
+      additionalProperties: false
+    SetUriPatch:
+      type: object
+      properties:
+        op:
+          const: set
+        value:
+          type: string
+          format: uri
+      required:
+        - op
+        - value
       additionalProperties: false
     UpdateRecipeInput:
       type: object
@@ -1201,125 +1607,29 @@ components:
       required:
         - recipe
       additionalProperties: false
-    DeleteRecipeInput:
+    ModelListResponse:
       type: object
       properties:
-        recipeId:
-          $ref: "#/components/schemas/UUID"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelView"
       required:
-        - recipeId
+        - items
       additionalProperties: false
-    DeleteRecipeOutput:
+    ModelView:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/UUID"
-        deletedAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-        serverVersion:
-          $ref: "#/components/schemas/ServerVersion"
+          type: string
+        displayName:
+          type: string
+        isDefault:
+          type: boolean
       required:
         - id
-        - deletedAt
-        - serverVersion
-      additionalProperties: false
-    RestoreRecipeInput:
-      type: object
-      properties:
-        recipeId:
-          $ref: "#/components/schemas/UUID"
-      required:
-        - recipeId
-      additionalProperties: false
-    RestoreRecipeOutput:
-      type: object
-      properties:
-        recipe:
-          $ref: "#/components/schemas/RecipeView"
-      required:
-        - recipe
-      additionalProperties: false
-    SearchRecipesInput:
-      type: object
-      properties:
-        query:
-          type: string
-          maxLength: 200
-        tags:
-          type: array
-          items:
-            type: string
-          maxItems: 20
-        includeDeleted:
-          type: boolean
-          default: false
-        limit:
-          type: integer
-          minimum: 1
-          maximum: 50
-          default: 20
-      additionalProperties: false
-    SearchRecipesOutput:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RecipeView"
-        truncated:
-          type: boolean
-      required:
-        - items
-        - truncated
-      additionalProperties: false
-    BatchGenerateRecipesInput:
-      type: object
-      properties:
-        recipes:
-          type: array
-          items:
-            $ref: "#/components/schemas/RecipeDraft"
-          minItems: 1
-          maxItems: 50
-      required:
-        - recipes
-      additionalProperties: false
-    BatchGenerateRecipesOutput:
-      type: object
-      properties:
-        confirmationRequired:
-          const: true
-        count:
-          type: integer
-          minimum: 1
-        skippedDuplicates:
-          type: array
-          items:
-            type: string
-        expiresAt:
-          $ref: "#/components/schemas/Rfc3339DateTime"
-      required:
-        - confirmationRequired
-        - count
-        - skippedDuplicates
-        - expiresAt
-      additionalProperties: false
-    RecipeBatchPreview:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RecipeDraft"
-          minItems: 1
-          maxItems: 50
-        skippedDuplicates:
-          type: array
-          items:
-            type: string
-      required:
-        - items
-        - skippedDuplicates
+        - displayName
+        - isDefault
       additionalProperties: false
     SettingsDto:
       type: object
@@ -1355,276 +1665,6 @@ components:
       required:
         - familyPreference
       additionalProperties: false
-    ModelView:
-      type: object
-      properties:
-        id:
-          type: string
-        displayName:
-          type: string
-        isDefault:
-          type: boolean
-      required:
-        - id
-        - displayName
-        - isDefault
-      additionalProperties: false
-    ModelListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ModelView"
-      required:
-        - items
-      additionalProperties: false
-    SyncResponse:
-      type: object
-      properties:
-        changes:
-          type: array
-          items:
-            $ref: "#/components/schemas/SyncChangeDto"
-        nextCursor:
-          type: string
-        hasMore:
-          type: boolean
-      required:
-        - changes
-        - hasMore
-      additionalProperties: false
-    SyncChangeDto:
-      oneOf:
-        - type: object
-          properties:
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-            resource:
-              const: recipe
-            operation:
-              const: upsert
-            data:
-              $ref: "#/components/schemas/RecipeView"
-          required:
-            - serverVersion
-            - resource
-            - operation
-            - data
-          additionalProperties: false
-        - type: object
-          properties:
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-            resource:
-              const: recipe
-            operation:
-              const: delete
-            data:
-              $ref: "#/components/schemas/RecipeTombstone"
-          required:
-            - serverVersion
-            - resource
-            - operation
-            - data
-          additionalProperties: false
-        - type: object
-          properties:
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-            resource:
-              const: weekly_plan
-            operation:
-              const: upsert
-            data:
-              $ref: "#/components/schemas/WeeklyPlanView"
-          required:
-            - serverVersion
-            - resource
-            - operation
-            - data
-          additionalProperties: false
-        - type: object
-          properties:
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-            resource:
-              const: settings
-            operation:
-              const: upsert
-            data:
-              $ref: "#/components/schemas/SettingsDto"
-          required:
-            - serverVersion
-            - resource
-            - operation
-            - data
-          additionalProperties: false
-    SyncActionsRequest:
-      type: object
-      properties:
-        actions:
-          type: array
-          items:
-            $ref: "#/components/schemas/SyncActionDto"
-          minItems: 1
-          maxItems: 100
-      required:
-        - actions
-      additionalProperties: false
-    SyncActionDto:
-      oneOf:
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            type:
-              const: recipe.patch
-            createdAt:
-              $ref: "#/components/schemas/Rfc3339DateTime"
-            payload:
-              type: object
-              properties:
-                recipeId:
-                  $ref: "#/components/schemas/UUID"
-                patch:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                      minLength: 1
-                      maxLength: 100
-                    tags:
-                      type: array
-                      items:
-                        type: string
-                        maxLength: 30
-                      maxItems: 20
-                  minProperties: 1
-                  additionalProperties: false
-              required:
-                - recipeId
-                - patch
-              additionalProperties: false
-          required:
-            - actionId
-            - type
-            - createdAt
-            - payload
-          additionalProperties: false
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            type:
-              const: recipe.delete
-            createdAt:
-              $ref: "#/components/schemas/Rfc3339DateTime"
-            payload:
-              type: object
-              properties:
-                recipeId:
-                  $ref: "#/components/schemas/UUID"
-              required:
-                - recipeId
-              additionalProperties: false
-          required:
-            - actionId
-            - type
-            - createdAt
-            - payload
-          additionalProperties: false
-    SyncActionsResponse:
-      type: object
-      properties:
-        results:
-          type: array
-          items:
-            $ref: "#/components/schemas/SyncActionResultDto"
-      required:
-        - results
-      additionalProperties: false
-    SyncActionResultDto:
-      oneOf:
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            status:
-              const: applied
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-            resource:
-              oneOf:
-                - $ref: "#/components/schemas/RecipeView"
-                - $ref: "#/components/schemas/RecipeTombstone"
-          required:
-            - actionId
-            - status
-            - serverVersion
-            - resource
-          additionalProperties: false
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            status:
-              const: rejected
-            errCode:
-              type: string
-            errMessage:
-              type: string
-            requiresFullResync:
-              const: false
-            authoritative:
-              oneOf:
-                - $ref: "#/components/schemas/RecipeView"
-                - $ref: "#/components/schemas/RecipeTombstone"
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-          required:
-            - actionId
-            - status
-            - errCode
-            - errMessage
-            - requiresFullResync
-            - authoritative
-            - serverVersion
-          additionalProperties: false
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            status:
-              const: rejected
-            errCode:
-              type: string
-            errMessage:
-              type: string
-            requiresFullResync:
-              const: true
-          required:
-            - actionId
-            - status
-            - errCode
-            - errMessage
-            - requiresFullResync
-          additionalProperties: false
-        - type: object
-          properties:
-            actionId:
-              $ref: "#/components/schemas/UUID"
-            status:
-              const: duplicate
-            original:
-              oneOf:
-                - $ref: "#/components/schemas/AppliedResultDto"
-                - $ref: "#/components/schemas/RejectedResultDto"
-          required:
-            - actionId
-            - status
-            - original
-          additionalProperties: false
     AppliedResultDto:
       type: object
       properties:
@@ -1641,48 +1681,6 @@ components:
         - serverVersion
         - resource
       additionalProperties: false
-    RejectedResultDto:
-      oneOf:
-        - type: object
-          properties:
-            status:
-              const: rejected
-            errCode:
-              type: string
-            errMessage:
-              type: string
-            requiresFullResync:
-              const: false
-            authoritative:
-              oneOf:
-                - $ref: "#/components/schemas/RecipeView"
-                - $ref: "#/components/schemas/RecipeTombstone"
-            serverVersion:
-              $ref: "#/components/schemas/ServerVersion"
-          required:
-            - status
-            - errCode
-            - errMessage
-            - requiresFullResync
-            - authoritative
-            - serverVersion
-          additionalProperties: false
-        - type: object
-          properties:
-            status:
-              const: rejected
-            errCode:
-              type: string
-            errMessage:
-              type: string
-            requiresFullResync:
-              const: true
-          required:
-            - status
-            - errCode
-            - errMessage
-            - requiresFullResync
-          additionalProperties: false
     ConfirmationCommitRequest:
       type: object
       properties:
@@ -1724,40 +1722,6 @@ components:
             - kind
             - changes
           additionalProperties: false
-    RecipeUpsertChangeDto:
-      type: object
-      properties:
-        serverVersion:
-          $ref: "#/components/schemas/ServerVersion"
-        resource:
-          const: recipe
-        operation:
-          const: upsert
-        data:
-          $ref: "#/components/schemas/RecipeView"
-      required:
-        - serverVersion
-        - resource
-        - operation
-        - data
-      additionalProperties: false
-    WeeklyPlanUpsertChangeDto:
-      type: object
-      properties:
-        serverVersion:
-          $ref: "#/components/schemas/ServerVersion"
-        resource:
-          const: weekly_plan
-        operation:
-          const: upsert
-        data:
-          $ref: "#/components/schemas/WeeklyPlanView"
-      required:
-        - serverVersion
-        - resource
-        - operation
-        - data
-      additionalProperties: false
     ConfirmationEventDto:
       oneOf:
         - type: object
@@ -1850,3 +1814,325 @@ components:
             - expiresAt
             - preview
           additionalProperties: false
+    RecipeUpsertChangeDto:
+      type: object
+      properties:
+        serverVersion:
+          $ref: "#/components/schemas/ServerVersion"
+        resource:
+          const: recipe
+        operation:
+          const: upsert
+        data:
+          $ref: "#/components/schemas/RecipeView"
+      required:
+        - serverVersion
+        - resource
+        - operation
+        - data
+      additionalProperties: false
+    RejectedResultDto:
+      oneOf:
+        - type: object
+          properties:
+            status:
+              const: rejected
+            errCode:
+              type: string
+            errMessage:
+              type: string
+            requiresFullResync:
+              const: false
+            authoritative:
+              oneOf:
+                - $ref: "#/components/schemas/RecipeView"
+                - $ref: "#/components/schemas/RecipeTombstone"
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+          required:
+            - status
+            - errCode
+            - errMessage
+            - requiresFullResync
+            - authoritative
+            - serverVersion
+          additionalProperties: false
+        - type: object
+          properties:
+            status:
+              const: rejected
+            errCode:
+              type: string
+            errMessage:
+              type: string
+            requiresFullResync:
+              const: true
+          required:
+            - status
+            - errCode
+            - errMessage
+            - requiresFullResync
+          additionalProperties: false
+    SyncActionDto:
+      oneOf:
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            type:
+              const: recipe.patch
+            createdAt:
+              $ref: "#/components/schemas/Rfc3339DateTime"
+            payload:
+              type: object
+              properties:
+                recipeId:
+                  $ref: "#/components/schemas/UUID"
+                patch:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 30
+                      maxItems: 20
+                  minProperties: 1
+                  additionalProperties: false
+              required:
+                - recipeId
+                - patch
+              additionalProperties: false
+          required:
+            - actionId
+            - type
+            - createdAt
+            - payload
+          additionalProperties: false
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            type:
+              const: recipe.delete
+            createdAt:
+              $ref: "#/components/schemas/Rfc3339DateTime"
+            payload:
+              type: object
+              properties:
+                recipeId:
+                  $ref: "#/components/schemas/UUID"
+              required:
+                - recipeId
+              additionalProperties: false
+          required:
+            - actionId
+            - type
+            - createdAt
+            - payload
+          additionalProperties: false
+    SyncActionResultDto:
+      oneOf:
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            status:
+              const: applied
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+            resource:
+              oneOf:
+                - $ref: "#/components/schemas/RecipeView"
+                - $ref: "#/components/schemas/RecipeTombstone"
+          required:
+            - actionId
+            - status
+            - serverVersion
+            - resource
+          additionalProperties: false
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            status:
+              const: rejected
+            errCode:
+              type: string
+            errMessage:
+              type: string
+            requiresFullResync:
+              const: false
+            authoritative:
+              oneOf:
+                - $ref: "#/components/schemas/RecipeView"
+                - $ref: "#/components/schemas/RecipeTombstone"
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+          required:
+            - actionId
+            - status
+            - errCode
+            - errMessage
+            - requiresFullResync
+            - authoritative
+            - serverVersion
+          additionalProperties: false
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            status:
+              const: rejected
+            errCode:
+              type: string
+            errMessage:
+              type: string
+            requiresFullResync:
+              const: true
+          required:
+            - actionId
+            - status
+            - errCode
+            - errMessage
+            - requiresFullResync
+          additionalProperties: false
+        - type: object
+          properties:
+            actionId:
+              $ref: "#/components/schemas/UUID"
+            status:
+              const: duplicate
+            original:
+              oneOf:
+                - $ref: "#/components/schemas/AppliedResultDto"
+                - $ref: "#/components/schemas/RejectedResultDto"
+          required:
+            - actionId
+            - status
+            - original
+          additionalProperties: false
+    SyncActionsRequest:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncActionDto"
+          minItems: 1
+          maxItems: 100
+      required:
+        - actions
+      additionalProperties: false
+    SyncActionsResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncActionResultDto"
+      required:
+        - results
+      additionalProperties: false
+    SyncChangeDto:
+      oneOf:
+        - type: object
+          properties:
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+            resource:
+              const: recipe
+            operation:
+              const: upsert
+            data:
+              $ref: "#/components/schemas/RecipeView"
+          required:
+            - serverVersion
+            - resource
+            - operation
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+            resource:
+              const: recipe
+            operation:
+              const: delete
+            data:
+              $ref: "#/components/schemas/RecipeTombstone"
+          required:
+            - serverVersion
+            - resource
+            - operation
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+            resource:
+              const: weekly_plan
+            operation:
+              const: upsert
+            data:
+              $ref: "#/components/schemas/WeeklyPlanView"
+          required:
+            - serverVersion
+            - resource
+            - operation
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            serverVersion:
+              $ref: "#/components/schemas/ServerVersion"
+            resource:
+              const: settings
+            operation:
+              const: upsert
+            data:
+              $ref: "#/components/schemas/SettingsDto"
+          required:
+            - serverVersion
+            - resource
+            - operation
+            - data
+          additionalProperties: false
+    SyncResponse:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncChangeDto"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+      required:
+        - changes
+        - hasMore
+      additionalProperties: false
+    WeeklyPlanUpsertChangeDto:
+      type: object
+      properties:
+        serverVersion:
+          $ref: "#/components/schemas/ServerVersion"
+        resource:
+          const: weekly_plan
+        operation:
+          const: upsert
+        data:
+          $ref: "#/components/schemas/WeeklyPlanView"
+      required:
+        - serverVersion
+        - resource
+        - operation
+        - data
+      additionalProperties: false

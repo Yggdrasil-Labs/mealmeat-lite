@@ -34,6 +34,12 @@
       "required": ["id", "weekStart", "serverVersion", "items", "createdAt", "updatedAt"],
       "additionalProperties": false
     },
+    "CurrentWeeklyPlanResponse": {
+      "oneOf": [
+        { "$ref": "#/$defs/WeeklyPlanView" },
+        { "type": "null" }
+      ]
+    },
     "WeeklyPlanPreview": {
       "type": "object",
       "properties": {

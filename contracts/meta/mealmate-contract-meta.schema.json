@@ -4,27 +4,41 @@
   "title": "MealMate Contract Meta Schema",
   "description": "验证 openapi.yaml 中 x-mealmate-* 扩展的元数据格式",
   "type": "object",
+  "required": [
+    "x-mealmate-functions",
+    "x-mealmate-sse",
+    "x-mealmate-errors",
+    "x-mealmate-invariants"
+  ],
   "properties": {
     "x-mealmate-functions": {
       "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "$ref": "#/$defs/FunctionToolDefinition"
       }
     },
     "x-mealmate-sse": {
       "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
       "items": {
         "$ref": "#/$defs/SseEventDefinition"
       }
     },
     "x-mealmate-errors": {
       "type": "array",
+      "minItems": 33,
+      "maxItems": 33,
       "items": {
         "$ref": "#/$defs/ErrorDefinition"
       }
     },
     "x-mealmate-invariants": {
       "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
       "items": {
         "$ref": "#/$defs/InvariantDefinition"
       }
@@ -63,15 +77,104 @@
         },
         "schemaId": { "type": "string" },
         "isStart": { "type": "boolean" },
-        "isTerminal": { "type": "boolean" }
+        "isTerminal": { "type": "boolean" },
+        "nextEvents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["start", "delta", "tool-status", "confirmation-required", "error", "done"]
+          }
+        },
+        "toolLifecycle": {
+          "type": "object",
+          "properties": {
+            "idField": { "type": "string", "minLength": 1 },
+            "statusField": { "type": "string", "minLength": 1 },
+            "startedStatus": { "type": "string", "minLength": 1 },
+            "terminalStatuses": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          },
+          "required": ["idField", "statusField", "startedStatus", "terminalStatuses"],
+          "additionalProperties": false
+        },
+        "confirmationToken": {
+          "type": "object",
+          "properties": {
+            "stateField": { "type": "string", "minLength": 1 },
+            "tokenField": { "type": "string", "minLength": 1 },
+            "tokenRequiredState": { "type": "string", "minLength": 1 },
+            "tokenForbiddenStates": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          },
+          "required": ["stateField", "tokenField", "tokenRequiredState", "tokenForbiddenStates"],
+          "additionalProperties": false
+        },
+        "errorCatalog": {
+          "type": "object",
+          "properties": {
+            "errCodeField": { "type": "string", "minLength": 1 },
+            "retryableField": { "type": "string", "minLength": 1 },
+            "requestIdField": { "type": "string", "minLength": 1 }
+          },
+          "required": ["errCodeField", "retryableField", "requestIdField"],
+          "additionalProperties": false
+        },
+        "mutuallyExclusiveDataFields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 2
+        }
       },
-      "required": ["event", "schemaId", "isStart", "isTerminal"],
+      "required": ["event", "schemaId", "isStart", "isTerminal", "nextEvents"],
       "additionalProperties": false
     },
     "ErrorDefinition": {
       "type": "object",
       "properties": {
-        "errCode": { "type": "string" },
+        "errCode": {
+          "type": "string",
+          "enum": [
+            "BAD_REQUEST",
+            "INVALID_CURSOR",
+            "UNAUTHORIZED",
+            "INVALID_BOOTSTRAP_SECRET",
+            "INVALID_FAMILY_CODE",
+            "RECIPE_NOT_FOUND",
+            "PLAN_NOT_FOUND",
+            "DEVICE_NOT_FOUND",
+            "CONFIRMATION_NOT_FOUND",
+            "CHAT_REQUEST_EXPIRED",
+            "CONFIRMATION_EXPIRED",
+            "ALREADY_INITIALIZED",
+            "NOT_INITIALIZED",
+            "IDEMPOTENCY_KEY_REUSED",
+            "RECIPE_DELETED",
+            "CHAT_REQUEST_SUPERSEDED",
+            "CONFIRMATION_CONSUMED",
+            "CONFIRMATION_SUPERSEDED",
+            "CONFIRMATION_STALE",
+            "RECIPE_IN_USE",
+            "CHAT_IN_PROGRESS",
+            "CHAT_DEVICE_BUSY",
+            "VALIDATION_ERROR",
+            "INVALID_WEEK_START",
+            "MODEL_UNAVAILABLE",
+            "NO_NEW_RECIPES",
+            "RATE_LIMITED",
+            "INTERNAL_ERROR",
+            "SYNC_CHANGE_TOO_LARGE",
+            "PROVIDER_ERROR",
+            "NOT_READY",
+            "SERVICE_BUSY",
+            "MODEL_TIMEOUT"
+          ]
+        },
         "httpStatus": {
           "type": "integer",
           "enum": [400, 401, 404, 409, 410, 422, 429, 500, 502, 503, 504]
@@ -119,7 +222,16 @@
     "InvariantDefinition": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
+        "id": {
+          "type": "string",
+          "enum": [
+            "WEEK_START_IS_MONDAY",
+            "WEEKLY_PLAN_HAS_21_SLOTS",
+            "SYNC_RESULTS_PRESERVE_INPUT_ORDER",
+            "SERVER_VERSION_WITHIN_DB_BIGINT",
+            "CONFIRMATION_STATE_FIELDS_MATCH"
+          ]
+        },
         "appliesTo": {
           "type": "array",
           "items": { "type": "string" },
@@ -129,9 +241,26 @@
           "type": "array",
           "items": { "type": "string", "enum": ["server", "android", "database"] },
           "minItems": 1
+        },
+        "vectors": {
+          "type": "object",
+          "properties": {
+            "valid": {
+              "type": "array",
+              "items": {},
+              "minItems": 1
+            },
+            "invalid": {
+              "type": "array",
+              "items": {},
+              "minItems": 1
+            }
+          },
+          "required": ["valid", "invalid"],
+          "additionalProperties": false
         }
       },
-      "required": ["id", "appliesTo", "owners"],
+      "required": ["id", "appliesTo", "owners", "vectors"],
       "additionalProperties": false
     }
   }

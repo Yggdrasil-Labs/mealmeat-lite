@@ -75,7 +75,7 @@
         "errCode": { "type": "string" },
         "errMessage": { "type": "string" },
         "retryable": { "type": "boolean" },
-        "requestId": { "type": "string" }
+        "requestId": { "type": "string", "minLength": 1 }
       },
       "required": ["errCode", "errMessage", "retryable", "requestId"],
       "additionalProperties": false

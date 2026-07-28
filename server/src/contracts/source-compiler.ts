@@ -4,9 +4,10 @@
  * 从 contracts/v1/source/ 解析权威源，生成 manifest 和投影文件
  */
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import type { ValidateFunction } from 'ajv'
 import {
   ContractError,
   type ContractManifest,
@@ -18,6 +19,27 @@ import {
   type SchemaDescriptor,
   type SseEventDescriptor,
 } from './types.js'
+
+const CONTRACT_META_SCHEMA_URL = new URL(
+  '../../../contracts/meta/mealmate-contract-meta.schema.json',
+  import.meta.url,
+)
+
+type Ajv2020Constructor = new (options: {
+  allErrors: boolean
+  strict: boolean
+}) => {
+  compile(schema: Record<string, unknown>): ValidateFunction
+}
+
+type StandaloneAjv = {
+  addSchema(schema: unknown): void
+  compile(schema: unknown): unknown
+}
+
+type StandaloneAjvConstructor = new (options: Record<string, unknown>) => StandaloneAjv
+type AddFormatsInstaller = (ajv: StandaloneAjv) => void
+type StandaloneCodeGenerator = (ajv: StandaloneAjv, refs: Record<string, string>) => string
 
 /**
  * 编译契约源文件，生成 manifest 和投影
@@ -33,20 +55,24 @@ export async function compileContractSources(
   // 动态导入 yaml（避免顶层 await）
   const yaml = await import('yaml')
   const openApi = yaml.parse(openApiContent)
+  await validateContractMetadata(openApi)
 
   // 2. 提取各类描述符
   const schemas = await extractSchemas(sourceRoot, openApi)
-  const httpOperations = extractHttpOperations(openApi)
   const functionTools = extractFunctionTools(openApi)
   const sseEvents = extractSseEvents(openApi)
   const errors = extractErrors(openApi)
   const invariants = extractInvariants(openApi)
 
   // 3. 验证覆盖和引用
-  validateCoverage(httpOperations, functionTools, sseEvents)
-  validateUniqueIds(schemas, errors, invariants)
   await validateSchemaRefs(sourceRoot, schemas)
   await validatePortableProfile(sourceRoot, schemas)
+  validateSourceUniqueIds(schemas, errors, invariants)
+
+  const httpOperations = extractHttpOperations(openApi, schemas)
+  validateCoverage(httpOperations, functionTools, sseEvents)
+  validateOperationAndProtocolUniqueIds(httpOperations, functionTools, sseEvents)
+  validateSchemaBindings(schemas, httpOperations, functionTools, sseEvents, invariants)
 
   // 4. 计算 fingerprint
   const fingerprint = await calculateFingerprint(sourceRoot)
@@ -76,21 +102,22 @@ export async function compileContractSources(
       retryAfter: e.retryAfter,
       channels: e.channels,
     })),
-    sseEvents: sseEvents.map((e) => ({
-      event: e.event,
-      isStart: e.isStart,
-      isTerminal: e.isTerminal,
-    })),
+    sseEvents,
     invariants: invariants.map((i) => ({
       id: i.id,
       appliesTo: i.appliesTo,
       owners: i.owners,
+      vectors: i.vectors,
     })),
   }
   await writeFile(
     join(outputRoot, 'protocol-catalog.json'),
     `${JSON.stringify(protocolCatalog, null, 2)}\n`,
   )
+
+  // 生成 Android 消费的协议目录。Android 只解释这份投影，不在 Kotlin 中复制事件、
+  // 转移或不变量事实。
+  await generateKotlinProtocolCatalog(sourceRoot, outputRoot, manifest)
 
   // 生成 provider-tools.json
   // 注意：这需要动态 import 以避免循环依赖
@@ -165,6 +192,53 @@ export async function checkGeneratedContract(
 // 内部函数
 // ============================================================================
 
+/**
+ * 用版本化的元 schema 验证 OpenAPI 中的 x-mealmate-* 目录。
+ *
+ * 这些扩展会直接驱动 provider、SSE 和跨端不变量投影；不能等到后续生成器
+ * 对错误类型的偶然访问时才暴露格式错误。
+ */
+async function validateContractMetadata(openApi: unknown): Promise<void> {
+  try {
+    const metaSchema = JSON.parse(await readFile(CONTRACT_META_SCHEMA_URL, 'utf-8')) as Record<
+      string,
+      unknown
+    >
+    const Ajv2020Module = (await import('ajv/dist/2020.js')) as unknown as {
+      Ajv2020?: Ajv2020Constructor
+      default?: Ajv2020Constructor
+    }
+    const Ajv2020 = Ajv2020Module.Ajv2020 ?? Ajv2020Module.default
+    if (!Ajv2020) {
+      throw new ContractError('CONTRACT_META_INVALID', 'Ajv 2020 metadata validator is unavailable')
+    }
+    const ajv = new Ajv2020({ allErrors: true, strict: true })
+    const validate = ajv.compile(metaSchema)
+
+    if (validate(openApi)) return
+
+    const details = (validate.errors ?? []).map((error) => ({
+      instancePath: error.instancePath,
+      keyword: error.keyword,
+      message: error.message,
+      schemaPath: error.schemaPath,
+    }))
+    throw new ContractError(
+      'CONTRACT_META_INVALID',
+      'OpenAPI x-mealmate metadata does not match the contract meta schema',
+      { errors: details },
+    )
+  } catch (error) {
+    if (error instanceof ContractError) throw error
+
+    const message = error instanceof Error ? error.message : String(error)
+    throw new ContractError(
+      'CONTRACT_META_INVALID',
+      `Unable to validate contract metadata: ${message}`,
+    )
+  }
+}
+
 async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<SchemaDescriptor[]> {
   const schemas: SchemaDescriptor[] = []
 
@@ -174,7 +248,7 @@ async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<Sch
 
   if (components?.schemas) {
     const schemaMap = components.schemas as Record<string, unknown>
-    for (const [id, _schema] of Object.entries(schemaMap)) {
+    for (const id of Object.keys(schemaMap).sort((left, right) => left.localeCompare(right))) {
       schemas.push({
         id,
         file: 'openapi.yaml',
@@ -188,6 +262,7 @@ async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<Sch
   const schemasDir = join(sourceRoot, 'schemas')
   try {
     const entries = await readdir(schemasDir, { withFileTypes: true })
+    entries.sort((left, right) => left.name.localeCompare(right.name))
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith('.schema.json')) {
         const schemaContent = await readFile(join(schemasDir, entry.name), 'utf-8')
@@ -195,7 +270,7 @@ async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<Sch
         const defs = schemaJson.$defs as Record<string, unknown> | undefined
 
         if (defs) {
-          for (const defId of Object.keys(defs)) {
+          for (const defId of Object.keys(defs).sort((left, right) => left.localeCompare(right))) {
             schemas.push({
               id: defId,
               file: `schemas/${entry.name}`,
@@ -213,26 +288,148 @@ async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<Sch
   return schemas
 }
 
-function extractHttpOperations(openApi: unknown): OperationDescriptor[] {
+type RecordValue = Record<string, unknown>
+
+function isRecord(value: unknown): value is RecordValue {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function requireRecord(value: unknown, context: string): RecordValue {
+  if (!isRecord(value)) {
+    throw new ContractError('CONTRACT_UNRESOLVED_REF', `Expected object at ${context}`)
+  }
+  return value
+}
+
+function extractSchemaIdFromOpenApiReference(
+  schema: unknown,
+  schemas: readonly SchemaDescriptor[],
+  context: string,
+): string {
+  const schemaRecord = requireRecord(schema, context)
+  const ref = schemaRecord.$ref
+  if (typeof ref !== 'string') {
+    throw new ContractError('CONTRACT_UNRESOLVED_REF', `Expected a schema $ref at ${context}`)
+  }
+
+  const externalMatch = ref.match(/^(schemas\/[^#]+\.schema\.json)#\/\$defs\/([^/]+)$/)
+  const componentMatch = ref.match(/^#\/components\/schemas\/([^/]+)$/)
+  const localDefinitionMatch = ref.match(/^#\/\$defs\/([^/]+)$/)
+  const schemaId = externalMatch?.[2] ?? componentMatch?.[1] ?? localDefinitionMatch?.[1]
+  const expectedFile = externalMatch?.[1]
+
+  if (!schemaId) {
+    throw new ContractError(
+      'CONTRACT_UNRESOLVED_REF',
+      `Unsupported schema reference at ${context}: ${ref}`,
+    )
+  }
+
+  const registered = schemas.some(
+    (candidate) => candidate.id === schemaId && (!expectedFile || candidate.file === expectedFile),
+  )
+  if (!registered) {
+    throw new ContractError(
+      'CONTRACT_UNRESOLVED_REF',
+      `Unregistered schema reference at ${context}: ${ref}`,
+    )
+  }
+
+  return schemaId
+}
+
+function extractRequestSchemaId(
+  operation: RecordValue,
+  schemas: readonly SchemaDescriptor[],
+  context: string,
+): string | undefined {
+  if (!operation.requestBody) return undefined
+
+  const requestBody = requireRecord(operation.requestBody, `${context}.requestBody`)
+  const content = requireRecord(requestBody.content, `${context}.requestBody.content`)
+  const jsonContent = requireRecord(
+    content['application/json'],
+    `${context}.requestBody.content.application/json`,
+  )
+
+  return extractSchemaIdFromOpenApiReference(
+    jsonContent.schema,
+    schemas,
+    `${context}.requestBody.content.application/json.schema`,
+  )
+}
+
+function extractResponseSchemas(
+  operation: RecordValue,
+  schemas: readonly SchemaDescriptor[],
+  context: string,
+): Record<number, string | null> {
+  const responses = requireRecord(operation.responses, `${context}.responses`)
+  const responseSchemas: Record<number, string | null> = {}
+
+  for (const [statusText, responseValue] of Object.entries(responses)) {
+    const status = Number(statusText)
+    if (!Number.isInteger(status) || status < 100 || status > 599) {
+      throw new ContractError(
+        'CONTRACT_UNRESOLVED_REF',
+        `Invalid response status at ${context}: ${statusText}`,
+      )
+    }
+
+    const response = requireRecord(responseValue, `${context}.responses.${statusText}`)
+    const content = requireRecord(response.content, `${context}.responses.${statusText}.content`)
+
+    if (content['application/json']) {
+      const jsonContent = requireRecord(
+        content['application/json'],
+        `${context}.responses.${statusText}.content.application/json`,
+      )
+      responseSchemas[status] = extractSchemaIdFromOpenApiReference(
+        jsonContent.schema,
+        schemas,
+        `${context}.responses.${statusText}.content.application/json.schema`,
+      )
+      continue
+    }
+
+    if (content['text/event-stream']) {
+      // SSE 是由 x-mealmate-sse 清单逐帧描述的流，不伪造为一个 JSON 响应 schema。
+      responseSchemas[status] = null
+      continue
+    }
+
+    throw new ContractError(
+      'CONTRACT_UNRESOLVED_REF',
+      `Expected application/json or text/event-stream response content at ${context}.responses.${statusText}`,
+    )
+  }
+
+  return responseSchemas
+}
+
+function extractHttpOperations(
+  openApi: unknown,
+  schemas: readonly SchemaDescriptor[],
+): OperationDescriptor[] {
   const operations: OperationDescriptor[] = []
-  const api = openApi as Record<string, unknown>
+  const api = requireRecord(openApi, 'openapi')
   const paths = api.paths as Record<string, unknown> | undefined
 
   if (!paths) return operations
 
   for (const [path, pathItem] of Object.entries(paths)) {
-    const item = pathItem as Record<string, unknown>
+    const item = requireRecord(pathItem, `paths.${path}`)
     for (const method of ['get', 'post', 'put', 'patch', 'delete'] as const) {
-      const op = item[method] as Record<string, unknown> | undefined
-      if (op?.operationId) {
+      const op = item[method]
+      if (isRecord(op) && typeof op.operationId === 'string') {
+        const context = `${method.toUpperCase()} ${path}`
+        const requestSchemaId = extractRequestSchemaId(op, schemas, context)
         operations.push({
-          operationId: op.operationId as string,
+          operationId: op.operationId,
           method: method.toUpperCase() as OperationDescriptor['method'],
           path,
-          // TODO(T1-tech-debt): 解析 openapi.yaml 中的 requestBody 和 responses
-          // 当前 responses 硬编码为空，意味着 manifest 不记录请求/响应 schema 绑定
-          // 影响：T2 下游模块（如 error tuple 校验）无法从 manifest 获取 operation 的响应 schema
-          responses: {},
+          ...(requestSchemaId ? { requestSchemaId } : {}),
+          responses: extractResponseSchemas(op, schemas, context),
         })
       }
     }
@@ -290,7 +487,7 @@ function validateCoverage(
   }
 }
 
-function validateUniqueIds(
+function validateSourceUniqueIds(
   schemas: SchemaDescriptor[],
   errors: PublicErrorDefinition[],
   invariants: InvariantDefinition[],
@@ -320,6 +517,92 @@ function validateUniqueIds(
       'CONTRACT_DUPLICATE_ID',
       `Duplicate invariant IDs: ${duplicateInvariants.join(', ')}`,
     )
+  }
+}
+
+function validateOperationAndProtocolUniqueIds(
+  httpOperations: OperationDescriptor[],
+  functionTools: FunctionToolDescriptor[],
+  sseEvents: SseEventDescriptor[],
+): void {
+  const duplicateOperationIds = findDuplicates(
+    httpOperations.map((operation) => operation.operationId),
+  )
+  if (duplicateOperationIds.length > 0) {
+    throw new ContractError(
+      'CONTRACT_DUPLICATE_ID',
+      `Duplicate operation IDs: ${duplicateOperationIds.join(', ')}`,
+    )
+  }
+
+  const duplicateOperationPaths = findDuplicates(
+    httpOperations.map((operation) => `${operation.method} ${operation.path}`),
+  )
+  if (duplicateOperationPaths.length > 0) {
+    throw new ContractError(
+      'CONTRACT_DUPLICATE_ID',
+      `Duplicate HTTP method/path pairs: ${duplicateOperationPaths.join(', ')}`,
+    )
+  }
+
+  const duplicateToolNames = findDuplicates(functionTools.map((tool) => tool.name))
+  if (duplicateToolNames.length > 0) {
+    throw new ContractError(
+      'CONTRACT_DUPLICATE_ID',
+      `Duplicate function tool names: ${duplicateToolNames.join(', ')}`,
+    )
+  }
+
+  const duplicateSseEvents = findDuplicates(sseEvents.map((event) => event.event))
+  if (duplicateSseEvents.length > 0) {
+    throw new ContractError(
+      'CONTRACT_DUPLICATE_ID',
+      `Duplicate SSE event names: ${duplicateSseEvents.join(', ')}`,
+    )
+  }
+}
+
+function validateSchemaBindings(
+  schemas: readonly SchemaDescriptor[],
+  httpOperations: readonly OperationDescriptor[],
+  functionTools: readonly FunctionToolDescriptor[],
+  sseEvents: readonly SseEventDescriptor[],
+  invariants: readonly InvariantDefinition[],
+): void {
+  const schemaIds = new Set(schemas.map((schema) => schema.id))
+  const assertRegistered = (schemaId: string, context: string) => {
+    if (!schemaIds.has(schemaId)) {
+      throw new ContractError(
+        'CONTRACT_UNRESOLVED_REF',
+        `Unregistered schema ID at ${context}: ${schemaId}`,
+      )
+    }
+  }
+
+  for (const operation of httpOperations) {
+    if (operation.requestSchemaId) {
+      assertRegistered(operation.requestSchemaId, `${operation.operationId}.requestSchemaId`)
+    }
+    for (const [status, schemaId] of Object.entries(operation.responses)) {
+      if (schemaId) {
+        assertRegistered(schemaId, `${operation.operationId}.responses.${status}`)
+      }
+    }
+  }
+
+  for (const tool of functionTools) {
+    assertRegistered(tool.inputSchemaId, `${tool.name}.inputSchemaId`)
+    assertRegistered(tool.outputSchemaId, `${tool.name}.outputSchemaId`)
+  }
+
+  for (const event of sseEvents) {
+    assertRegistered(event.schemaId, `${event.event}.schemaId`)
+  }
+
+  for (const invariant of invariants) {
+    for (const schemaId of invariant.appliesTo) {
+      assertRegistered(schemaId, `${invariant.id}.appliesTo`)
+    }
   }
 }
 
@@ -368,23 +651,37 @@ async function validateCrossFileRef(
   fragmentPart: string,
 ): Promise<void> {
   const refFile = join(schemasDir, filePart)
-  const resolvedRefFile = resolve(refFile)
-  const resolvedSchemasDir = resolve(schemasDir)
+  const unresolvedRefFile = resolve(refFile)
+  const unresolvedSchemasDir = resolve(schemasDir)
+  const isOutside = (candidate: string, root: string) => {
+    const pathFromRoot = relative(root, candidate)
+    return pathFromRoot === '..' || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)
+  }
 
-  // 路径遍历防护
-  if (!resolvedRefFile.startsWith(resolvedSchemasDir)) {
+  // 先在词法路径上拒绝 ../ 与相邻前缀（schemas-escape）绕过；随后再用 realpath
+  // 处理 symlink 指向目录外的情况。readFile 始终使用 realpath 后的位置。
+  if (isOutside(unresolvedRefFile, unresolvedSchemasDir)) {
     throw new ContractError('CONTRACT_UNSAFE_PATH', `Path traversal attempt in ${fileName}: ${ref}`)
   }
 
-  let refContent: string
+  let resolvedRefFile: string
+  let resolvedSchemasDir: string
   try {
-    refContent = await readFile(refFile, 'utf-8')
+    const resolvedPaths = await Promise.all([realpath(refFile), realpath(schemasDir)])
+    resolvedRefFile = resolvedPaths[0]
+    resolvedSchemasDir = resolvedPaths[1]
   } catch {
     throw new ContractError(
       'CONTRACT_UNRESOLVED_REF',
       `Unresolved file reference in ${fileName}: ${ref}`,
     )
   }
+
+  if (isOutside(resolvedRefFile, resolvedSchemasDir)) {
+    throw new ContractError('CONTRACT_UNSAFE_PATH', `Path traversal attempt in ${fileName}: ${ref}`)
+  }
+
+  const refContent = await readFile(resolvedRefFile, 'utf-8')
 
   // 验证跨文件 fragment 引用
   validateCrossFileFragment(fileName, ref, filePart, fragmentPart, refContent)
@@ -443,6 +740,7 @@ async function validateSchemaRefs(sourceRoot: string, _schemas: SchemaDescriptor
 
   try {
     const entries = await readdir(schemasDir, { withFileTypes: true })
+    entries.sort((left, right) => left.name.localeCompare(right.name))
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith('.schema.json')) {
         const content = await readFile(join(schemasDir, entry.name), 'utf-8')
@@ -500,6 +798,7 @@ async function validatePortableProfile(
 
   try {
     const entries = await readdir(schemasDir, { withFileTypes: true })
+    entries.sort((left, right) => left.name.localeCompare(right.name))
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith('.schema.json')) {
         const content = await readFile(join(schemasDir, entry.name), 'utf-8')
@@ -572,65 +871,391 @@ async function collectFilesWithHashes(dir: string): Promise<Map<string, string>>
 // TypeScript Schema 生成
 // ============================================================================
 
-/**
- * 需要生成类型的公开 schema
- *
- * 分为两类：
- * 1. schemaLocations: 用于 validateContract
- * 2. toolInputSchemas: 用于 validateToolInput
- */
-const PUBLIC_SCHEMAS: Record<string, { file: string; defName: string }> = {
-  // validateContract 使用的 schema
-  UUID: { file: 'common.schema.json', defName: 'UUID' },
-  ServerVersion: { file: 'common.schema.json', defName: 'ServerVersion' },
-  Rfc3339DateTime: { file: 'common.schema.json', defName: 'Rfc3339DateTime' },
-  MondayDate: { file: 'common.schema.json', defName: 'MondayDate' },
-  RecipeView: { file: 'recipe.schema.json', defName: 'RecipeView' },
-  RecipeDraft: { file: 'recipe.schema.json', defName: 'RecipeDraft' },
-  RecipePatchRequest: { file: 'recipe.schema.json', defName: 'RecipePatchRequest' },
-  WeeklyPlanView: { file: 'plan.schema.json', defName: 'WeeklyPlanView' },
-}
-
-const TOOL_INPUT_SCHEMAS: Record<string, { file: string; defName: string }> = {
-  add_recipe: { file: 'recipe.schema.json', defName: 'AddRecipeInput' },
-  update_recipe: { file: 'recipe.schema.json', defName: 'UpdateRecipeInput' },
-  delete_recipe: { file: 'recipe.schema.json', defName: 'DeleteRecipeInput' },
-  restore_recipe: { file: 'recipe.schema.json', defName: 'RestoreRecipeInput' },
-  search_recipes: { file: 'recipe.schema.json', defName: 'SearchRecipesInput' },
-  batch_generate_recipes: { file: 'recipe.schema.json', defName: 'BatchGenerateRecipesInput' },
-  generate_weekly_plan: { file: 'plan.schema.json', defName: 'GenerateWeeklyPlanInput' },
-  update_plan_item: { file: 'plan.schema.json', defName: 'UpdatePlanItemInput' },
-}
-
-const SCHEMA_FILES = [
-  'common.schema.json',
-  'auth.schema.json',
-  'recipe.schema.json',
-  'plan.schema.json',
-  'chat.schema.json',
-  'sync.schema.json',
-  'settings.schema.json',
-] as const
-
 type DefEntry = { schema: Record<string, unknown>; file: string }
 type DefsMap = Map<string, DefEntry>
+type SchemaLocation = { file: string; defName: string }
+
+/**
+ * Ajv standalone 会把其 CJS runtime helpers（以及 ajv-formats）生成为 require()。
+ * 服务端是原生 ESM，而测试运行器的 CJS interop 又与 Node ESM 不同，因此在完整
+ * `require(...).property` 边界改写：`.default` 经过兼容归一化，具名导出直接导入。
+ */
+function rewriteStandaloneCommonJsRequiresAsEsm(standaloneCode: string): string {
+  const imports: string[] = []
+  const aliases = new Map<string, string>()
+  const esmModuleId = (moduleId: string) =>
+    moduleId.startsWith('ajv/') || moduleId.startsWith('ajv-formats/') ? `${moduleId}.js` : moduleId
+
+  const getDefaultInteropAlias = (moduleId: string) => {
+    const key = `${moduleId}#default`
+    const existing = aliases.get(key)
+    if (existing) return existing
+
+    const moduleAlias = `contractStandaloneModule${aliases.size}`
+    const alias = `${moduleAlias}Default`
+    imports.push(`import ${moduleAlias} from ${JSON.stringify(esmModuleId(moduleId))}`)
+    imports.push(`const ${alias} = ${moduleAlias}.default ?? ${moduleAlias}`)
+    aliases.set(key, alias)
+    return alias
+  }
+
+  const getNamedAlias = (moduleId: string, property: string) => {
+    const key = `${moduleId}#${property}`
+    const existing = aliases.get(key)
+    if (existing) return existing
+
+    const alias = `contractStandaloneModule${aliases.size}`
+    imports.push(`import { ${property} as ${alias} } from ${JSON.stringify(esmModuleId(moduleId))}`)
+    aliases.set(key, alias)
+    return alias
+  }
+
+  let rewritten = standaloneCode.replace(
+    /require\("([^"\\]+)"\)\.default/g,
+    (_match, moduleId: string) => getDefaultInteropAlias(moduleId),
+  )
+  rewritten = rewritten.replace(
+    /require\("([^"\\]+)"\)\.([A-Za-z_$][A-Za-z0-9_$]*)/g,
+    (_match, moduleId: string, property: string) => getNamedAlias(moduleId, property),
+  )
+
+  if (imports.length === 0) return rewritten
+  return `${imports.join('\n')}\n${rewritten}`
+}
+
+function listSchemaFiles(schemasDir: string): string[] {
+  return readdirSync(schemasDir)
+    .filter((file) => file.endsWith('.schema.json'))
+    .sort((left, right) => left.localeCompare(right))
+}
 
 /**
  * 收集所有 schema 定义
  */
 function collectAllDefs(schemasDir: string): DefsMap {
   const allDefs: DefsMap = new Map()
-  for (const file of SCHEMA_FILES) {
+  for (const file of listSchemaFiles(schemasDir)) {
     const content = readFileSync(join(schemasDir, file), 'utf-8')
     const schema = JSON.parse(content) as Record<string, unknown>
-    const defs = schema.$defs as Record<string, Record<string, unknown>> | undefined
-    if (!defs) continue
+    const defs = schema.$defs
+    if (!isRecord(defs)) continue
     for (const [name, def] of Object.entries(defs)) {
+      if (!isRecord(def)) {
+        throw new ContractError(
+          'CONTRACT_UNRESOLVED_REF',
+          `Invalid schema definition: ${file}#${name}`,
+        )
+      }
       allDefs.set(`${file}#/$defs/${name}`, { schema: def, file })
       allDefs.set(name, { schema: def, file })
     }
   }
   return allDefs
+}
+
+function kotlinString(value: string): string {
+  // JSON 字符串字面量与 Kotlin 字符串转义兼容；额外转义 $，避免生成的契约值被
+  // Kotlin 视为字符串模板。
+  return JSON.stringify(value).replaceAll('$', '\\$')
+}
+
+function kotlinStringSet(values: readonly string[]): string {
+  if (values.length === 0) return 'emptySet()'
+  return `setOf(${values.map(kotlinString).join(', ')})`
+}
+
+function kotlinJsonStringList(values: readonly unknown[]): string {
+  if (values.length === 0) return 'emptyList()'
+  return `listOf(${values
+    .map((value) => {
+      const json = JSON.stringify(value)
+      if (json === undefined) {
+        throw new ContractError('CONTRACT_META_INVALID', 'Invariant vectors must be JSON values')
+      }
+      return kotlinString(json)
+    })
+    .join(', ')})`
+}
+
+function resolveKotlinModelSchemaId(
+  schemaId: string,
+  allDefs: DefsMap,
+  visited = new Set<string>(),
+): string {
+  if (visited.has(schemaId)) {
+    throw new ContractError('CONTRACT_UNRESOLVED_REF', `Cyclic schema alias: ${schemaId}`)
+  }
+  visited.add(schemaId)
+
+  const entry = allDefs.get(schemaId)
+  if (!entry) {
+    throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${schemaId}`)
+  }
+  if (typeof entry.schema.$ref !== 'string') return schemaId
+
+  const resolved = resolveRef(entry.schema.$ref, entry.file, allDefs, new Set())
+  if (!resolved) {
+    throw new ContractError('CONTRACT_UNRESOLVED_REF', `Cannot resolve Kotlin schema: ${schemaId}`)
+  }
+  const targetSchemaId = resolved.key.split('#/$defs/')[1]
+  if (!targetSchemaId) {
+    throw new ContractError(
+      'CONTRACT_UNRESOLVED_REF',
+      `Kotlin schema reference has no definition target: ${entry.schema.$ref}`,
+    )
+  }
+  return resolveKotlinModelSchemaId(targetSchemaId, allDefs, visited)
+}
+
+/**
+ * 生成 Android 协议目录。
+ *
+ * 这份文件与 JSON protocol-catalog 使用同一 manifest，是 Android SSE interpreter
+ * 和不变量入口的唯一事实来源；事件 data 的反序列化仍委托给生成 DTO serializer。
+ */
+async function generateKotlinProtocolCatalog(
+  sourceRoot: string,
+  outputRoot: string,
+  manifest: ContractManifest,
+): Promise<void> {
+  const allDefs = collectAllDefs(join(sourceRoot, 'schemas'))
+  const schemaModelIds = new Map(
+    manifest.sseEvents.map((event) => [
+      event.schemaId,
+      resolveKotlinModelSchemaId(event.schemaId, allDefs),
+    ]),
+  )
+  const modelIds = Array.from(new Set(schemaModelIds.values())).sort((left, right) =>
+    left.localeCompare(right),
+  )
+
+  const lines: string[] = [
+    '@file:Suppress("unused")',
+    '',
+    'package io.yggdrasil.labs.mealmate.lite.contract.generated',
+    '',
+    'import kotlinx.serialization.decodeFromString',
+    'import kotlinx.serialization.json.Json',
+    ...modelIds.map(
+      (modelId) => `import io.yggdrasil.labs.mealmate.lite.contract.generated.models.${modelId}`,
+    ),
+    '',
+    '/**',
+    ' * 协议目录 - 由契约编译器生成，禁止手改。',
+    ' * @generated',
+    ' */',
+    'data class GeneratedSseToolLifecycleRule(',
+    '    val idField: String,',
+    '    val statusField: String,',
+    '    val startedStatus: String,',
+    '    val terminalStatuses: Set<String>,',
+    ')',
+    '',
+    'data class GeneratedSseConfirmationTokenRule(',
+    '    val stateField: String,',
+    '    val tokenField: String,',
+    '    val tokenRequiredState: String,',
+    '    val tokenForbiddenStates: Set<String>,',
+    ')',
+    '',
+    'data class GeneratedSseErrorCatalogRule(',
+    '    val errCodeField: String,',
+    '    val retryableField: String,',
+    '    val requestIdField: String,',
+    ')',
+    '',
+    'data class GeneratedPublicErrorDefinition(',
+    '    val errCode: String,',
+    '    val retryable: Boolean,',
+    '    val channels: Set<String>,',
+    ')',
+    '',
+    'data class GeneratedInvariantDefinition(',
+    '    val id: GeneratedInvariantId,',
+    '    val appliesTo: Set<String>,',
+    '    val owners: Set<String>,',
+    '    /** Canonical JSON inputs, shared by Server and Android regression tests. */',
+    '    val validVectors: List<String>,',
+    '    val invalidVectors: List<String>,',
+    ')',
+    '',
+    'data class GeneratedSseEventDefinition(',
+    '    val event: String,',
+    '    val schemaId: String,',
+    '    val isStart: Boolean,',
+    '    val isTerminal: Boolean,',
+    '    val nextEvents: Set<String>,',
+    '    val toolLifecycle: GeneratedSseToolLifecycleRule? = null,',
+    '    val confirmationToken: GeneratedSseConfirmationTokenRule? = null,',
+    '    val errorCatalog: GeneratedSseErrorCatalogRule? = null,',
+    '    val mutuallyExclusiveDataFields: Set<String> = emptySet(),',
+    ')',
+    '',
+    'enum class GeneratedInvariantId {',
+    ...manifest.invariants.map((invariant) => `    ${invariant.id},`),
+    '}',
+    '',
+    'object GeneratedProtocolCatalog {',
+    '    val sseEvents: List<GeneratedSseEventDefinition> =',
+    '        listOf(',
+  ]
+
+  for (const event of manifest.sseEvents) {
+    lines.push('            GeneratedSseEventDefinition(')
+    lines.push(`                event = ${kotlinString(event.event)},`)
+    lines.push(`                schemaId = ${kotlinString(event.schemaId)},`)
+    lines.push(`                isStart = ${event.isStart},`)
+    lines.push(`                isTerminal = ${event.isTerminal},`)
+    lines.push(`                nextEvents = ${kotlinStringSet(event.nextEvents)},`)
+    if (event.toolLifecycle) {
+      lines.push('                toolLifecycle = GeneratedSseToolLifecycleRule(')
+      lines.push(`                    idField = ${kotlinString(event.toolLifecycle.idField)},`)
+      lines.push(
+        `                    statusField = ${kotlinString(event.toolLifecycle.statusField)},`,
+      )
+      lines.push(
+        `                    startedStatus = ${kotlinString(event.toolLifecycle.startedStatus)},`,
+      )
+      lines.push(
+        `                    terminalStatuses = ${kotlinStringSet(event.toolLifecycle.terminalStatuses)},`,
+      )
+      lines.push('                ),')
+    }
+    if (event.confirmationToken) {
+      lines.push('                confirmationToken = GeneratedSseConfirmationTokenRule(')
+      lines.push(
+        `                    stateField = ${kotlinString(event.confirmationToken.stateField)},`,
+      )
+      lines.push(
+        `                    tokenField = ${kotlinString(event.confirmationToken.tokenField)},`,
+      )
+      lines.push(
+        `                    tokenRequiredState = ${kotlinString(event.confirmationToken.tokenRequiredState)},`,
+      )
+      lines.push(
+        `                    tokenForbiddenStates = ${kotlinStringSet(event.confirmationToken.tokenForbiddenStates)},`,
+      )
+      lines.push('                ),')
+    }
+    if (event.errorCatalog) {
+      lines.push('                errorCatalog = GeneratedSseErrorCatalogRule(')
+      lines.push(
+        `                    errCodeField = ${kotlinString(event.errorCatalog.errCodeField)},`,
+      )
+      lines.push(
+        `                    retryableField = ${kotlinString(event.errorCatalog.retryableField)},`,
+      )
+      lines.push(
+        `                    requestIdField = ${kotlinString(event.errorCatalog.requestIdField)},`,
+      )
+      lines.push('                ),')
+    }
+    lines.push(
+      `                mutuallyExclusiveDataFields = ${kotlinStringSet(event.mutuallyExclusiveDataFields ?? [])},`,
+    )
+    lines.push('            ),')
+  }
+
+  lines.push('        )')
+  lines.push('')
+  lines.push('    val sseEventMap: Map<String, GeneratedSseEventDefinition> =')
+  lines.push('        sseEvents.associateBy { it.event }')
+  lines.push('')
+  lines.push('    val errors: List<GeneratedPublicErrorDefinition> =')
+  lines.push('        listOf(')
+  for (const error of manifest.errors) {
+    lines.push('            GeneratedPublicErrorDefinition(')
+    lines.push(`                errCode = ${kotlinString(error.errCode)},`)
+    lines.push(`                retryable = ${error.retryable},`)
+    lines.push(`                channels = ${kotlinStringSet(error.channels)},`)
+    lines.push('            ),')
+  }
+  lines.push('        )')
+  lines.push('')
+  lines.push('    val errorMap: Map<String, GeneratedPublicErrorDefinition> =')
+  lines.push('        errors.associateBy { it.errCode }')
+  lines.push('')
+  lines.push('    val invariantDefinitions: List<GeneratedInvariantDefinition> =')
+  lines.push('        listOf(')
+  for (const invariant of manifest.invariants) {
+    lines.push('            GeneratedInvariantDefinition(')
+    lines.push(`                id = GeneratedInvariantId.${invariant.id},`)
+    lines.push(`                appliesTo = ${kotlinStringSet(invariant.appliesTo)},`)
+    lines.push(`                owners = ${kotlinStringSet(invariant.owners)},`)
+    lines.push(`                validVectors = ${kotlinJsonStringList(invariant.vectors.valid)},`)
+    lines.push(
+      `                invalidVectors = ${kotlinJsonStringList(invariant.vectors.invalid)},`,
+    )
+    lines.push('            ),')
+  }
+  lines.push('        )')
+  lines.push('')
+  lines.push('    val invariantMap: Map<GeneratedInvariantId, GeneratedInvariantDefinition> =')
+  lines.push('        invariantDefinitions.associateBy { it.id }')
+  lines.push('')
+  lines.push('    val invariants: Set<GeneratedInvariantId> = invariantMap.keys')
+  lines.push('')
+  lines.push('    fun validateEventData(schemaId: String, json: Json, data: String): String? =')
+  lines.push('        runCatching {')
+  lines.push('            when (schemaId) {')
+  for (const [schemaId, modelId] of schemaModelIds) {
+    lines.push(
+      `                ${kotlinString(schemaId)} -> json.decodeFromString<${modelId}>(data)`,
+    )
+  }
+  lines.push('                else -> error("Unknown SSE event schema: $schemaId")')
+  lines.push('            }')
+  lines.push('        }.fold(')
+  lines.push('            onSuccess = { null },')
+  lines.push('            onFailure = { error -> error.message ?: "Invalid event data" },')
+  lines.push('        )')
+  lines.push('}')
+
+  await writeFile(join(outputRoot, 'ProtocolCatalog.kt'), `${lines.join('\n')}\n`)
+}
+
+function collectSchemaLocations(schemasDir: string): Record<string, SchemaLocation> {
+  const locations: Record<string, SchemaLocation> = {}
+
+  for (const file of listSchemaFiles(schemasDir)) {
+    const schema = JSON.parse(readFileSync(join(schemasDir, file), 'utf-8')) as Record<
+      string,
+      unknown
+    >
+    const defs = schema.$defs
+    if (!isRecord(defs)) continue
+    for (const [defName, definition] of Object.entries(defs)) {
+      if (!isRecord(definition)) {
+        throw new ContractError(
+          'CONTRACT_UNRESOLVED_REF',
+          `Invalid schema definition: ${file}#${defName}`,
+        )
+      }
+      locations[defName] = { file, defName }
+    }
+  }
+
+  return locations
+}
+
+function collectToolInputLocations(
+  manifest: ContractManifest,
+  schemaLocations: Record<string, SchemaLocation>,
+): Record<string, SchemaLocation> {
+  const locations: Record<string, SchemaLocation> = {}
+
+  for (const tool of manifest.functionTools) {
+    const location = schemaLocations[tool.inputSchemaId]
+    if (!location) {
+      throw new ContractError(
+        'CONTRACT_UNRESOLVED_REF',
+        `Tool input schema not found: ${tool.name} -> ${tool.inputSchemaId}`,
+      )
+    }
+    locations[tool.name] = location
+  }
+
+  return locations
 }
 
 /**
@@ -718,8 +1343,20 @@ function expandSchemaForTypes(
 export async function generateTypeScriptSchemas(
   schemasDir: string,
   outputPath: string,
+  manifest: ContractManifest,
 ): Promise<void> {
   const allDefs = collectAllDefs(schemasDir)
+  const schemaLocations = collectSchemaLocations(schemasDir)
+  const toolInputLocations = collectToolInputLocations(manifest, schemaLocations)
+  const schemaEntries = Object.entries(schemaLocations).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )
+  const toolEntries = Object.entries(toolInputLocations).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )
+  const schemaFiles = Array.from(new Set(schemaEntries.map(([, location]) => location.file))).sort(
+    (left, right) => left.localeCompare(right),
+  )
 
   const lines: string[] = [
     '/**',
@@ -737,7 +1374,7 @@ export async function generateTypeScriptSchemas(
     'export const SCHEMA_FILES = [',
   ]
 
-  for (const file of SCHEMA_FILES) {
+  for (const file of schemaFiles) {
     lines.push(`  '${file}',`)
   }
   lines.push('] as const')
@@ -751,8 +1388,6 @@ export async function generateTypeScriptSchemas(
   lines.push('// ============================================================================')
   lines.push('')
   lines.push('export const schemas = manifest.schemas')
-  lines.push('export const PUBLIC_SCHEMA_IDS = schemas.filter((s) => s.public).map((s) => s.id)')
-  lines.push('export const FUNCTION_TOOL_NAMES = manifest.functionTools.map((f) => f.name)')
   lines.push(
     'export const functionToolMap = new Map(manifest.functionTools.map((f) => [f.name, f]))',
   )
@@ -765,7 +1400,7 @@ export async function generateTypeScriptSchemas(
   lines.push('// ============================================================================')
   lines.push('')
 
-  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+  for (const [schemaId, loc] of schemaEntries) {
     const entry = allDefs.get(`${loc.file}#/$defs/${loc.defName}`)
     if (!entry) {
       throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${schemaId}`)
@@ -775,22 +1410,30 @@ export async function generateTypeScriptSchemas(
     lines.push('')
   }
 
-  // 生成工具输入 schema 常量
+  // 生成 schema 位置和工具输入位置映射
   lines.push('// ============================================================================')
-  lines.push('// 工具输入 Schema 常量 (as const)')
+  lines.push('// 运行时 schema 位置映射')
   lines.push('// ============================================================================')
   lines.push('')
-
-  for (const [toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
-    const entry = allDefs.get(`${loc.file}#/$defs/${loc.defName}`)
-    if (!entry) {
-      throw new ContractError('CONTRACT_UNRESOLVED_REF', `Tool input schema not found: ${toolName}`)
-    }
-    const expanded = expandSchemaForTypes(entry.schema, entry.file, allDefs, new Set())
-    const constName = `${loc.defName}Schema`
-    lines.push(`export const ${constName} = ${JSON.stringify(expanded, null, 2)} as const`)
-    lines.push('')
+  lines.push('export const schemaLocations = {')
+  for (const [schemaId, location] of schemaEntries) {
+    lines.push(
+      `  ${JSON.stringify(schemaId)}: { file: ${JSON.stringify(location.file)}, defPath: ${JSON.stringify(`/$defs/${location.defName}`)} },`,
+    )
   }
+  lines.push('} as const')
+  lines.push('')
+  lines.push('export const toolInputSchemaLocations = {')
+  for (const [toolName, location] of toolEntries) {
+    lines.push(
+      `  ${JSON.stringify(toolName)}: { file: ${JSON.stringify(location.file)}, defPath: ${JSON.stringify(`/$defs/${location.defName}`)} },`,
+    )
+  }
+  lines.push('} as const')
+  lines.push('')
+  lines.push('export const PUBLIC_SCHEMA_IDS = Object.keys(schemaLocations)')
+  lines.push('export const FUNCTION_TOOL_NAMES = Object.keys(toolInputSchemaLocations)')
+  lines.push('')
 
   // 生成 FromSchema 类型
   lines.push('// ============================================================================')
@@ -798,13 +1441,8 @@ export async function generateTypeScriptSchemas(
   lines.push('// ============================================================================')
   lines.push('')
 
-  for (const schemaId of Object.keys(PUBLIC_SCHEMAS)) {
+  for (const [schemaId] of schemaEntries) {
     lines.push(`export type ${schemaId} = FromSchema<typeof ${schemaId}Schema>`)
-  }
-  lines.push('')
-
-  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
-    lines.push(`export type ${loc.defName} = FromSchema<typeof ${loc.defName}Schema>`)
   }
   lines.push('')
 
@@ -814,13 +1452,12 @@ export async function generateTypeScriptSchemas(
   lines.push('// ============================================================================')
   lines.push('')
   lines.push('/** PublicSchemaId 类型 */')
-  const schemaIds = Object.keys(PUBLIC_SCHEMAS)
-  lines.push(`export type PublicSchemaId = ${schemaIds.map((id) => `'${id}'`).join(' | ')}`)
+  const schemaIds = schemaEntries.map(([schemaId]) => schemaId)
+  lines.push('export type PublicSchemaId = keyof typeof schemaLocations')
   lines.push('')
 
   lines.push('/** FunctionToolName 类型 */')
-  const toolNames = Object.keys(TOOL_INPUT_SCHEMAS)
-  lines.push(`export type FunctionToolName = ${toolNames.map((name) => `'${name}'`).join(' | ')}`)
+  lines.push('export type FunctionToolName = keyof typeof toolInputSchemaLocations')
   lines.push('')
 
   lines.push('/** ContractType - 根据 schema ID 获取类型 */')
@@ -833,8 +1470,8 @@ export async function generateTypeScriptSchemas(
 
   lines.push('/** ToolInput - 根据工具名获取输入类型 */')
   lines.push('export type ToolInput<T extends FunctionToolName> = {')
-  for (const [toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
-    lines.push(`  ${toolName}: ${loc.defName}`)
+  for (const [toolName, location] of toolEntries) {
+    lines.push(`  ${JSON.stringify(toolName)}: ${location.defName}`)
   }
   lines.push('}[T]')
   lines.push('')
@@ -852,16 +1489,37 @@ export async function generateStandaloneValidators(
   schemasDir: string,
   outputPath: string,
 ): Promise<void> {
-  // 动态导入 Ajv 2020-12 和 standalone
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Ajv2020Module = (await import('ajv/dist/2020.js')) as any
-  const Ajv2020 = Ajv2020Module.Ajv2020 || Ajv2020Module.default
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addFormatsModule = (await import('ajv-formats')) as any
-  const addFormats = addFormatsModule.default || addFormatsModule
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const standaloneModule = (await import('ajv/dist/standalone/index.js')) as any
-  const standaloneCode = standaloneModule.default || standaloneModule
+  const schemaLocations = collectSchemaLocations(schemasDir)
+  const schemaEntries = Object.entries(schemaLocations).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )
+  const schemaFiles = Array.from(new Set(schemaEntries.map(([, location]) => location.file))).sort(
+    (left, right) => left.localeCompare(right),
+  )
+
+  // 动态导入 Ajv 2020-12 和 standalone。显式描述最小接口，避免把运行时
+  // import 退化为 any 并丢失生成器边界的类型约束。
+  const Ajv2020Module = (await import('ajv/dist/2020.js')) as unknown as {
+    Ajv2020?: StandaloneAjvConstructor
+    default?: StandaloneAjvConstructor
+  }
+  const Ajv2020 = Ajv2020Module.Ajv2020 ?? Ajv2020Module.default
+  if (!Ajv2020)
+    throw new ContractError('CONTRACT_META_INVALID', 'Ajv 2020 standalone is unavailable')
+
+  const addFormatsModule = (await import('ajv-formats')) as unknown as {
+    default?: AddFormatsInstaller
+  }
+  const addFormats = addFormatsModule.default
+  if (!addFormats)
+    throw new ContractError('CONTRACT_META_INVALID', 'Ajv formats installer is unavailable')
+
+  const standaloneModule = (await import('ajv/dist/standalone/index.js')) as unknown as {
+    default?: StandaloneCodeGenerator
+  }
+  const standaloneCode = standaloneModule.default
+  if (!standaloneCode)
+    throw new ContractError('CONTRACT_META_INVALID', 'Ajv standalone generator is unavailable')
 
   // 创建 Ajv 2020-12 实例（与运行时配置相同）
   const ajv = new Ajv2020({
@@ -882,7 +1540,7 @@ export async function generateStandaloneValidators(
   addFormats(ajv)
 
   // 加载所有 schema
-  for (const file of SCHEMA_FILES) {
+  for (const file of schemaFiles) {
     const content = readFileSync(join(schemasDir, file), 'utf-8')
     const schema = JSON.parse(content) as Record<string, unknown>
     ajv.addSchema({ ...schema, $id: file })
@@ -891,27 +1549,16 @@ export async function generateStandaloneValidators(
   // 收集需要编译的 validator 引用
   const validatorRefs: Record<string, string> = {}
 
-  // 公开 schema validators
-  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+  // 每个公开 schema 都生成一个 validator，运行时无需手工注册子集。
+  for (const [schemaId, loc] of schemaEntries) {
     const ref = `${loc.file}#/$defs/${loc.defName}`
     const funcName = `validate${schemaId}`
     ajv.compile({ $ref: ref })
     validatorRefs[funcName] = ref
   }
 
-  // 工具输入 validators
-  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
-    const ref = `${loc.file}#/$defs/${loc.defName}`
-    const funcName = `validate${loc.defName}`
-    // 跳过已存在的（RecipeDraft 等可能重复）
-    if (!validatorRefs[funcName]) {
-      ajv.compile({ $ref: ref })
-      validatorRefs[funcName] = ref
-    }
-  }
-
   // 生成 standalone 代码
-  const code = standaloneCode(ajv, validatorRefs)
+  const code = rewriteStandaloneCommonJsRequiresAsEsm(standaloneCode(ajv, validatorRefs))
 
   // 生成 TypeScript 包装文件
   const lines: string[] = [
@@ -943,17 +1590,10 @@ export async function generateStandaloneValidators(
     'const validatorMap: Record<string, ValidateFunction> = {',
   ]
 
-  // 公开 schema 映射
-  for (const [schemaId, loc] of Object.entries(PUBLIC_SCHEMAS)) {
+  // 每个公开 schema 的映射
+  for (const [schemaId, loc] of schemaEntries) {
     const key = `${loc.file}#/$defs/${loc.defName}`
     const funcName = `validate${schemaId}`
-    lines.push(`  '${key}': ${funcName},`)
-  }
-
-  // 工具输入映射
-  for (const [_toolName, loc] of Object.entries(TOOL_INPUT_SCHEMAS)) {
-    const key = `${loc.file}#/$defs/${loc.defName}`
-    const funcName = `validate${loc.defName}`
     lines.push(`  '${key}': ${funcName},`)
   }
 
@@ -963,9 +1603,11 @@ export async function generateStandaloneValidators(
   lines.push(' * 获取预编译的 validator')
   lines.push(' */')
   lines.push('export function getValidator(file: string, defPath: string): ValidateFunction {')
-  lines.push('  const key = `${file}#${defPath}`')
+  lines.push(['  const key = `', '$' + '{file}', '#', '$' + '{defPath}', '`'].join(''))
   lines.push('  const validator = validatorMap[key]')
-  lines.push('  if (!validator) throw new Error(`No validator for: ${key}`)')
+  lines.push(
+    ['  if (!validator) throw new Error(`No validator for: ', '$' + '{key}', '`)'].join(''),
+  )
   lines.push('  return validator')
   lines.push('}')
   lines.push('')
@@ -1002,9 +1644,11 @@ async function generateEnhancedOpenApi(
   const schemasMap = components.schemas as Record<string, unknown>
 
   // 加载所有 schema 文件并提取 $defs
-  const schemaFiles = new Set(
-    schemas.filter((s) => s.file.startsWith('schemas/')).map((s) => s.file),
-  )
+  const schemaFiles = Array.from(
+    new Set(
+      schemas.filter((schema) => schema.file.startsWith('schemas/')).map((schema) => schema.file),
+    ),
+  ).sort((left, right) => left.localeCompare(right))
 
   for (const file of schemaFiles) {
     const filePath = join(sourceRoot, file)
@@ -1013,9 +1657,16 @@ async function generateEnhancedOpenApi(
     const defs = schemaJson.$defs as Record<string, unknown> | undefined
 
     if (defs) {
-      for (const [defName, defSchema] of Object.entries(defs)) {
+      for (const defName of Object.keys(defs).sort((left, right) => left.localeCompare(right))) {
+        const defSchema = defs[defName]
+        if (!isRecord(defSchema)) {
+          throw new ContractError(
+            'CONTRACT_UNRESOLVED_REF',
+            `Invalid schema definition: ${defName}`,
+          )
+        }
         // 内联 schema，移除 $schema 和 $id 等顶级属性
-        const inlinedSchema = { ...defSchema } as Record<string, unknown>
+        const inlinedSchema = { ...defSchema }
 
         // 转换 $ref 引用：将文件相对引用转为 OpenAPI 内部引用
         // 例如：common.schema.json#/$defs/UUID -> #/components/schemas/UUID
@@ -1025,6 +1676,9 @@ async function generateEnhancedOpenApi(
       }
     }
   }
+
+  // 路径中的外部 JSON Schema 引用在增强版 OpenAPI 中必须指向 components/schemas。
+  rewriteRefs(enhanced)
 
   // 生成 YAML
   return yaml.stringify(enhanced, {

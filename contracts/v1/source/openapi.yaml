@@ -15,6 +15,10 @@ paths:
       responses:
         '200':
           description: 服务存活
+          content:
+            application/json:
+              schema:
+                $ref: schemas/common.schema.json#/$defs/HealthLiveResponse
 
   /health/ready:
     get:
@@ -23,16 +27,34 @@ paths:
       responses:
         '200':
           description: 服务就绪
+          content:
+            application/json:
+              schema:
+                $ref: schemas/common.schema.json#/$defs/HealthReadyResponse
         '503':
           description: 服务未就绪
+          content:
+            application/json:
+              schema:
+                $ref: schemas/common.schema.json#/$defs/HealthNotReadyResponse
 
   /api/v1/chat:
     post:
       operationId: chat
       summary: 发送聊天消息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/chat.schema.json#/$defs/ChatRequest
       responses:
         '200':
           description: SSE 流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
 
   /api/v1/chat/history:
     get:
@@ -41,6 +63,10 @@ paths:
       responses:
         '200':
           description: 对话历史
+          content:
+            application/json:
+              schema:
+                $ref: schemas/chat.schema.json#/$defs/ChatHistoryResponse
 
   /api/v1/recipes:
     get:
@@ -49,6 +75,10 @@ paths:
       responses:
         '200':
           description: 菜品列表
+          content:
+            application/json:
+              schema:
+                $ref: schemas/recipe.schema.json#/$defs/RecipeListResponse
 
   /api/v1/recipes/{id}:
     patch:
@@ -61,9 +91,19 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/recipe.schema.json#/$defs/RecipePatchRequest
       responses:
         '200':
           description: 更新后的菜品
+          content:
+            application/json:
+              schema:
+                $ref: schemas/recipe.schema.json#/$defs/RecipeView
     delete:
       operationId: deleteRecipe
       summary: 删除菜品
@@ -77,6 +117,10 @@ paths:
       responses:
         '200':
           description: 删除结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/recipe.schema.json#/$defs/RecipeTombstone
 
   /api/v1/plans/current:
     get:
@@ -85,6 +129,10 @@ paths:
       responses:
         '200':
           description: 本周计划
+          content:
+            application/json:
+              schema:
+                $ref: schemas/plan.schema.json#/$defs/CurrentWeeklyPlanResponse
 
   /api/v1/plans/{weekStart}:
     get:
@@ -100,6 +148,10 @@ paths:
       responses:
         '200':
           description: 周计划
+          content:
+            application/json:
+              schema:
+                $ref: schemas/plan.schema.json#/$defs/WeeklyPlanView
 
   /api/v1/settings:
     get:
@@ -108,12 +160,26 @@ paths:
       responses:
         '200':
           description: 设置
+          content:
+            application/json:
+              schema:
+                $ref: schemas/settings.schema.json#/$defs/SettingsResponse
     put:
       operationId: updateSettings
       summary: 更新设置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/settings.schema.json#/$defs/SettingsUpdateRequest
       responses:
         '200':
           description: 更新后的设置
+          content:
+            application/json:
+              schema:
+                $ref: schemas/settings.schema.json#/$defs/SettingsResponse
 
   /api/v1/models:
     get:
@@ -122,22 +188,46 @@ paths:
       responses:
         '200':
           description: 模型列表
+          content:
+            application/json:
+              schema:
+                $ref: schemas/settings.schema.json#/$defs/ModelListResponse
 
   /api/v1/auth/bootstrap:
     post:
       operationId: bootstrap
       summary: 初始化实例
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/auth.schema.json#/$defs/BootstrapRequest
       responses:
         '200':
           description: 初始化结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/BootstrapResponse
 
   /api/v1/auth/register:
     post:
       operationId: register
       summary: 注册设备
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/auth.schema.json#/$defs/RegisterRequest
       responses:
         '200':
           description: 注册结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/RegisterResponse
 
   /api/v1/auth/logout:
     post:
@@ -146,6 +236,10 @@ paths:
       responses:
         '200':
           description: 注销结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/LogoutResponse
 
   /api/v1/auth/devices:
     get:
@@ -154,6 +248,10 @@ paths:
       responses:
         '200':
           description: 设备列表
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/DeviceListResponse
 
   /api/v1/auth/devices/{id}:
     delete:
@@ -169,6 +267,10 @@ paths:
       responses:
         '200':
           description: 撤销结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/RevokeDeviceResponse
 
   /api/v1/auth/family-code/rotate:
     post:
@@ -177,14 +279,28 @@ paths:
       responses:
         '200':
           description: 新家庭码
+          content:
+            application/json:
+              schema:
+                $ref: schemas/auth.schema.json#/$defs/RotateFamilyCodeResponse
 
   /api/v1/confirmations/commit:
     post:
       operationId: commitConfirmation
       summary: 提交确认
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/sync.schema.json#/$defs/ConfirmationCommitRequest
       responses:
         '200':
           description: 提交结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/sync.schema.json#/$defs/ConfirmationCommitResultDto
 
   /api/v1/sync:
     get:
@@ -193,14 +309,28 @@ paths:
       responses:
         '200':
           description: 同步变更
+          content:
+            application/json:
+              schema:
+                $ref: schemas/sync.schema.json#/$defs/SyncResponse
 
   /api/v1/sync/actions:
     post:
       operationId: syncActions
       summary: 上传离线动作
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: schemas/sync.schema.json#/$defs/SyncActionsRequest
       responses:
         '200':
           description: 动作结果
+          content:
+            application/json:
+              schema:
+                $ref: schemas/sync.schema.json#/$defs/SyncActionsResponse
 
 # ============================================================================
 # x-mealmate 扩展
@@ -245,26 +375,47 @@ x-mealmate-sse:
     schemaId: SseStartEvent
     isStart: true
     isTerminal: false
+    nextEvents: [delta, tool-status, confirmation-required, error, done]
+    mutuallyExclusiveDataFields: [replayed, resumed]
   - event: delta
     schemaId: SseDeltaEvent
     isStart: false
     isTerminal: false
+    nextEvents: [delta, tool-status, confirmation-required, error, done]
   - event: tool-status
     schemaId: SseToolStatusEvent
     isStart: false
     isTerminal: false
+    nextEvents: [delta, tool-status, confirmation-required, error, done]
+    toolLifecycle:
+      idField: toolCallId
+      statusField: status
+      startedStatus: started
+      terminalStatuses: [succeeded, failed]
   - event: confirmation-required
     schemaId: SseConfirmationRequiredEvent
     isStart: false
     isTerminal: false
+    nextEvents: [delta, tool-status, confirmation-required, error, done]
+    confirmationToken:
+      stateField: state
+      tokenField: confirmationToken
+      tokenRequiredState: pending
+      tokenForbiddenStates: [expired, superseded, consumed]
   - event: error
     schemaId: SseErrorEvent
     isStart: false
     isTerminal: true
+    nextEvents: []
+    errorCatalog:
+      errCodeField: errCode
+      retryableField: retryable
+      requestIdField: requestId
   - event: done
     schemaId: SseDoneEvent
     isStart: false
     isTerminal: true
+    nextEvents: []
 
 x-mealmate-errors:
   - errCode: BAD_REQUEST
@@ -437,15 +588,47 @@ x-mealmate-invariants:
   - id: WEEK_START_IS_MONDAY
     appliesTo: [WeeklyPlanView, GenerateWeeklyPlanInput]
     owners: [server, android, database]
+    vectors:
+      valid: ["2026-07-27"]
+      invalid: ["2026-07-26", "not-a-date"]
   - id: WEEKLY_PLAN_HAS_21_SLOTS
     appliesTo: [WeeklyPlanView, GenerateWeeklyPlanInput]
     owners: [server, android]
+    vectors:
+      valid:
+        - items: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
+      invalid:
+        - items: []
+        - 21
+        - items: 21
   - id: SYNC_RESULTS_PRESERVE_INPUT_ORDER
     appliesTo: [SyncActionsResponse]
-    owners: [server]
+    owners: [server, android]
+    vectors:
+      valid:
+        - inputActionIds: ["a", "b"]
+          resultActionIds: ["a", "b"]
+      invalid:
+        - inputActionIds: ["a", "b"]
+          resultActionIds: ["b", "a"]
+        - inputActionIds: ["a"]
+          resultActionIds: ["a", "b"]
   - id: SERVER_VERSION_WITHIN_DB_BIGINT
     appliesTo: [ServerVersion]
-    owners: [server, database]
+    owners: [server, android, database]
+    vectors:
+      valid: ["1", "9223372036854775807"]
+      invalid: ["0", "9223372036854775808", "01"]
   - id: CONFIRMATION_STATE_FIELDS_MATCH
     appliesTo: [ConfirmationEventDto]
     owners: [server, android]
+    vectors:
+      valid:
+        - state: pending
+          confirmationToken: token-1
+        - state: expired
+      invalid:
+        - state: pending
+        - state: consumed
+          confirmationToken: token-1
+        - state: unknown
