@@ -3,7 +3,7 @@ id: mealmate-0.1.0-contracts-persistence-plan
 status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-07-26
-updated: 2026-07-26
+updated: 2026-07-28
 ---
 
 # 阶段 1：契约与持久化
@@ -12,7 +12,7 @@ updated: 2026-07-26
 - **Baseline SHA:** c10eb870c979724125456f9128adc6db8e987898
 - **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 - **Started At:** 2026-07-26T17:30:00+08:00
-- **Updated At:** 2026-07-26T19:08:00+08:00
+- **Updated At:** 2026-07-28T15:53:08+08:00
 - **Goal:** 从唯一权威源生成并验证 v0.1 跨端契约，建立 PostgreSQL 12 实体、Room 9 表及显式 mapper，通过阶段 1 全部门禁。
 - **Architecture:** `contracts/v1/source/` 唯一定义 wire schema 和协议目录，生成 TS/Ajv、Provider JSONSchema7、Kotlin DTO、错误/SSE/不变量表。Drizzle 与 Room 保持独立，只通过显式 mapper 消费生成 DTO。
 - **Tech Stack:** Node.js 24.18.0、TypeScript 7.0.2、Ajv 8.20.0、json-schema-to-ts 3.1.1、OpenAPI Generator 7.22.0、Kotlin 2.4.10、Room 2.8.4、Drizzle 0.45.2、PostgreSQL 16
@@ -119,11 +119,12 @@ flowchart TD
 
 - **Status:** done
 - **Commit SHA:** cb74cdea3959c4d650766a23a20204c92e367bf9
-- **Attempts:** 1
+- **Corrective Commit SHA:** 6a642405c524b25d8a53d5b4a8b1d3afcc049351
+- **Attempts:** 2
 - **Blocked Reason:** null
-- **Red Result:** PASS (2026-07-26T17:49)
-- **Verify Result:** PASS (2026-07-26T18:57) — 18 tests passed, contract:check passed
-- **AC Result:** 2/2 passed
+- **Red Result:** FAIL → PASS (2026-07-28) — HTTP request/response schema binding、元数据 vector、确定性排序与跨根引用反例均被新增回归测试覆盖。
+- **Verify Result:** PASS (2026-07-28) — `contract:generate`、`typecheck`、`test:unit`（90 tests）和 `contract:check` 全部通过；manifest 为 21 HTTP / 8 FC / 6 SSE。
+- **AC Result:** 2/2 passed after independent re-review
 
 **Task Completion Gate:**
 
@@ -230,11 +231,12 @@ Expected: **PASS** — 覆盖、引用、profile、determinism 和 stale-file ca
 
 - **Status:** done
 - **Commit SHA:** ae5f0bdd267a9ccd3a672f99b1ee48291b9d4101
-- **Attempts:** 1
+- **Corrective Commit SHA:** 3b8c6a1cc9164a26a9439c9416c5a0e6a80eae23
+- **Attempts:** 2
 - **Blocked Reason:** null
-- **Red Result:** pass
-- **Verify Result:** pass (typecheck + 63 tests)
-- **AC Result:** pass (2/2)
+- **Red Result:** FAIL → PASS (2026-07-28) — SSE error schema/catalog、Provider 执行前权威校验与共享 invariant corpus 的反例均先失败后通过。
+- **Verify Result:** PASS (2026-07-28) — `contract:generate`、`typecheck`、`test:unit`（90 tests）、`contract:check` 和 Biome lint 全部通过。
+- **AC Result:** 2/2 passed after independent re-review
 
 **Task Completion Gate:**
 
@@ -336,11 +338,12 @@ Expected: **PASS**。
 
 - **Status:** done
 - **Commit SHA:** 331d31c
-- **Attempts:** 1
+- **Corrective Commit SHA:** a28350a2c3059f8179e8d90ab90ac3e325b018e5
+- **Attempts:** 2
 - **Blocked Reason:** null
-- **Red Result:** pass
-- **Verify Result:** pass (compileDebugKotlin + contract tests + stale-check)
-- **AC Result:** pass (2/2)
+- **Red Result:** FAIL → PASS (2026-07-28) — nullable current-plan、SSE error catalog、共享 invariant corpus、unsafe output directory 与 stale DTO 反例均被覆盖。
+- **Verify Result:** PASS (2026-07-28) — `checkContractModels`、`compileDebugKotlin`、`GeneratedContractTest`、`ProtocolValidatorsTest`、stale-check harness 和 ktlintCheck 全部通过。
+- **AC Result:** 2/2 passed after independent re-review
 
 **Task Completion Gate:**
 
