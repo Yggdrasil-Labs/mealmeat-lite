@@ -1,147 +1,271 @@
 /**
  * SSE Trace 校验
  *
- * 验证 SSE 事件序列的正确性：
- * - start 必须是第一个事件
- * - done 或 error 必须是最后一个事件 (terminal)
- * - eventId 必须单调递增
- * - tool lifecycle: running -> completed/failed
- * - confirmation-required 的 token 规则
+ * 所有事件、转移和 data 规则均来自生成的协议目录；此处只解释目录，
+ * 不复制任何事件名、状态词或字段名。
  */
 
-import { sseEventMap } from './generated/catalogs.js'
-import type { TraceValidationResult } from './types.js'
+import { errorMap, sseEventMap } from './generated/catalogs.js'
+import type { PublicSchemaId } from './generated/schemas.js'
+import type { SseEventDescriptor, TraceValidationResult } from './types.js'
+import { validateContract } from './validation.js'
 
 export interface SseFrame {
   event: string
-  id: string
+  eventId: string
   data: unknown
 }
 
-type ToolState = 'running' | 'completed' | 'failed'
+type ToolLifecycleState = 'started' | 'terminal'
+
+interface TraceState {
+  previous?: SseEventDescriptor
+  previousEventId: bigint
+  startCount: number
+  terminalCount: number
+  toolStates: Map<string, ToolLifecycleState>
+}
 
 const fail = (error: string): TraceValidationResult => ({ success: false, error })
 const ok: TraceValidationResult = { success: true }
 
-/** 校验首事件是 start */
-function validateFirstEvent(frames: readonly SseFrame[]): TraceValidationResult | null {
-  const first = frames[0] as SseFrame
-  const def = sseEventMap.get(first.event)
-  if (!def?.isStart) return fail(`First event must be start, got ${first.event}`)
-  return null
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** 校验末事件是 terminal */
-function validateLastEvent(frames: readonly SseFrame[]): TraceValidationResult | null {
-  const last = frames[frames.length - 1] as SseFrame
-  const def = sseEventMap.get(last.event)
-  if (!def?.isTerminal) return fail(`Last event must be terminal, got ${last.event}`)
-  return null
+function requiredString(
+  data: unknown,
+  field: string,
+  context: string,
+): string | TraceValidationResult {
+  if (!isRecord(data) || typeof data[field] !== 'string' || data[field].length === 0) {
+    return fail(`${context} must contain a non-empty ${field}`)
+  }
+  return data[field]
 }
 
-/** 校验 eventId 单调递增 */
-function validateEventIdMonotonic(frames: readonly SseFrame[]): TraceValidationResult | null {
-  let lastId = 0
-  for (const frame of frames) {
-    const currentId = Number.parseInt(frame.id, 10)
-    if (Number.isNaN(currentId)) return fail(`Invalid eventId: ${frame.id}`)
-    if (currentId <= lastId) {
-      return fail(`EventId not monotonically increasing: ${currentId} <= ${lastId}`)
-    }
-    lastId = currentId
+function validateMutuallyExclusiveFields(
+  fields: readonly string[] | undefined,
+  data: unknown,
+): TraceValidationResult | null {
+  if (!fields || fields.length < 2 || !isRecord(data)) return null
+
+  if (fields.every((field) => data[field] === true)) {
+    return fail(`${fields.join(' and ')} must not all be true`)
   }
   return null
 }
 
-/** 处理单个 tool-status 帧 */
-function processToolStatus(
-  toolCallId: string,
-  status: string,
-  states: Map<string, ToolState>,
+function validateToolLifecycle(
+  rule: {
+    idField: string
+    statusField: string
+    startedStatus: string
+    terminalStatuses: readonly string[]
+  },
+  data: unknown,
+  states: Map<string, ToolLifecycleState>,
 ): TraceValidationResult | null {
-  const current = states.get(toolCallId)
+  const toolCallId = requiredString(data, rule.idField, 'tool lifecycle')
+  if (typeof toolCallId !== 'string') return toolCallId
+  const status = requiredString(data, rule.statusField, 'tool lifecycle')
+  if (typeof status !== 'string') return status
 
-  if (status === 'running') {
-    if (current) return fail(`Tool ${toolCallId} lifecycle error: running after ${current}`)
-    states.set(toolCallId, 'running')
+  const current = states.get(toolCallId)
+  if (status === rule.startedStatus) {
+    if (current) {
+      return fail(`Tool ${toolCallId} lifecycle error: ${rule.startedStatus} after ${current}`)
+    }
+    states.set(toolCallId, 'started')
     return null
   }
 
-  if (status === 'completed' || status === 'failed') {
-    if (current !== 'running') {
-      return fail(`Tool ${toolCallId} lifecycle error: ${status} without running first`)
+  if (rule.terminalStatuses.includes(status)) {
+    if (current !== 'started') {
+      return fail(
+        `Tool ${toolCallId} lifecycle error: ${status} without ${rule.startedStatus} first`,
+      )
     }
-    states.set(toolCallId, status)
+    states.set(toolCallId, 'terminal')
+    return null
   }
-  return null
+
+  return fail(`Tool ${toolCallId} lifecycle error: unsupported status ${status}`)
 }
 
-/** 校验 tool lifecycle */
-function validateToolLifecycle(frames: readonly SseFrame[]): TraceValidationResult | null {
-  const states = new Map<string, ToolState>()
-
-  for (const frame of frames) {
-    if (frame.event !== 'tool-status') continue
-    const data = frame.data as { toolCallId?: string; status?: string }
-    if (!data.toolCallId || !data.status) continue
-
-    const error = processToolStatus(data.toolCallId, data.status, states)
-    if (error) return error
-  }
-  return null
-}
-
-/** 非 pending 状态列表 */
-const NON_PENDING_STATES = new Set(['expired', 'superseded', 'consumed'])
-
-/** 校验单个 confirmation frame 的 token 规则 */
-function validateSingleConfirmationToken(
-  state: string,
-  hasToken: boolean,
+function validateConfirmationToken(
+  rule: {
+    stateField: string
+    tokenField: string
+    tokenRequiredState: string
+    tokenForbiddenStates: readonly string[]
+  },
+  data: unknown,
 ): TraceValidationResult | null {
-  if (state === 'pending' && !hasToken) {
-    return fail('confirmation-required with state=pending must have confirmationToken')
+  const state = requiredString(data, rule.stateField, 'confirmation-required')
+  if (typeof state !== 'string') return state
+  const record = data as Record<string, unknown>
+  const hasToken = Object.hasOwn(record, rule.tokenField) && record[rule.tokenField] !== null
+
+  if (state === rule.tokenRequiredState && !hasToken) {
+    return fail(`confirmation-required with state=${state} must have ${rule.tokenField}`)
   }
-  if (NON_PENDING_STATES.has(state) && hasToken) {
-    return fail(`confirmation-required with state=${state} must not have confirmationToken`)
+  if (rule.tokenForbiddenStates.includes(state) && hasToken) {
+    return fail(`confirmation-required with state=${state} must not have ${rule.tokenField}`)
   }
   return null
 }
 
 /**
- * 校验 confirmation-required 事件的 token 规则
- *
- * 根据 Design § "SSE 事件协议" 和不变量 CONFIRMATION_STATE_FIELDS_MATCH：
- * - 当确认状态为 pending 时必须携带 confirmationToken
- * - 当状态为 expired、superseded 或 consumed 时禁止携带 confirmationToken
+ * error frame 的 schema 只描述其 JSON 形状；错误码可用通道和 retryable
+ * 仍必须由生成的公共错误目录裁决。字段名同样来自 SSE 事件规则，避免在
+ * interpreter 中复制 wire 名称。
  */
-function validateConfirmationTokens(frames: readonly SseFrame[]): TraceValidationResult | null {
-  for (const frame of frames) {
-    if (frame.event !== 'confirmation-required') continue
+function validateErrorCatalog(
+  rule: {
+    errCodeField: string
+    retryableField: string
+    requestIdField: string
+  },
+  data: unknown,
+): TraceValidationResult | null {
+  const errCode = requiredString(data, rule.errCodeField, 'SSE error')
+  if (typeof errCode !== 'string') return errCode
+  const requestId = requiredString(data, rule.requestIdField, 'SSE error')
+  if (typeof requestId !== 'string') return requestId
+  if (!isRecord(data) || typeof data[rule.retryableField] !== 'boolean') {
+    return fail(`SSE error must contain boolean ${rule.retryableField}`)
+  }
 
-    const data = frame.data as { state?: string; confirmationToken?: string }
-    if (!data.state) continue
-
-    const hasToken = data.confirmationToken !== undefined && data.confirmationToken !== null
-    const error = validateSingleConfirmationToken(data.state, hasToken)
-    if (error) return error
+  const definition = errorMap.get(errCode)
+  if (!definition) return fail(`Unknown error code: ${errCode}`)
+  if (!definition.channels.includes('sse')) {
+    return fail(`Error ${errCode} not supported on sse channel`)
+  }
+  if (definition.retryable !== data[rule.retryableField]) {
+    return fail(
+      `retryable mismatch: expected ${definition.retryable} for ${errCode}, got ${data[rule.retryableField]}`,
+    )
   }
   return null
 }
 
-/** 校验 SSE trace */
+function validateFrameSequence(
+  index: number,
+  frame: SseFrame,
+  definition: SseEventDescriptor,
+  state: TraceState,
+): TraceValidationResult | null {
+  if (!/^[1-9][0-9]*$/.test(frame.eventId)) return fail(`Invalid eventId: ${frame.eventId}`)
+
+  const currentEventId = BigInt(frame.eventId)
+  if (index === 0 && currentEventId !== 1n) {
+    return fail(`First eventId must be 1, got ${frame.eventId}`)
+  }
+  if (currentEventId <= state.previousEventId) {
+    return fail(`EventId not monotonically increasing: ${frame.eventId}`)
+  }
+  state.previousEventId = currentEventId
+
+  if (index === 0 && !definition.isStart) {
+    return fail(`First event must be start, got ${frame.event}`)
+  }
+  if (definition.isStart) {
+    state.startCount += 1
+    if (state.startCount !== 1 || index !== 0) {
+      return fail('start must occur exactly once and be the first event')
+    }
+  }
+  if (state.previous && !state.previous.nextEvents.includes(definition.event)) {
+    return fail(`Event ${frame.event} is not allowed after ${state.previous.event}`)
+  }
+  if (state.terminalCount > 0) return fail(`Event ${frame.event} appears after terminal event`)
+  return null
+}
+
+function validateFrameData(
+  frame: SseFrame,
+  definition: SseEventDescriptor,
+  state: TraceState,
+): TraceValidationResult | null {
+  const mutuallyExclusiveError = validateMutuallyExclusiveFields(
+    definition.mutuallyExclusiveDataFields,
+    frame.data,
+  )
+  if (mutuallyExclusiveError) return mutuallyExclusiveError
+
+  if (definition.toolLifecycle) {
+    const lifecycleError = validateToolLifecycle(
+      definition.toolLifecycle,
+      frame.data,
+      state.toolStates,
+    )
+    if (lifecycleError) return lifecycleError
+  }
+  if (definition.confirmationToken) {
+    const confirmationError = validateConfirmationToken(definition.confirmationToken, frame.data)
+    if (confirmationError) return confirmationError
+  }
+
+  const dataResult = validateContract(definition.schemaId as PublicSchemaId, frame.data)
+  if (!dataResult.success) return fail(`Invalid data for ${frame.event}: ${dataResult.error}`)
+
+  if (definition.errorCatalog) {
+    const errorCatalogError = validateErrorCatalog(definition.errorCatalog, frame.data)
+    if (errorCatalogError) return errorCatalogError
+  }
+  return null
+}
+
+function validateTerminalPosition(
+  frames: readonly SseFrame[],
+  index: number,
+  frame: SseFrame,
+  definition: SseEventDescriptor,
+  state: TraceState,
+): TraceValidationResult | null {
+  if (!definition.isTerminal) return null
+
+  state.terminalCount += 1
+  if (index !== frames.length - 1) return fail(`Terminal event ${frame.event} must be last`)
+  return null
+}
+
+function validateTraceCompletion(state: TraceState): TraceValidationResult {
+  if (state.startCount !== 1) return fail('Trace must contain exactly one start event')
+  if (state.terminalCount !== 1) return fail('Trace must contain exactly one terminal event')
+  const unclosedToolIds = Array.from(state.toolStates.entries())
+    .filter(([, state]) => state === 'started')
+    .map(([toolCallId]) => toolCallId)
+  if (unclosedToolIds.length > 0) {
+    return fail(`Unclosed tool lifecycle: ${unclosedToolIds.join(', ')}`)
+  }
+  return ok
+}
+
+/** 校验 SSE trace。 */
 export function validateSseTrace(frames: readonly SseFrame[]): TraceValidationResult {
   if (frames.length === 0) return fail('Empty trace')
 
-  return (
-    validateFirstEvent(frames) ||
-    validateLastEvent(frames) ||
-    validateEventIdMonotonic(frames) ||
-    validateToolLifecycle(frames) ||
-    validateConfirmationTokens(frames) ||
-    ok
-  )
+  const state: TraceState = {
+    previousEventId: 0n,
+    startCount: 0,
+    terminalCount: 0,
+    toolStates: new Map(),
+  }
+  for (const [index, frame] of frames.entries()) {
+    const definition = sseEventMap.get(frame.event)
+    if (!definition) return fail(`Unknown SSE event: ${frame.event}`)
+
+    const sequenceError = validateFrameSequence(index, frame, definition, state)
+    if (sequenceError) return sequenceError
+    const dataError = validateFrameData(frame, definition, state)
+    if (dataError) return dataError
+    const terminalError = validateTerminalPosition(frames, index, frame, definition, state)
+    if (terminalError) return terminalError
+    state.previous = definition
+  }
+  return validateTraceCompletion(state)
 }
 
-// Re-export types
 export type { TraceValidationResult } from './types.js'

@@ -6,8 +6,27 @@
  * 2. validateToolInput 校验 FC 工具输入
  * 3. Ajv 严格模式：禁止 unknown/coercion/default/removal
  */
+import { spawn } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import { validateContract, validateToolInput } from './validation.js'
+
+function importWithNativeNodeEsm(
+  moduleUrl: string,
+): Promise<{ exitCode: number | null; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [
+      '--input-type=module',
+      '--eval',
+      `await import(${JSON.stringify(moduleUrl)})`,
+    ])
+    let stderr = ''
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+    child.once('error', reject)
+    child.once('close', (exitCode) => resolve({ exitCode, stderr }))
+  })
+}
 
 describe('契约校验', () => {
   describe('validateContract', () => {
@@ -36,6 +55,30 @@ describe('契约校验', () => {
 
     it('ServerVersion 拒绝零', () => {
       const result = validateContract('ServerVersion', '0')
+      expect(result.success).toBe(false)
+    })
+
+    it('所有 manifest 公开 schema 都可由生成的 validator 校验', () => {
+      const result = validateContract('HealthLiveResponse', { status: 'ok' })
+      expect(result.success).toBe(true)
+    })
+
+    it('UUID 与 date-time 使用 Android 相同的小写和 UTC wire 约束', () => {
+      expect(validateContract('UUID', '550E8400-E29B-41D4-A716-446655440000').success).toBe(false)
+      expect(validateContract('Rfc3339DateTime', '2026-07-28T12:00:00+08:00').success).toBe(false)
+      expect(validateContract('Rfc3339DateTime', '2026-07-28T04:00:00Z').success).toBe(true)
+      expect(validateContract('Rfc3339DateTime', '2026-07-28T04:00:00+00:00').success).toBe(true)
+    })
+
+    it('ErrorResponse 仍保持 additionalProperties 严格拒绝', () => {
+      const result = validateContract('ErrorResponse', {
+        success: false,
+        errCode: 'BAD_REQUEST',
+        errMessage: '请求格式错误',
+        requestId: 'request-1',
+        retryable: false,
+        unexpected: true,
+      })
       expect(result.success).toBe(false)
     })
   })
@@ -104,6 +147,15 @@ describe('契约校验', () => {
   })
 
   describe('Ajv 严格模式', () => {
+    it('standalone validator 可被原生 Node ESM 直接导入', async () => {
+      const result = await importWithNativeNodeEsm(
+        new URL('./generated/validators.ts', import.meta.url).href,
+      )
+
+      expect(result.stderr).not.toContain('require is not defined')
+      expect(result.exitCode).toBe(0)
+    })
+
     it('拒绝未知字段 (additionalProperties: false)', () => {
       const input = {
         recipeId: '550e8400-e29b-41d4-a716-446655440000',

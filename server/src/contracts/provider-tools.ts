@@ -5,14 +5,14 @@
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { SCHEMA_FILES } from './generated/schemas.js'
-import type { ContractManifest } from './types.js'
+import type { ContractManifest, ContractValidationResult, FunctionToolName } from './types.js'
 import { ContractError } from './types.js'
+import { validateToolInput } from './validation.js'
 
 const DEFAULT_SCHEMAS_DIR = join(import.meta.dirname, '../../../contracts/v1/source/schemas')
 
 export interface ProviderToolDefinition {
-  name: string
+  name: FunctionToolName
   description: string
   parameters: {
     type: 'object'
@@ -20,6 +20,15 @@ export interface ProviderToolDefinition {
     required?: string[]
     additionalProperties?: boolean
   }
+  /**
+   * Provider 的 JSON Schema 只能协助模型生成调用；真正执行前必须重新经过
+   * 权威 Ajv validator。将 executor 收口在这里，避免调用点误信 Provider
+   * 可能宽松或行为漂移的实现。
+   */
+  execute<TResult>(
+    input: unknown,
+    executor: (validatedInput: unknown) => TResult | Promise<TResult>,
+  ): Promise<ContractValidationResult<TResult>>
 }
 
 export interface BuildProviderToolsOptions {
@@ -45,29 +54,6 @@ const DANGEROUS_KEYWORDS = [
   '$vocabulary',
 ]
 
-/**
- * 工具输入 schema 位置映射
- *
- * 格式：{ file, defName } 用于从 schema 文件读取 $defs
- *
- * 注意：validation.ts 中有类似的 toolInputSchemas，格式为 { file, defPath }
- * 两者信息相同，但表示方式不同：
- * - toolInputLocations.defName: 'AddRecipeInput' (纯名称)
- * - toolInputSchemas.defPath: '/$defs/AddRecipeInput' (JSON Pointer 格式)
- *
- * TODO: 考虑从 manifest.functionTools 动态派生，避免手工维护两份映射
- */
-const toolInputLocations: Record<string, { file: string; defName: string }> = {
-  add_recipe: { file: 'recipe.schema.json', defName: 'AddRecipeInput' },
-  update_recipe: { file: 'recipe.schema.json', defName: 'UpdateRecipeInput' },
-  delete_recipe: { file: 'recipe.schema.json', defName: 'DeleteRecipeInput' },
-  restore_recipe: { file: 'recipe.schema.json', defName: 'RestoreRecipeInput' },
-  search_recipes: { file: 'recipe.schema.json', defName: 'SearchRecipesInput' },
-  batch_generate_recipes: { file: 'recipe.schema.json', defName: 'BatchGenerateRecipesInput' },
-  generate_weekly_plan: { file: 'plan.schema.json', defName: 'GenerateWeeklyPlanInput' },
-  update_plan_item: { file: 'plan.schema.json', defName: 'UpdatePlanItemInput' },
-}
-
 type DefEntry = { schema: Record<string, unknown>; file: string }
 type DefsMap = Map<string, DefEntry>
 
@@ -75,9 +61,29 @@ function loadSchemaFile(schemasDir: string, fileName: string): Record<string, un
   return JSON.parse(readFileSync(join(schemasDir, fileName), 'utf-8'))
 }
 
-function collectAllDefs(schemasDir: string): DefsMap {
+function schemaFileName(contractFile: string): string {
+  if (!contractFile.startsWith('schemas/')) {
+    throw new ContractError(
+      'CONTRACT_UNRESOLVED_REF',
+      `Expected schema source file, got: ${contractFile}`,
+    )
+  }
+
+  const fileName = contractFile.slice('schemas/'.length)
+  if (!fileName.endsWith('.schema.json') || fileName.includes('/')) {
+    throw new ContractError('CONTRACT_UNSAFE_PATH', `Unsafe schema source file: ${contractFile}`)
+  }
+
+  return fileName
+}
+
+function collectAllDefs(schemasDir: string, manifest: ContractManifest): DefsMap {
   const allDefs: DefsMap = new Map()
-  for (const file of SCHEMA_FILES) {
+  const schemaFiles = Array.from(
+    new Set(manifest.schemas.map((schema) => schemaFileName(schema.file))),
+  ).sort((left, right) => left.localeCompare(right))
+
+  for (const file of schemaFiles) {
     const schema = loadSchemaFile(schemasDir, file)
     const defs = schema.$defs as Record<string, Record<string, unknown>> | undefined
     if (!defs) continue
@@ -161,21 +167,25 @@ export function buildProviderTools(
   options?: BuildProviderToolsOptions,
 ): readonly ProviderToolDefinition[] {
   const schemasDir = options?.schemasDir ?? DEFAULT_SCHEMAS_DIR
-  const allDefs = collectAllDefs(schemasDir)
+  const allDefs = collectAllDefs(schemasDir, manifest)
+  const schemaById = new Map(manifest.schemas.map((schema) => [schema.id, schema]))
   const tools: ProviderToolDefinition[] = []
 
   for (const fc of manifest.functionTools) {
-    const loc = toolInputLocations[fc.name]
-    if (!loc) throw new ContractError('CONTRACT_UNRESOLVED_REF', `No schema for: ${fc.name}`)
-
-    const schemaFile = loadSchemaFile(schemasDir, loc.file)
-    const defs = schemaFile.$defs as Record<string, Record<string, unknown>> | undefined
-    const inputSchema = defs?.[loc.defName]
+    const schemaDescriptor = schemaById.get(fc.inputSchemaId)
+    if (!schemaDescriptor) {
+      throw new ContractError(
+        'CONTRACT_UNRESOLVED_REF',
+        `Tool input schema is not registered: ${fc.name} -> ${fc.inputSchemaId}`,
+      )
+    }
+    const file = schemaFileName(schemaDescriptor.file)
+    const inputSchema = allDefs.get(`${file}#/$defs/${fc.inputSchemaId}`)?.schema
     if (!inputSchema) {
-      throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${loc.defName}`)
+      throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${fc.inputSchemaId}`)
     }
 
-    const expanded = expandSchema(inputSchema, loc.file, allDefs, new Set())
+    const expanded = expandSchema(inputSchema, file, allDefs, new Set())
     tools.push({
       name: fc.name,
       description: fc.description,
@@ -184,6 +194,14 @@ export function buildProviderTools(
         properties: (expanded.properties as Record<string, unknown>) || {},
         required: expanded.required as string[] | undefined,
         additionalProperties: false,
+      },
+      async execute<TResult>(
+        input: unknown,
+        executor: (validatedInput: unknown) => TResult | Promise<TResult>,
+      ): Promise<ContractValidationResult<TResult>> {
+        const validation = validateToolInput(fc.name, input)
+        if (!validation.success) return validation
+        return { success: true, value: await executor(validation.value) }
       },
     })
   }

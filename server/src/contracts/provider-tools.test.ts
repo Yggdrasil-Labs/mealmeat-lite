@@ -10,8 +10,14 @@ import { describe, expect, it } from 'vitest'
 import manifest from '../../../contracts/v1/generated/manifest.json' with { type: 'json' }
 import { buildProviderTools } from './provider-tools.js'
 import type { ContractManifest } from './types.js'
+import { validateToolInput } from './validation.js'
 
 const typedManifest = manifest as unknown as ContractManifest
+
+type ProviderValidator = (value: unknown) => boolean
+type ProviderAjv = { compile: (schema: unknown) => ProviderValidator }
+type ProviderAjvConstructor = new (options: { allErrors: boolean; strict: boolean }) => ProviderAjv
+type FormatsInstaller = (ajv: ProviderAjv) => unknown
 
 describe('Provider 工具投影', () => {
   describe('buildProviderTools', () => {
@@ -79,27 +85,103 @@ describe('Provider 工具投影', () => {
         }
       }
     })
+
+    it('Provider 执行前强制通过权威校验，拒绝输入不得进入 executor', async () => {
+      const addRecipe = buildProviderTools(typedManifest).find((tool) => tool.name === 'add_recipe')
+      expect(addRecipe).toBeDefined()
+
+      let executed = false
+      const result = await addRecipe?.execute(
+        // 即使某个 Provider 对额外字段或空字符串宽松，执行边界仍只信任权威 validator。
+        { name: '', unexpected: 'provider-permissive-input' },
+        () => {
+          executed = true
+          return { recipeId: 'should-not-be-created' }
+        },
+      )
+
+      expect(result?.success).toBe(false)
+      expect(executed).toBe(false)
+    })
   })
 
   describe('工具校验语义等价', () => {
-    /**
-     * TODO(T6): 完整的语义等价测试将在 T6 fixture 门禁中实现
-     *
-     * AC1 要求"8 个 Provider 工具与权威 valid/invalid corpus 语义等价"
-     * 这需要共享的 fixture corpus 来验证 Provider JSONSchema7 投影
-     * 和权威 Ajv validator 对相同输入给出一致结果。
-     *
-     * 当前测试仅验证：
-     * 1. 8 个工具全部生成
-     * 2. schema 已完全展开（无 $ref）
-     * 3. 无危险关键字
-     */
-    it('add_recipe 工具定义存在且结构正确', () => {
+    it('manifest 的 inputSchemaId 是 Provider 投影的唯一 schema 选择来源', () => {
+      const remappedManifest = {
+        ...typedManifest,
+        functionTools: typedManifest.functionTools.map((tool) =>
+          tool.name === 'add_recipe' ? { ...tool, inputSchemaId: 'SearchRecipesInput' } : tool,
+        ),
+      } as ContractManifest
+
+      const tools = buildProviderTools(remappedManifest)
+      const addRecipe = tools.find((tool) => tool.name === 'add_recipe')
+
+      expect(addRecipe?.parameters.properties).toHaveProperty('query')
+      expect(addRecipe?.parameters.properties).not.toHaveProperty('name')
+    })
+
+    it('8 个 Provider 工具与权威 valid/invalid corpus 语义等价', async () => {
       const tools = buildProviderTools(typedManifest)
-      const addRecipe = tools.find((t) => t.name === 'add_recipe')
-      expect(addRecipe).toBeDefined()
-      expect(addRecipe?.parameters.type).toBe('object')
-      expect(addRecipe?.parameters.additionalProperties).toBe(false)
+      const toolMap = new Map(tools.map((tool) => [tool.name, tool]))
+      const Ajv = (await import('ajv')) as unknown as { default: ProviderAjvConstructor }
+      const addFormats = (await import('ajv-formats')) as unknown as { default: FormatsInstaller }
+      const ajv = new Ajv.default({ allErrors: true, strict: false })
+      addFormats.default(ajv)
+      const uuid = '550e8400-e29b-41d4-a716-446655440000'
+      const weeklyItems = Array.from({ length: 21 }, () => ({
+        date: '2026-07-27',
+        mealType: 'breakfast',
+        recipeId: uuid,
+      }))
+      const corpus: ReadonlyArray<{
+        toolName: (typeof typedManifest.functionTools)[number]['name']
+        valid: unknown
+        invalid: unknown
+      }> = [
+        { toolName: 'add_recipe', valid: { name: '红烧肉' }, invalid: { name: '' } },
+        {
+          toolName: 'update_recipe',
+          valid: { recipeId: uuid, patch: { notes: { op: 'clear' } } },
+          invalid: { recipeId: uuid, patch: {} },
+        },
+        { toolName: 'delete_recipe', valid: { recipeId: uuid }, invalid: { recipeId: 'bad' } },
+        { toolName: 'restore_recipe', valid: { recipeId: uuid }, invalid: { recipeId: 'bad' } },
+        {
+          toolName: 'search_recipes',
+          valid: { query: '红烧', limit: 10 },
+          invalid: { limit: '10' },
+        },
+        {
+          toolName: 'batch_generate_recipes',
+          valid: { recipes: [{ name: '红烧肉' }] },
+          invalid: { recipes: [] },
+        },
+        {
+          toolName: 'generate_weekly_plan',
+          valid: { weekStart: '2026-07-27', items: weeklyItems },
+          invalid: { weekStart: '2026-07-27', items: [] },
+        },
+        {
+          toolName: 'update_plan_item',
+          valid: { planItemId: uuid, recipeId: uuid },
+          invalid: { planItemId: uuid, recipeId: 'bad' },
+        },
+      ]
+
+      for (const { toolName, valid, invalid } of corpus) {
+        const tool = toolMap.get(toolName)
+        expect(tool, `missing tool ${toolName}`).toBeDefined()
+        const providerValidator = ajv.compile(tool?.parameters)
+
+        for (const value of [valid, invalid]) {
+          const providerResult = providerValidator(value)
+          const authoritativeResult = validateToolInput(toolName, value).success
+          expect(providerResult, `${toolName} should match authoritative validator`).toBe(
+            authoritativeResult,
+          )
+        }
+      }
     })
   })
 })

@@ -59,7 +59,8 @@
           "recipeId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID v7 格式"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "小写 canonical UUID 格式"
           },
           "patch": {
             "type": "object",
@@ -179,7 +180,8 @@
           "recipeId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID v7 格式"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "小写 canonical UUID 格式"
           }
         },
         "required": [
@@ -197,7 +199,8 @@
           "recipeId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID v7 格式"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "小写 canonical UUID 格式"
           }
         },
         "required": [
@@ -334,7 +337,8 @@
                 "recipeId": {
                   "type": "string",
                   "format": "uuid",
-                  "description": "UUID v7 格式"
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
                 }
               },
               "required": [
@@ -364,12 +368,14 @@
           "planItemId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID v7 格式"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "小写 canonical UUID 格式"
           },
           "recipeId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID v7 格式"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "description": "小写 canonical UUID 格式"
           }
         },
         "required": [

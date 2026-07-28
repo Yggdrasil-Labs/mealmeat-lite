@@ -6,6 +6,7 @@
 
 import { errorMap } from './generated/catalogs.js'
 import type { ContractValidationResult, PublicErrorDefinition, RetryAfterPolicy } from './types.js'
+import { validateContract } from './validation.js'
 
 /**
  * 公开错误码类型
@@ -27,10 +28,23 @@ export function resolveErrorDefinition(errCode: PublicErrorCode): PublicErrorDef
  * 错误 envelope 结构
  */
 export interface PublicErrorEnvelope {
+  success: false
   errCode: string
-  message: string
-  details?: Record<string, unknown>
+  errMessage: string
+  requestId: string
+  retryable: boolean
+  details?: ReadonlyArray<{ field?: string; reason: string }>
 }
+
+/** SSE 的 error frame 不使用 HTTP success envelope。 */
+export interface PublicSseErrorEnvelope {
+  errCode: string
+  errMessage: string
+  requestId: string
+  retryable: boolean
+}
+
+export type PublicErrorPayload = PublicErrorEnvelope | PublicSseErrorEnvelope
 
 /**
  * 校验 Retry-After header
@@ -62,10 +76,10 @@ function validateRetryAfterHeader(
     return `Error ${errCode} requires Retry-After header`
   }
 
-  const seconds = Number.parseInt(headerValue, 10)
-  if (Number.isNaN(seconds) || seconds < 0) {
+  if (!/^[0-9]+$/.test(headerValue)) {
     return `Invalid Retry-After value: ${headerValue}`
   }
+  const seconds = Number(headerValue)
 
   if (retryAfter.kind === 'fixed') {
     if (seconds !== retryAfter.seconds) {
@@ -89,42 +103,22 @@ function validateRetryAfterHeader(
  * @param body 响应体
  * @param channel 通道类型 (json 或 sse)
  */
-export function validatePublicErrorTuple(
-  status: number,
-  headers: Headers,
+export function validatePublicErrorPayload(
   body: unknown,
   channel: 'json' | 'sse',
-): ContractValidationResult<PublicErrorEnvelope> {
-  // 1. 校验 body 基本结构
-  if (!body || typeof body !== 'object') {
-    return { success: false, error: 'Body must be an object' }
+): ContractValidationResult<PublicErrorPayload> {
+  const schemaId = channel === 'json' ? 'ErrorResponse' : 'SseErrorEvent'
+  const contractResult = validateContract(schemaId, body)
+  if (!contractResult.success) {
+    return { success: false, error: `Invalid public error envelope: ${contractResult.error}` }
   }
+  const envelope = contractResult.value as PublicErrorPayload
 
-  const envelope = body as Record<string, unknown>
-
-  // 2. 校验必需字段
-  if (typeof envelope.errCode !== 'string') {
-    return { success: false, error: 'Missing or invalid errCode' }
-  }
-  if (typeof envelope.message !== 'string') {
-    return { success: false, error: 'Missing or invalid message' }
-  }
-
-  // 3. 查找错误定义
+  // 错误目录是对两种传输 envelope 共同生效的第二层边界。
   const def = errorMap.get(envelope.errCode)
   if (!def) {
     return { success: false, error: `Unknown error code: ${envelope.errCode}` }
   }
-
-  // 4. 校验状态码匹配
-  if (def.httpStatus !== status) {
-    return {
-      success: false,
-      error: `Status code mismatch: expected ${def.httpStatus} for ${envelope.errCode}, got ${status}`,
-    }
-  }
-
-  // 5. 校验通道支持
   if (!def.channels.includes(channel)) {
     return {
       success: false,
@@ -132,18 +126,42 @@ export function validatePublicErrorTuple(
     }
   }
 
-  // 6. 校验 Retry-After header
+  if (envelope.retryable !== def.retryable) {
+    return {
+      success: false,
+      error: `retryable mismatch: expected ${def.retryable} for ${envelope.errCode}, got ${envelope.retryable}`,
+    }
+  }
+
+  return { success: true, value: envelope }
+}
+
+export function validatePublicErrorTuple(
+  status: number,
+  headers: Headers,
+  body: unknown,
+  channel: 'json' | 'sse',
+): ContractValidationResult<PublicErrorPayload> {
+  const payloadResult = validatePublicErrorPayload(body, channel)
+  if (!payloadResult.success) return payloadResult
+  const envelope = payloadResult.value
+  const def = errorMap.get(envelope.errCode)
+  if (!def) {
+    return { success: false, error: `Unknown error code: ${envelope.errCode}` }
+  }
+
+  if (def.httpStatus !== status) {
+    return {
+      success: false,
+      error: `Status code mismatch: expected ${def.httpStatus} for ${envelope.errCode}, got ${status}`,
+    }
+  }
+
+  // JSON 与显式构造的 SSE tuple 都需要服从目录的重试头规则。
   const retryAfterError = validateRetryAfterHeader(headers, def.retryAfter, envelope.errCode)
   if (retryAfterError) {
     return { success: false, error: retryAfterError }
   }
 
-  return {
-    success: true,
-    value: {
-      errCode: envelope.errCode,
-      message: envelope.message,
-      details: envelope.details as Record<string, unknown> | undefined,
-    },
-  }
+  return { success: true, value: envelope }
 }

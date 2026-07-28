@@ -10,13 +10,11 @@
  */
 
 import type { InvariantId } from './generated/catalogs.js'
+import { invariantMap, sseEvents } from './generated/catalogs.js'
 import type { ContractValidationResult } from './types.js'
 
 // Re-export for convenience
 export type { InvariantId } from './generated/catalogs.js'
-
-// 注意: invariantMap 可从 catalogs.ts 获取，用于查询不变量元数据（appliesTo、owners）
-// 但验证逻辑通过 switch 静态 dispatch，无需运行时查找
 
 /**
  * DB bigint 上限 (2^63 - 1)
@@ -30,6 +28,11 @@ export function validateInvariant(
   invariantId: InvariantId,
   value: unknown,
 ): ContractValidationResult {
+  // 准入集合来自生成目录；手写实现只能解释已登记的 invariant，不能扩展权威源。
+  if (!invariantMap.has(invariantId)) {
+    return { success: false, error: `Unknown invariant: ${invariantId}` }
+  }
+
   switch (invariantId) {
     case 'WEEK_START_IS_MONDAY':
       return validateWeekStartIsMonday(value)
@@ -54,13 +57,25 @@ function validateWeekStartIsMonday(value: unknown): ContractValidationResult {
     return { success: false, error: 'Value must be a date string' }
   }
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) {
+    return { success: false, error: 'Invalid date format' }
+  }
+  const [, yearText, monthText, dayText] = match
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     return { success: false, error: 'Invalid date format' }
   }
 
-  // getDay() returns 0 for Sunday, 1 for Monday
-  if (date.getDay() !== 1) {
+  // 仅使用 UTC，避免部署主机时区改变 date-only 的星期判定。
+  if (date.getUTCDay() !== 1) {
     return { success: false, error: `Date ${value} is not a Monday` }
   }
 
@@ -159,17 +174,28 @@ function validateConfirmationStateFieldsMatch(value: unknown): ContractValidatio
     return { success: false, error: 'Value must be an object' }
   }
 
-  const obj = value as { state?: string; confirmationToken?: string }
-  const { state, confirmationToken } = obj
+  const rule = sseEvents.map((event) => event.confirmationToken).find(Boolean)
+  if (!rule) {
+    return { success: false, error: 'Generated protocol catalog has no confirmation token rule' }
+  }
+  const obj = value as Record<string, unknown>
+  const state = obj[rule.stateField]
+  if (typeof state !== 'string' || state.length === 0) {
+    return { success: false, error: `Value must have non-empty ${rule.stateField}` }
+  }
+  const hasToken = Object.hasOwn(obj, rule.tokenField) && obj[rule.tokenField] !== null
 
-  if (state === 'pending') {
-    if (!confirmationToken) {
-      return { success: false, error: 'Pending confirmation must have confirmationToken' }
-    }
-  } else if (state === 'expired' || state === 'superseded' || state === 'consumed') {
-    if (confirmationToken) {
-      return { success: false, error: `${state} confirmation must not have confirmationToken` }
-    }
+  if (
+    state === rule.tokenRequiredState &&
+    (typeof obj[rule.tokenField] !== 'string' || !obj[rule.tokenField])
+  ) {
+    return { success: false, error: `${rule.tokenField} is required for state ${state}` }
+  }
+  if (rule.tokenForbiddenStates.includes(state) && hasToken) {
+    return { success: false, error: `${rule.tokenField} is forbidden for state ${state}` }
+  }
+  if (state !== rule.tokenRequiredState && !rule.tokenForbiddenStates.includes(state)) {
+    return { success: false, error: `Unknown confirmation state: ${state}` }
   }
 
   return { success: true, value }
