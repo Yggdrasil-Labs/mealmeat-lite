@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -30,17 +31,28 @@ import kotlinx.serialization.Serializable
  * @param notes
  */
 @Serializable
-data class AddRecipeInput(
+
+data class AddRecipeInput (
+
     @SerialName(value = "name")
     val name: kotlin.String,
+
     @SerialName(value = "tags")
     val tags: kotlin.collections.List<kotlin.String>? = null,
+
     @SerialName(value = "ingredients")
     val ingredients: kotlin.collections.List<kotlin.String>? = null,
+
     @SerialName(value = "steps")
     val steps: kotlin.collections.List<kotlin.String>? = null,
+
     @Contextual @SerialName(value = "imageUrl")
-    val imageUrl: kotlin.String? = null,
+    val imageUrl: java.net.URI? = null,
+
     @SerialName(value = "notes")
-    val notes: kotlin.String? = null,
-)
+    val notes: kotlin.String? = null
+
+) {
+
+
+}

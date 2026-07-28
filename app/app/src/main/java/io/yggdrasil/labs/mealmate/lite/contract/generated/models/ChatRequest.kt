@@ -10,29 +10,38 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param chatRequestId UUID v7 格式
+ * @param chatRequestId 小写 canonical UUID 格式
  * @param modelId
  * @param message
  */
 @Serializable
-data class ChatRequest(
-    // UUID v7 格式
+
+data class ChatRequest (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "chatRequestId")
     val chatRequestId: java.util.UUID,
+
     @SerialName(value = "modelId")
     val modelId: kotlin.String,
+
     @SerialName(value = "message")
-    val message: kotlin.String,
-)
+    val message: kotlin.String
+
+) {
+
+
+}

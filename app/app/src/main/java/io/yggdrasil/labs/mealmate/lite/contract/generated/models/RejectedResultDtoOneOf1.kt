@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -28,13 +29,22 @@ import kotlinx.serialization.Serializable
  * @param requiresFullResync
  */
 @Serializable
-data class RejectedResultDtoOneOf1(
+
+data class RejectedResultDtoOneOf1 (
+
     @SerialName(value = "status")
     val status: kotlin.String,
+
     @SerialName(value = "errCode")
     val errCode: kotlin.String,
+
     @SerialName(value = "errMessage")
     val errMessage: kotlin.String,
+
     @SerialName(value = "requiresFullResync")
-    val requiresFullResync: kotlin.String,
-)
+    val requiresFullResync: kotlin.String
+
+) {
+
+
+}

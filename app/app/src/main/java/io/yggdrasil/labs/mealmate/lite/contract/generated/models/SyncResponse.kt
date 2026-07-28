@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncChangeDto
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -28,11 +29,19 @@ import kotlinx.serialization.Serializable
  * @param nextCursor
  */
 @Serializable
-data class SyncResponse(
+
+data class SyncResponse (
+
     @SerialName(value = "changes")
     val changes: kotlin.collections.List<SyncChangeDto>,
+
     @SerialName(value = "hasMore")
     val hasMore: kotlin.Boolean,
+
     @SerialName(value = "nextCursor")
-    val nextCursor: kotlin.String? = null,
-)
+    val nextCursor: kotlin.String? = null
+
+) {
+
+
+}

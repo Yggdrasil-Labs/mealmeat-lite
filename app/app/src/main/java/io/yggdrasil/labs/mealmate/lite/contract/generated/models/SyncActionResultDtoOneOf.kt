@@ -10,34 +10,44 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOfResource
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param actionId UUID v7 格式
+ * @param actionId 小写 canonical UUID 格式
  * @param status
  * @param serverVersion 服务端版本号，正整数十进制字符串，上限 9223372036854775807
  * @param resource
  */
 @Serializable
-data class SyncActionResultDtoOneOf(
-    // UUID v7 格式
+
+data class SyncActionResultDtoOneOf (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "actionId")
     val actionId: java.util.UUID,
+
     @SerialName(value = "status")
     val status: kotlin.String,
-    // 服务端版本号，正整数十进制字符串，上限 9223372036854775807
+
+    /* 服务端版本号，正整数十进制字符串，上限 9223372036854775807 */
     @SerialName(value = "serverVersion")
     val serverVersion: kotlin.String,
+
     @SerialName(value = "resource")
-    val resource: SyncActionResultDtoOneOfResource,
-)
+    val resource: AppliedResultDtoResource
+
+) {
+
+
+}

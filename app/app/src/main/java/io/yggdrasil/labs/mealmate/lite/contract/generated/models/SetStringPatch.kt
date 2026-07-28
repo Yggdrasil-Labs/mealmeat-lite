@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -26,9 +27,16 @@ import kotlinx.serialization.Serializable
  * @param `value`
  */
 @Serializable
-data class SetStringPatch(
+
+data class SetStringPatch (
+
     @SerialName(value = "op")
     val op: kotlin.String,
+
     @SerialName(value = "value")
-    val `value`: kotlin.String,
-)
+    val `value`: kotlin.String
+
+) {
+
+
+}

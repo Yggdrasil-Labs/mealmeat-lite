@@ -15,7 +15,6 @@
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDto
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -24,14 +23,18 @@ import kotlinx.serialization.Contextual
 /**
  *
  *
- * @param results
+ * @param status
+ * @param reason
  */
 @Serializable
 
-data class SyncActionsResponse (
+data class HealthNotReadyResponse (
 
-    @SerialName(value = "results")
-    val results: kotlin.collections.List<SyncActionResultDto>
+    @SerialName(value = "status")
+    val status: kotlin.String,
+
+    @SerialName(value = "reason")
+    val reason: kotlin.String? = null
 
 ) {
 

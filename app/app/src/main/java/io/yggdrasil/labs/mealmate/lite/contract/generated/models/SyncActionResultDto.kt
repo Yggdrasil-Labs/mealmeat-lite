@@ -10,31 +10,32 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf1
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf2
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf3
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf3Original
-import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOfResource
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 
@@ -45,63 +46,30 @@ import kotlinx.serialization.json.encodeToJsonElement
 @Serializable(with = SyncActionResultDtoSerializer::class)
 sealed interface SyncActionResultDto {
     @JvmInline
-    value class SyncActionResultDtoOneOfValue(
-        val value: SyncActionResultDtoOneOf,
-    ) : SyncActionResultDto
+    value class SyncActionResultDtoOneOfValue(val value: SyncActionResultDtoOneOf) : SyncActionResultDto
 
     @JvmInline
-    value class SyncActionResultDtoOneOf1Value(
-        val value: SyncActionResultDtoOneOf1,
-    ) : SyncActionResultDto
+    value class SyncActionResultDtoOneOf1Value(val value: SyncActionResultDtoOneOf1) : SyncActionResultDto
 
     @JvmInline
-    value class SyncActionResultDtoOneOf2Value(
-        val value: SyncActionResultDtoOneOf2,
-    ) : SyncActionResultDto
+    value class SyncActionResultDtoOneOf2Value(val value: SyncActionResultDtoOneOf2) : SyncActionResultDto
 
     @JvmInline
-    value class SyncActionResultDtoOneOf3Value(
-        val value: SyncActionResultDtoOneOf3,
-    ) : SyncActionResultDto
+    value class SyncActionResultDtoOneOf3Value(val value: SyncActionResultDtoOneOf3) : SyncActionResultDto
+
 }
 
 object SyncActionResultDtoSerializer : KSerializer<SyncActionResultDto> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("SyncActionResultDto")
 
-    override fun serialize(
-        encoder: Encoder,
-        value: SyncActionResultDto,
-    ) {
+    override fun serialize(encoder: Encoder, value: SyncActionResultDto) {
         val jsonEncoder = encoder as? JsonEncoder ?: throw SerializationException("SyncActionResultDto can only be serialized with Json")
 
         when (value) {
-            is SyncActionResultDto.SyncActionResultDtoOneOfValue -> {
-                jsonEncoder.encodeSerializableValue(
-                    SyncActionResultDtoOneOf.serializer(),
-                    value.value,
-                )
-            }
-
-            is SyncActionResultDto.SyncActionResultDtoOneOf1Value -> {
-                jsonEncoder.encodeSerializableValue(
-                    SyncActionResultDtoOneOf1.serializer(),
-                    value.value,
-                )
-            }
-
-            is SyncActionResultDto.SyncActionResultDtoOneOf2Value -> {
-                jsonEncoder.encodeSerializableValue(
-                    SyncActionResultDtoOneOf2.serializer(),
-                    value.value,
-                )
-            }
-
-            is SyncActionResultDto.SyncActionResultDtoOneOf3Value -> {
-                jsonEncoder.encodeSerializableValue(
-                    SyncActionResultDtoOneOf3.serializer(),
-                    value.value,
-                )
-            }
+            is SyncActionResultDto.SyncActionResultDtoOneOfValue -> jsonEncoder.encodeSerializableValue(SyncActionResultDtoOneOf.serializer(), value.value)
+            is SyncActionResultDto.SyncActionResultDtoOneOf1Value -> jsonEncoder.encodeSerializableValue(SyncActionResultDtoOneOf1.serializer(), value.value)
+            is SyncActionResultDto.SyncActionResultDtoOneOf2Value -> jsonEncoder.encodeSerializableValue(SyncActionResultDtoOneOf2.serializer(), value.value)
+            is SyncActionResultDto.SyncActionResultDtoOneOf3Value -> jsonEncoder.encodeSerializableValue(SyncActionResultDtoOneOf3.serializer(), value.value)
         }
     }
 

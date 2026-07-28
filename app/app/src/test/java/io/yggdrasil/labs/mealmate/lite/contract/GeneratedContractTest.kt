@@ -1,6 +1,7 @@
 package io.yggdrasil.labs.mealmate.lite.contract
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.ClearPatch
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.CurrentWeeklyPlanResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RecipeView
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SetStringPatch
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncChangeDto
@@ -10,12 +11,14 @@ import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.net.URI
 
 /**
  * 生成契约模型的严格 JSON 解析测试
@@ -96,6 +99,12 @@ class GeneratedContractTest {
     @DisplayName("Strict JSON 拒绝")
     inner class StrictJsonRejection {
         @Test
+        @DisplayName("严格 JSON 保留 explicitNulls 配置")
+        fun usesExplicitNulls() {
+            assertTrue(json.configuration.explicitNulls, "契约 JSON 必须保留显式 null 语义")
+        }
+
+        @Test
         @DisplayName("拒绝 unknown 字段")
         fun rejectUnknownFields() {
             val input =
@@ -172,11 +181,56 @@ class GeneratedContractTest {
                 json.decodeFromString<RecipeView>(input)
             }
         }
+
+        @Test
+        @DisplayName("URI 字段解码为绝对 java.net.URI，并拒绝相对 URI")
+        fun uriFieldsUseStrictUriSerializer() {
+            val validInput =
+                """
+                {
+                    "id": "01912345-6789-7def-abcd-ef0123456789",
+                    "name": "测试菜品",
+                    "tags": [],
+                    "ingredients": [],
+                    "steps": [],
+                    "imageUrl": "https://example.test/images/1",
+                    "serverVersion": "1",
+                    "createdAt": "2024-01-01T00:00:00Z",
+                    "updatedAt": "2024-01-01T00:00:00Z"
+                }
+                """.trimIndent()
+            val result = json.decodeFromString<RecipeView>(validInput)
+            assertInstanceOf(URI::class.java, result.imageUrl)
+
+            val relativeInput = validInput.replace("https://example.test/images/1", "/images/1")
+            assertThrows<SerializationException>("相对 URI 必须在解码边界被拒绝") {
+                json.decodeFromString<RecipeView>(relativeInput)
+            }
+        }
     }
 
     @Nested
     @DisplayName("联合类型 (oneOf) 解析")
     inner class UnionTypeParsing {
+        @Test
+        @DisplayName("CurrentWeeklyPlanResponse 保留 WeeklyPlanView | null 语义")
+        fun currentWeeklyPlanResponseAllowsNullAndObject() {
+            val absent: CurrentWeeklyPlanResponse = json.decodeFromString("null")
+            assertNull(absent)
+
+            val items =
+                (1..21).joinToString(",") { index ->
+                    """{"id":"01912345-6789-7def-abcd-ef0123456789","date":"2024-01-15","mealType":"breakfast","recipeId":"01912345-6789-7def-abcd-ef0123456789","recipeNameSnapshot":"菜品 $index"}"""
+                }
+            val present: CurrentWeeklyPlanResponse =
+                json.decodeFromString(
+                    """{"id":"01912345-6789-7def-abcd-ef0123456789","weekStart":"2024-01-15","serverVersion":"1","items":[$items],"createdAt":"2024-01-15T00:00:00Z","updatedAt":"2024-01-15T00:00:00Z"}""",
+                )
+            val plan = requireNotNull(present)
+            assertNotNull(plan)
+            assertEquals("2024-01-15", plan.weekStart.toString())
+        }
+
         @Test
         @DisplayName("SyncChangeDto - recipe upsert")
         fun parseSyncChangeRecipeUpsert() {

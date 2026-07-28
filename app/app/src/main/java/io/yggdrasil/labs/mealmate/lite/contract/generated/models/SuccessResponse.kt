@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -26,9 +27,16 @@ import kotlinx.serialization.Serializable
  * @param `data`
  */
 @Serializable
-data class SuccessResponse(
+
+data class SuccessResponse (
+
     @SerialName(value = "success")
     val success: kotlin.String,
+
     @Contextual @SerialName(value = "data")
-    val `data`: kotlin.Any?,
-)
+    val `data`: kotlin.Any?
+
+) {
+
+
+}

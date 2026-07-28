@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.WeeklyPlanUpsertChangeDto
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -27,9 +28,16 @@ import kotlinx.serialization.Serializable
  * @param changes
  */
 @Serializable
-data class ConfirmationCommitResultDtoOneOf1(
+
+data class ConfirmationCommitResultDtoOneOf1 (
+
     @SerialName(value = "kind")
     val kind: kotlin.String,
+
     @SerialName(value = "changes")
-    val changes: kotlin.collections.List<WeeklyPlanUpsertChangeDto>,
-)
+    val changes: kotlin.collections.List<WeeklyPlanUpsertChangeDto>
+
+) {
+
+
+}

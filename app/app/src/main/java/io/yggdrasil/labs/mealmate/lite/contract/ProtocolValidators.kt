@@ -1,302 +1,450 @@
 package io.yggdrasil.labs.mealmate.lite.contract
 
+import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedInvariantId
+import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedProtocolCatalog
+import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedSseConfirmationTokenRule
+import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedSseErrorCatalogRule
+import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedSseToolLifecycleRule
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
 import java.math.BigInteger
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-/**
- * SSE 帧数据类
- *
- * @property event SSE event 类型
- * @property data SSE data 内容
- * @property eventId 可选的 event id (用于断点续传)
- */
+/** 一条完整的 SSE 传输帧。eventId 是断点续传与顺序校验的必需字段。 */
 data class SseFrame(
     val event: String,
     val data: String,
-    val eventId: String? = null,
+    val eventId: String,
 )
 
-/**
- * SSE Trace 验证结果
- */
 data class TraceValidationResult(
     val success: Boolean,
     val errors: List<String> = emptyList(),
 )
 
-/**
- * 契约验证结果
- */
 data class ContractValidationResult<T>(
     val success: Boolean,
     val value: T? = null,
     val errors: List<String> = emptyList(),
 )
 
-/**
- * 不变量 ID 枚举
- *
- * 与 protocol-catalog.json 中的 invariants 保持一致
- */
-enum class InvariantId {
-    /** 周计划起始日必须是周一 */
-    WEEK_START_IS_MONDAY,
-
-    /** 周计划必须有 21 个槽位 (7天 × 3餐) */
-    WEEKLY_PLAN_HAS_21_SLOTS,
-
-    /** 同步结果保持输入顺序 */
-    SYNC_RESULTS_PRESERVE_INPUT_ORDER,
-
-    /** ServerVersion 在数据库 BIGINT 范围内 */
-    SERVER_VERSION_WITHIN_DB_BIGINT,
-
-    /** 确认事件状态字段匹配 */
-    CONFIRMATION_STATE_FIELDS_MATCH,
-}
-
-/**
- * SSE 事件元数据
- */
-private data class SseEventMeta(
-    val event: String,
-    val isStart: Boolean,
-    val isTerminal: Boolean,
+/** 需要同时观察 sync 请求与响应时使用的跨消息不变量输入。 */
+data class SyncResultsOrderInput(
+    val inputActionIds: List<String>,
+    val resultActionIds: List<String>,
 )
 
-/**
- * SSE 事件元数据表
- *
- * 与 protocol-catalog.json 中的 sseEvents 保持一致
- */
-private val SSE_EVENT_CATALOG =
-    listOf(
-        SseEventMeta("start", isStart = true, isTerminal = false),
-        SseEventMeta("delta", isStart = false, isTerminal = false),
-        SseEventMeta("tool-status", isStart = false, isTerminal = false),
-        SseEventMeta("confirmation-required", isStart = false, isTerminal = false),
-        SseEventMeta("error", isStart = false, isTerminal = true),
-        SseEventMeta("done", isStart = false, isTerminal = true),
-    ).associateBy { it.event }
+/** 确认状态与 token 字段的最小跨字段不变量输入。 */
+data class ConfirmationStateFieldsInput(
+    val state: String,
+    val confirmationToken: String?,
+)
 
-/**
- * 验证 SSE trace
- *
- * 验证规则：
- * 1. 必须以 start 事件开始
- * 2. 必须以 terminal 事件结束 (done 或 error)
- * 3. terminal 事件后不能有更多事件
- * 4. eventId 必须单调递增 (如果存在)
- * 5. tool-status 必须闭合 (started 必须有 succeeded 或 failed)
- *
- * @param frames SSE 帧序列
- * @return 验证结果
- */
-fun validateSseTrace(frames: List<SseFrame>): TraceValidationResult {
-    val errors = mutableListOf<String>()
+/** 不变量 ID 始终来自生成协议目录，不在 Android 中维护副本。 */
+typealias InvariantId = GeneratedInvariantId
 
-    if (frames.isEmpty()) {
-        return TraceValidationResult(success = false, errors = listOf("Empty trace"))
+private enum class ToolLifecycleState {
+    STARTED,
+    TERMINAL,
+}
+
+private val EVENT_ID_PATTERN = Regex("^[1-9][0-9]*$")
+private const val MAX_BIGINT = "9223372036854775807"
+private val POSITIVE_INTEGER_PATTERN = Regex("^[1-9][0-9]*$")
+
+private fun traceFailure(error: String): TraceValidationResult = TraceValidationResult(success = false, errors = listOf(error))
+
+private fun JsonObject.requiredString(field: String): String? =
+    (this[field] as? JsonPrimitive)
+        ?.takeIf { it.isString }
+        ?.content
+        ?.takeIf { it.isNotEmpty() }
+
+private fun JsonElement.stringValue(): String? =
+    (this as? JsonPrimitive)
+        ?.takeIf { it.isString }
+        ?.content
+
+private fun stringValue(value: Any?): String? =
+    when (value) {
+        is String -> value
+        is JsonElement -> value.stringValue()
+        else -> null
     }
 
-    // 1. 检查 start 事件
-    val firstFrame = frames.first()
-    val firstMeta = SSE_EVENT_CATALOG[firstFrame.event]
-    if (firstMeta?.isStart != true) {
-        errors.add("Trace must start with 'start' event, got '${firstFrame.event}'")
+private fun parseJsonObject(data: String): JsonObject? = runCatching { contractJson.parseToJsonElement(data).jsonObject }.getOrNull()
+
+private fun validateMutuallyExclusiveFields(
+    fields: Set<String>,
+    data: JsonObject,
+): String? =
+    if (fields.size >= 2 && fields.all { field -> (data[field] as? JsonPrimitive)?.booleanOrNull == true }) {
+        "${fields.joinToString(" and ")} must not all be true"
+    } else {
+        null
     }
 
-    // 2. 检查 terminal 事件
-    val lastFrame = frames.last()
-    val lastMeta = SSE_EVENT_CATALOG[lastFrame.event]
-    if (lastMeta?.isTerminal != true) {
-        errors.add("Trace must end with terminal event (done or error), got '${lastFrame.event}'")
-    }
+private fun validateToolLifecycle(
+    rule: GeneratedSseToolLifecycleRule,
+    data: JsonObject,
+    states: MutableMap<String, ToolLifecycleState>,
+): String? {
+    val toolCallId =
+        data.requiredString(rule.idField)
+            ?: return "tool lifecycle must contain a non-empty ${rule.idField}"
+    val status =
+        data.requiredString(rule.statusField)
+            ?: return "tool lifecycle must contain a non-empty ${rule.statusField}"
+    val current = states[toolCallId]
 
-    // 3. 检查 terminal 后没有更多事件
-    var terminalSeen = false
-    for ((index, frame) in frames.withIndex()) {
-        val meta = SSE_EVENT_CATALOG[frame.event]
-        if (terminalSeen) {
-            errors.add("Event '${frame.event}' at index $index after terminal event")
-        }
-        if (meta?.isTerminal == true) {
-            terminalSeen = true
-        }
-    }
-
-    // 4. 检查 eventId 单调递增
-    var lastEventId: Long? = null
-    for ((index, frame) in frames.withIndex()) {
-        if (frame.eventId != null) {
-            val currentId =
-                frame.eventId.toLongOrNull()
-                    ?: run {
-                        errors.add("Invalid eventId '${frame.eventId}' at index $index")
-                        continue
-                    }
-            if (lastEventId != null && currentId <= lastEventId) {
-                errors.add("Non-monotonic eventId at index $index: $currentId <= $lastEventId")
-            }
-            lastEventId = currentId
-        }
-    }
-
-    // 5. 检查 tool-status 闭合
-    val openTools = mutableMapOf<String, String>() // toolCallId -> toolName
-    for (frame in frames) {
-        if (frame.event == "tool-status") {
-            // 简单解析 JSON 获取 toolCallId, toolName, status
-            val toolCallIdMatch = """"toolCallId"\s*:\s*"([^"]+)"""".toRegex().find(frame.data)
-            val toolNameMatch = """"toolName"\s*:\s*"([^"]+)"""".toRegex().find(frame.data)
-            val statusMatch = """"status"\s*:\s*"([^"]+)"""".toRegex().find(frame.data)
-
-            val toolCallId = toolCallIdMatch?.groupValues?.get(1) ?: continue
-            val toolName = toolNameMatch?.groupValues?.get(1) ?: "unknown"
-            val status = statusMatch?.groupValues?.get(1) ?: continue
-
-            when (status) {
-                "started" -> openTools[toolCallId] = toolName
-                "succeeded", "failed" -> openTools.remove(toolCallId)
+    return when {
+        status == rule.startedStatus -> {
+            if (current != null) {
+                "Tool $toolCallId lifecycle error: ${rule.startedStatus} after $current"
+            } else {
+                states[toolCallId] = ToolLifecycleState.STARTED
+                null
             }
         }
-    }
 
-    if (openTools.isNotEmpty()) {
-        for ((callId, name) in openTools) {
-            errors.add("Unclosed tool: $name (callId: $callId)")
+        status in rule.terminalStatuses -> {
+            if (current != ToolLifecycleState.STARTED) {
+                "Tool $toolCallId lifecycle error: $status without ${rule.startedStatus} first"
+            } else {
+                states[toolCallId] = ToolLifecycleState.TERMINAL
+                null
+            }
+        }
+
+        else -> {
+            "Tool $toolCallId lifecycle error: unsupported status $status"
         }
     }
+}
 
-    return TraceValidationResult(
-        success = errors.isEmpty(),
-        errors = errors,
-    )
+private fun validateConfirmationToken(
+    rule: GeneratedSseConfirmationTokenRule,
+    data: JsonObject,
+): String? {
+    val state =
+        data.requiredString(rule.stateField)
+            ?: return "confirmation-required must contain a non-empty ${rule.stateField}"
+    val hasToken = data.containsKey(rule.tokenField) && data[rule.tokenField] != null
+
+    return when {
+        state == rule.tokenRequiredState && !hasToken -> {
+            "confirmation-required with state=$state must have ${rule.tokenField}"
+        }
+
+        state in rule.tokenForbiddenStates && hasToken -> {
+            "confirmation-required with state=$state must not have ${rule.tokenField}"
+        }
+
+        else -> {
+            null
+        }
+    }
 }
 
 /**
- * 验证不变量
- *
- * @param invariantId 不变量 ID
- * @param value 要验证的值
- * @return 验证结果
+ * SseErrorEvent 的 DTO 只验证 payload shape；code、通道和 retryable 仍由
+ * 编译出的公共错误目录裁决，避免 Android 维护另一份错误表。
  */
+private fun validateErrorCatalog(
+    rule: GeneratedSseErrorCatalogRule,
+    data: JsonObject,
+): String? {
+    val errCode = data.requiredString(rule.errCodeField) ?: return "SSE error must contain a non-empty ${rule.errCodeField}"
+    if (data.requiredString(rule.requestIdField) == null) {
+        return "SSE error must contain a non-empty ${rule.requestIdField}"
+    }
+    val retryable =
+        (data[rule.retryableField] as? JsonPrimitive)
+            ?.booleanOrNull
+            ?: return "SSE error must contain boolean ${rule.retryableField}"
+    val definition =
+        GeneratedProtocolCatalog.errorMap[errCode]
+            ?: return "Unknown error code: $errCode"
+    if ("sse" !in definition.channels) return "Error $errCode not supported on sse channel"
+    if (definition.retryable != retryable) {
+        return "retryable mismatch: expected ${definition.retryable} for $errCode, got $retryable"
+    }
+    return null
+}
+
+/**
+ * 按生成的协议目录验证 SSE trace。
+ *
+ * Android 只解释 `GeneratedProtocolCatalog` 的事件、转移和字段规则；事件 data 则使用
+ * 同一套生成 DTO 与严格 `contractJson` 解析，避免手写 JSON 正则或平行状态机。
+ */
+fun validateSseTrace(frames: List<SseFrame>): TraceValidationResult {
+    if (frames.isEmpty()) return traceFailure("Empty trace")
+
+    var previousEventId = BigInteger.ZERO
+    var previousDefinition: io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedSseEventDefinition? = null
+    var startCount = 0
+    var terminalCount = 0
+    var terminalSeen = false
+    val toolStates = mutableMapOf<String, ToolLifecycleState>()
+
+    for ((index, frame) in frames.withIndex()) {
+        val definition =
+            GeneratedProtocolCatalog.sseEventMap[frame.event]
+                ?: return traceFailure("Unknown SSE event: ${frame.event}")
+
+        if (!EVENT_ID_PATTERN.matches(frame.eventId)) {
+            return traceFailure("Invalid eventId: ${frame.eventId}")
+        }
+        val currentEventId = BigInteger(frame.eventId)
+        if (index == 0 && currentEventId != BigInteger.ONE) {
+            return traceFailure("First eventId must be 1, got ${frame.eventId}")
+        }
+        if (currentEventId <= previousEventId) {
+            return traceFailure("EventId not monotonically increasing: ${frame.eventId}")
+        }
+        previousEventId = currentEventId
+
+        if (index == 0 && !definition.isStart) {
+            return traceFailure("First event must be start, got ${frame.event}")
+        }
+        if (definition.isStart) {
+            startCount += 1
+            if (index != 0 || startCount != 1) {
+                return traceFailure("start must occur exactly once and be the first event")
+            }
+        }
+        if (terminalSeen) {
+            return traceFailure("Event ${frame.event} appears after terminal event")
+        }
+        if (previousDefinition != null && frame.event !in previousDefinition.nextEvents) {
+            return traceFailure("Event ${frame.event} is not allowed after ${previousDefinition.event}")
+        }
+
+        val dataError = GeneratedProtocolCatalog.validateEventData(definition.schemaId, contractJson, frame.data)
+        if (dataError != null) {
+            return traceFailure("Invalid data for ${frame.event}: $dataError")
+        }
+        val data =
+            parseJsonObject(frame.data)
+                ?: return traceFailure("Invalid JSON object data for ${frame.event}")
+
+        validateMutuallyExclusiveFields(definition.mutuallyExclusiveDataFields, data)?.let {
+            return traceFailure(it)
+        }
+        definition.toolLifecycle?.let { rule ->
+            validateToolLifecycle(rule, data, toolStates)?.let { return traceFailure(it) }
+        }
+        definition.confirmationToken?.let { rule ->
+            validateConfirmationToken(rule, data)?.let { return traceFailure(it) }
+        }
+        definition.errorCatalog?.let { rule ->
+            validateErrorCatalog(rule, data)?.let { return traceFailure(it) }
+        }
+
+        if (definition.isTerminal) {
+            terminalCount += 1
+            terminalSeen = true
+            if (index != frames.lastIndex) {
+                return traceFailure("Terminal event ${frame.event} must be last")
+            }
+        }
+        previousDefinition = definition
+    }
+
+    if (startCount != 1) return traceFailure("Trace must contain exactly one start event")
+    if (terminalCount != 1) return traceFailure("Trace must contain exactly one terminal event")
+    val unclosedToolIds =
+        toolStates
+            .filterValues { state -> state == ToolLifecycleState.STARTED }
+            .keys
+            .sorted()
+    if (unclosedToolIds.isNotEmpty()) {
+        return traceFailure("Unclosed tool lifecycle: ${unclosedToolIds.joinToString(", ")}")
+    }
+    return TraceValidationResult(success = true)
+}
+
 fun validateInvariant(
     invariantId: InvariantId,
     value: Any?,
-): ContractValidationResult<Any?> =
-    when (invariantId) {
-        InvariantId.WEEK_START_IS_MONDAY -> {
-            validateWeekStartIsMonday(value)
-        }
-
-        InvariantId.WEEKLY_PLAN_HAS_21_SLOTS -> {
-            validateWeeklyPlanHas21Slots(value)
-        }
-
-        InvariantId.SYNC_RESULTS_PRESERVE_INPUT_ORDER -> {
-            // 这个不变量在 server 端验证，Android 只消费结果
-            ContractValidationResult(success = true, value = value)
-        }
-
-        InvariantId.SERVER_VERSION_WITHIN_DB_BIGINT -> {
-            validateServerVersionWithinDbBigint(value)
-        }
-
-        InvariantId.CONFIRMATION_STATE_FIELDS_MATCH -> {
-            // 这个需要完整的 ConfirmationEventDto，简化处理
-            ContractValidationResult(success = true, value = value)
-        }
+): ContractValidationResult<Any?> {
+    if (invariantId !in GeneratedProtocolCatalog.invariantMap) {
+        return validationFailure("Unknown invariant: $invariantId")
     }
+    return when (invariantId) {
+        InvariantId.WEEK_START_IS_MONDAY -> validateWeekStartIsMonday(value)
+        InvariantId.WEEKLY_PLAN_HAS_21_SLOTS -> validateWeeklyPlanHas21Slots(value)
+        InvariantId.SYNC_RESULTS_PRESERVE_INPUT_ORDER -> validateSyncResultsPreserveInputOrder(value)
+        InvariantId.SERVER_VERSION_WITHIN_DB_BIGINT -> validateServerVersionWithinDbBigint(value)
+        InvariantId.CONFIRMATION_STATE_FIELDS_MATCH -> validateConfirmationStateFieldsMatch(value)
+    }
+}
+
+private fun validationFailure(error: String): ContractValidationResult<Any?> =
+    ContractValidationResult(success = false, errors = listOf(error))
 
 private fun validateWeekStartIsMonday(value: Any?): ContractValidationResult<Any?> {
-    if (value !is String) {
-        return ContractValidationResult(
-            success = false,
-            errors = listOf("Expected date string, got ${value?.javaClass?.simpleName}"),
-        )
-    }
+    val raw = stringValue(value) ?: return validationFailure("Expected date string, got ${value?.javaClass?.simpleName}")
 
     val date =
-        runCatching { LocalDate.parse(value) }
-            .getOrElse {
-                return ContractValidationResult(
-                    success = false,
-                    errors = listOf("Invalid date format: $value"),
-                )
-            }
-
+        runCatching { LocalDate.parse(raw) }
+            .getOrElse { return validationFailure("Invalid date format: $raw") }
     return if (date.dayOfWeek == DayOfWeek.MONDAY) {
         ContractValidationResult(success = true, value = value)
     } else {
-        ContractValidationResult(
-            success = false,
-            errors = listOf("Week start must be Monday, got ${date.dayOfWeek}"),
-        )
+        validationFailure("Week start must be Monday, got ${date.dayOfWeek}")
     }
 }
 
 private fun validateWeeklyPlanHas21Slots(value: Any?): ContractValidationResult<Any?> {
     val count =
         when (value) {
-            is Int -> {
-                value
-            }
-
-            is Long -> {
-                value.toInt()
-            }
-
-            is Number -> {
-                value.toInt()
-            }
-
-            else -> {
-                return ContractValidationResult(
-                    success = false,
-                    errors = listOf("Expected number, got ${value?.javaClass?.simpleName}"),
-                )
-            }
+            is JsonObject -> (value["items"] as? JsonArray)?.size
+            is Map<*, *> -> (value["items"] as? Collection<*>)?.size
+            else -> null
         }
-
+            ?: return validationFailure("Expected object with items array")
     return if (count == 21) {
         ContractValidationResult(success = true, value = value)
     } else {
-        ContractValidationResult(
-            success = false,
-            errors = listOf("Weekly plan must have 21 slots (7 days × 3 meals), got $count"),
-        )
+        validationFailure("Weekly plan must have 21 slots (7 days × 3 meals), got $count")
     }
 }
 
-private const val MAX_BIGINT = "9223372036854775807" // Long.MAX_VALUE
+private fun validateSyncResultsPreserveInputOrder(value: Any?): ContractValidationResult<Any?> {
+    val (inputActionIds, resultActionIds) =
+        when (value) {
+            is SyncResultsOrderInput -> {
+                value.inputActionIds to value.resultActionIds
+            }
+
+            is JsonObject -> {
+                val input = value.stringArray("inputActionIds")
+                val result = value.stringArray("resultActionIds")
+                if (input == null || result == null) {
+                    return validationFailure("Expected inputActionIds and resultActionIds arrays")
+                }
+                input to result
+            }
+
+            is Map<*, *> -> {
+                val input = value.stringList("inputActionIds")
+                val result = value.stringList("resultActionIds")
+                if (input == null || result == null) {
+                    return validationFailure("Expected inputActionIds and resultActionIds arrays")
+                }
+                input to result
+            }
+
+            else -> {
+                return validationFailure("Expected sync order object")
+            }
+        }
+    return if (inputActionIds == resultActionIds) {
+        ContractValidationResult(success = true, value = value)
+    } else {
+        validationFailure("Sync result actionIds must preserve input order")
+    }
+}
 
 private fun validateServerVersionWithinDbBigint(value: Any?): ContractValidationResult<Any?> {
-    if (value !is String) {
-        return ContractValidationResult(
-            success = false,
-            errors = listOf("Expected string, got ${value?.javaClass?.simpleName}"),
-        )
+    val raw = stringValue(value) ?: return validationFailure("Expected string, got ${value?.javaClass?.simpleName}")
+    if (!POSITIVE_INTEGER_PATTERN.matches(raw)) {
+        return validationFailure("Invalid server version format: $raw")
     }
 
     val version =
-        runCatching { BigInteger(value) }
-            .getOrElse {
-                return ContractValidationResult(
-                    success = false,
-                    errors = listOf("Invalid server version format: $value"),
-                )
-            }
-
+        runCatching { BigInteger(raw) }
+            .getOrElse { return validationFailure("Invalid server version format: $raw") }
     val maxBigint = BigInteger(MAX_BIGINT)
-
     return if (version in BigInteger.ONE..maxBigint) {
         ContractValidationResult(success = true, value = value)
     } else {
-        ContractValidationResult(
-            success = false,
-            errors = listOf("Server version out of BIGINT range: $value"),
-        )
+        validationFailure("Server version out of BIGINT range: $raw")
     }
+}
+
+private fun validateConfirmationStateFieldsMatch(value: Any?): ContractValidationResult<Any?> {
+    val rule =
+        GeneratedProtocolCatalog.sseEvents.mapNotNull { it.confirmationToken }.singleOrNull()
+            ?: return validationFailure("Generated protocol catalog has no unique confirmation token rule")
+    val fields =
+        when (value) {
+            is ConfirmationStateFieldsInput -> {
+                ConfirmationInvariantFields(
+                    state = value.state,
+                    hasToken = value.confirmationToken != null,
+                    token = value.confirmationToken,
+                )
+            }
+
+            is JsonObject -> {
+                ConfirmationInvariantFields(
+                    state = value.requiredString(rule.stateField),
+                    hasToken = value.containsKey(rule.tokenField) && value[rule.tokenField] != null,
+                    token = value[rule.tokenField]?.stringValue(),
+                )
+            }
+
+            is Map<*, *> -> {
+                ConfirmationInvariantFields(
+                    state = value[rule.stateField] as? String,
+                    hasToken = value.containsKey(rule.tokenField) && value[rule.tokenField] != null,
+                    token = value[rule.tokenField] as? String,
+                )
+            }
+
+            else -> {
+                return validationFailure("Expected confirmation state object")
+            }
+        }
+    val state = fields.state ?: return validationFailure("${rule.stateField} is required")
+
+    return when {
+        state == rule.tokenRequiredState && fields.token.isNullOrEmpty() -> {
+            validationFailure("${rule.tokenField} is required for state $state")
+        }
+
+        state in rule.tokenForbiddenStates && fields.hasToken -> {
+            validationFailure("${rule.tokenField} is forbidden for state $state")
+        }
+
+        state != rule.tokenRequiredState && state !in rule.tokenForbiddenStates -> {
+            validationFailure("Unknown confirmation state: $state")
+        }
+
+        else -> {
+            ContractValidationResult(success = true, value = value)
+        }
+    }
+}
+
+private data class ConfirmationInvariantFields(
+    val state: String?,
+    val hasToken: Boolean,
+    val token: String?,
+)
+
+private fun JsonObject.stringArray(field: String): List<String>? = (this[field] as? JsonArray)?.stringValues()
+
+private fun JsonArray.stringValues(): List<String>? {
+    val values = mutableListOf<String>()
+    for (element in this) {
+        val value = element.stringValue() ?: return null
+        values += value
+    }
+    return values
+}
+
+private fun Map<*, *>.stringList(field: String): List<String>? {
+    val values = this[field] as? List<*> ?: return null
+    if (values.any { it !is String }) return null
+    @Suppress("UNCHECKED_CAST")
+    return values as List<String>
 }

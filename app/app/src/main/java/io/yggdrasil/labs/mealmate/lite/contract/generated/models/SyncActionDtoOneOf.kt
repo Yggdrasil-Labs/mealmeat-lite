@@ -10,34 +10,44 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionDtoOneOfPayload
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param actionId UUID v7 格式
+ * @param actionId 小写 canonical UUID 格式
  * @param type
- * @param createdAt UTC RFC 3339 时间戳
+ * @param createdAt UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset
  * @param payload
  */
 @Serializable
-data class SyncActionDtoOneOf(
-    // UUID v7 格式
+
+data class SyncActionDtoOneOf (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "actionId")
     val actionId: java.util.UUID,
+
     @SerialName(value = "type")
     val type: kotlin.String,
-    // UTC RFC 3339 时间戳
+
+    /* UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset */
     @Contextual @SerialName(value = "createdAt")
     val createdAt: java.time.OffsetDateTime,
+
     @SerialName(value = "payload")
-    val payload: SyncActionDtoOneOfPayload,
-)
+    val payload: SyncActionDtoOneOfPayload
+
+) {
+
+
+}

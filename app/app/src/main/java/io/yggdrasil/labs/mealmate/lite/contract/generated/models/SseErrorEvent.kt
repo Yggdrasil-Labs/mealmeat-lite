@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -28,13 +29,22 @@ import kotlinx.serialization.Serializable
  * @param requestId
  */
 @Serializable
-data class SseErrorEvent(
+
+data class SseErrorEvent (
+
     @SerialName(value = "errCode")
     val errCode: kotlin.String,
+
     @SerialName(value = "errMessage")
     val errMessage: kotlin.String,
+
     @SerialName(value = "retryable")
     val retryable: kotlin.Boolean,
+
     @SerialName(value = "requestId")
-    val requestId: kotlin.String,
-)
+    val requestId: kotlin.String
+
+) {
+
+
+}

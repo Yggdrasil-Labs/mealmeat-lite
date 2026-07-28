@@ -21,6 +21,52 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 TEST_COMMITTED_DIR="$TEMP_DIR/committed"
 
+echo "=== Test: Generator output directory guard ==="
+
+NONEMPTY_OUTPUT_DIR="$TEMP_DIR/non-empty-output"
+mkdir -p "$NONEMPTY_OUTPUT_DIR"
+SENTINEL_FILE="$NONEMPTY_OUTPUT_DIR/do-not-delete.txt"
+touch "$SENTINEL_FILE"
+
+set +e
+OUTPUT=$("$SCRIPT_DIR/generate-contract-models.sh" --output-dir "$NONEMPTY_OUTPUT_DIR" 2>&1)
+EXIT_CODE=$?
+set -e
+
+if [[ $EXIT_CODE -eq 0 ]]; then
+  echo "FAIL: Generator must reject a non-empty output directory" >&2
+  exit 1
+fi
+if [[ ! -f "$SENTINEL_FILE" ]]; then
+  echo "FAIL: Generator deleted caller-owned output content" >&2
+  exit 1
+fi
+if [[ ! "$OUTPUT" =~ "must be empty" ]]; then
+  echo "FAIL: Generator did not report the non-empty directory guard" >&2
+  exit 1
+fi
+echo "✓ Generator preserves non-empty caller-owned output"
+
+UNSAFE_OUTPUT_DIR="$APP_DIR/contract-output-outside-controlled-root"
+set +e
+OUTPUT=$("$SCRIPT_DIR/generate-contract-models.sh" --output-dir "$UNSAFE_OUTPUT_DIR" 2>&1)
+EXIT_CODE=$?
+set -e
+
+if [[ $EXIT_CODE -eq 0 ]]; then
+  echo "FAIL: Generator must reject output outside controlled roots" >&2
+  exit 1
+fi
+if [[ -e "$UNSAFE_OUTPUT_DIR" ]]; then
+  echo "FAIL: Generator created an unsafe output directory" >&2
+  exit 1
+fi
+if [[ ! "$OUTPUT" =~ "must be below" ]]; then
+  echo "FAIL: Generator did not report the controlled-root guard" >&2
+  exit 1
+fi
+echo "✓ Generator rejects unsafe output root"
+
 echo "=== Test: Stale file detection ==="
 
 # 先确保有真实的 committed 文件
@@ -28,6 +74,13 @@ if [[ ! -d "$COMMITTED_DIR" ]] || [[ -z "$(ls -A "$COMMITTED_DIR" 2>/dev/null)" 
   echo "Error: No committed models found. Run generateContractModels first." >&2
   exit 1
 fi
+
+# 规范生成物必须可直接通过 git diff --check；不能依赖 KtLint 再次改写它。
+if rg -n '[[:blank:]]+$' "$COMMITTED_DIR"; then
+  echo "FAIL: Generated Kotlin sources contain trailing whitespace" >&2
+  exit 1
+fi
+echo "✓ Generated Kotlin sources have no trailing whitespace"
 
 # 复制 committed 目录
 cp -r "$COMMITTED_DIR" "$TEST_COMMITTED_DIR"

@@ -10,30 +10,39 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf3Original
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param actionId UUID v7 格式
+ * @param actionId 小写 canonical UUID 格式
  * @param status
  * @param original
  */
 @Serializable
-data class SyncActionResultDtoOneOf3(
-    // UUID v7 格式
+
+data class SyncActionResultDtoOneOf3 (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "actionId")
     val actionId: java.util.UUID,
+
     @SerialName(value = "status")
     val status: kotlin.String,
+
     @SerialName(value = "original")
-    val original: SyncActionResultDtoOneOf3Original,
-)
+    val original: SyncActionResultDtoOneOf3Original
+
+) {
+
+
+}

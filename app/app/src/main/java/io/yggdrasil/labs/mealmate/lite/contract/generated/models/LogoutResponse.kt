@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -25,7 +26,13 @@ import kotlinx.serialization.Serializable
  * @param revoked
  */
 @Serializable
-data class LogoutResponse(
+
+data class LogoutResponse (
+
     @SerialName(value = "revoked")
-    val revoked: kotlin.String,
-)
+    val revoked: kotlin.String
+
+) {
+
+
+}

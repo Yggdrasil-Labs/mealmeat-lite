@@ -42,10 +42,45 @@ if [[ -z "$OUTPUT_DIR" ]]; then
   exit 1
 fi
 
-# 确保输出目录是绝对路径且为空
+# 输出只能落在受控的 build 或 /tmp staging 根下。生成器绝不清理调用方给出的
+# 目录：已有内容意味着调用方没有提供 fresh staging directory，应明确失败而非 rm -rf。
 if [[ ! "$OUTPUT_DIR" = /* ]]; then
   echo "Error: --output-dir must be an absolute path" >&2
   exit 1
+fi
+
+PROJECT_BUILD_DIR="$(realpath -m "$APP_DIR/build")"
+APP_MODULE_BUILD_DIR="$(realpath -m "$APP_DIR/app/build")"
+OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
+
+case "$OUTPUT_DIR" in
+  "$PROJECT_BUILD_DIR"/*|"$APP_MODULE_BUILD_DIR"/*|/tmp/*)
+    ;;
+  *)
+    echo "Error: --output-dir must be below $PROJECT_BUILD_DIR, $APP_MODULE_BUILD_DIR, or /tmp" >&2
+    exit 1
+    ;;
+esac
+
+# 防止允许根内的 symlink 将写入重定向到不受控位置。
+path_component="$OUTPUT_DIR"
+while [[ "$path_component" != "/" ]]; do
+  if [[ -L "$path_component" ]]; then
+    echo "Error: --output-dir must not traverse symlinks: $path_component" >&2
+    exit 1
+  fi
+  path_component="$(dirname "$path_component")"
+done
+
+if [[ -e "$OUTPUT_DIR" ]]; then
+  if [[ ! -d "$OUTPUT_DIR" ]]; then
+    echo "Error: --output-dir exists but is not a directory: $OUTPUT_DIR" >&2
+    exit 1
+  fi
+  if [[ -n "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+    echo "Error: --output-dir must be empty: $OUTPUT_DIR" >&2
+    exit 1
+  fi
 fi
 
 # 下载 OpenAPI Generator CLI (如果不存在或 SHA-256 不匹配)
@@ -98,10 +133,7 @@ generate_models() {
     exit 1
   fi
   
-  # 确保输出目录为空
-  if [[ -d "$OUTPUT_DIR" ]]; then
-    rm -rf "$OUTPUT_DIR"
-  fi
+  # preflight 已验证该目录为空且位于受控根；这里只创建新的 staging directory。
   mkdir -p "$OUTPUT_DIR"
   
   echo "Generating Kotlin models from $openapi_path..."
@@ -127,10 +159,12 @@ generate_models() {
 # 修复 OpenAPI Generator 的已知问题:
 # 1. 顶层 dangling KDoc -> 移除 (ktlint 规则 standard:kdoc)
 # 2. kotlin.Any? 用于 const 字段 -> 替换为 String
-# 3. java.net.URI 缺少 serializer -> 替换为 String
-# 4. 运行 ktlint --format 修复剩余格式问题
+# 3. 复制由契约编译器生成的协议目录
 postprocess_models() {
   local models_dir="$OUTPUT_DIR/src/main/kotlin/io/yggdrasil/labs/mealmate/lite/contract/generated/models"
+  local protocol_catalog="$PROJECT_ROOT/contracts/v1/generated/ProtocolCatalog.kt"
+  local protocol_catalog_output="$OUTPUT_DIR/src/main/kotlin/io/yggdrasil/labs/mealmate/lite/contract/generated/ProtocolCatalog.kt"
+  local current_plan_template="$SCRIPT_DIR/templates/CurrentWeeklyPlanResponse.kt"
   
   if [[ ! -d "$models_dir" ]]; then
     echo "Warning: Models directory not found: $models_dir" >&2
@@ -153,19 +187,33 @@ postprocess_models() {
   find "$models_dir" -name "*.kt" -exec perl -i -0pe \
     's/\@Contextual \@SerialName\(value = ("[^"]*")\)\s*\n\s*val ([a-zA-Z]+): kotlin\.Any\?/\@SerialName(value = \1)\n    val \2: kotlin.String/g' {} \;
   
-  # 3. 替换 java.net.URI -> String (简化 URI 处理)
-  find "$models_dir" -name "*.kt" -exec sed -i \
-    's/java\.net\.URI/kotlin.String/g' {} \;
+  # 3. URI 保留为 java.net.URI，由 ContractJson 中注册的严格 contextual
+  # serializer 处理；不得降级为 String，否则会丢失 URI 边界校验。
+
+  # 4. OpenAPI Generator 7.22 会把 oneOf [WeeklyPlanView, null] 误投影成必填对象。
+  # 这里的已审计模板保留 source schema 的 nullable union，且与每次 fresh generation
+  # 一起复制，因此 freshness gate 仍是字节确定的。
+  if [[ ! -f "$current_plan_template" ]]; then
+    echo "Error: CurrentWeeklyPlanResponse template not found: $current_plan_template" >&2
+    exit 1
+  fi
+  cp "$current_plan_template" "$models_dir/CurrentWeeklyPlanResponse.kt"
+
+  if [[ ! -f "$protocol_catalog" ]]; then
+    echo "Error: Generated protocol catalog not found: $protocol_catalog" >&2
+    echo "Please run 'pnpm --dir server contract:generate' first" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$protocol_catalog_output")"
+  cp "$protocol_catalog" "$protocol_catalog_output"
+
+  # 5. 生成物本身是 canonical output，统一为 UTF-8/LF、无行尾空白且只保留一个
+  # EOF 换行。不要交给 KtLint 格式化，否则 DTO 的字节会与独立 checker 的输出漂移。
+  find "$OUTPUT_DIR/src/main/kotlin/io/yggdrasil/labs/mealmate/lite/contract/generated" \
+    -type f -name "*.kt" -exec perl -i -0pe \
+    's/\r\n?/\n/g; s/[ \t]+(?=\n)//g; s/\n*\z/\n/' {} \;
   
-  # 4. 移除不需要的 import
-  find "$models_dir" -name "*.kt" -exec sed -i \
-    '/^import java\.net\.URI$/d' {} \;
-  
-  # 5. 使用 gradle ktlintFormat 格式化（在 sync 完成后由 gradle task 执行）
-  # 注意：ktlint 格式化会在 syncContractModels task 之后由 gradle 执行
-  echo "Note: Run './gradlew ktlintFormat' to format generated code"
-  
-  echo "Post-processing complete"
+  echo "Post-processing complete (canonical generated output)"
 }
 
 # 主流程

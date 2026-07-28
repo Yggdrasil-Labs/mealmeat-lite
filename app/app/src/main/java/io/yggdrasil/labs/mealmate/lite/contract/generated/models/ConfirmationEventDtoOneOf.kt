@@ -10,40 +10,52 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RecipeBatchPreview
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param confirmationId UUID v7 格式
+ * @param confirmationId 小写 canonical UUID 格式
  * @param kind
  * @param state
- * @param expiresAt UTC RFC 3339 时间戳
+ * @param expiresAt UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset
  * @param confirmationToken
  * @param preview
  */
 @Serializable
-data class ConfirmationEventDtoOneOf(
-    // UUID v7 格式
+
+data class ConfirmationEventDtoOneOf (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "confirmationId")
     val confirmationId: java.util.UUID,
+
     @SerialName(value = "kind")
     val kind: kotlin.String,
+
     @SerialName(value = "state")
     val state: kotlin.String,
-    // UTC RFC 3339 时间戳
+
+    /* UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset */
     @Contextual @SerialName(value = "expiresAt")
     val expiresAt: java.time.OffsetDateTime,
+
     @SerialName(value = "confirmationToken")
     val confirmationToken: kotlin.String,
+
     @SerialName(value = "preview")
-    val preview: RecipeBatchPreview,
-)
+    val preview: RecipeBatchPreview
+
+) {
+
+
+}

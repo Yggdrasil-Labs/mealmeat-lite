@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RecipeView
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -26,7 +27,13 @@ import kotlinx.serialization.Serializable
  * @param recipe
  */
 @Serializable
-data class UpdateRecipeOutput(
+
+data class UpdateRecipeOutput (
+
     @SerialName(value = "recipe")
-    val recipe: RecipeView,
-)
+    val recipe: RecipeView
+
+) {
+
+
+}

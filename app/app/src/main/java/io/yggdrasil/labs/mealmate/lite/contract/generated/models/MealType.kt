@@ -10,13 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
+
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
 
 /**
  * 餐次类型
@@ -24,9 +26,8 @@ import kotlinx.serialization.Serializable
  * Values: breakfast,lunch,dinner
  */
 @Serializable
-enum class MealType(
-    val value: kotlin.String,
-) {
+enum class MealType(val value: kotlin.String) {
+
     @SerialName(value = "breakfast")
     breakfast("breakfast"),
 
@@ -34,8 +35,7 @@ enum class MealType(
     lunch("lunch"),
 
     @SerialName(value = "dinner")
-    dinner("dinner"),
-    ;
+    dinner("dinner");
 
     /**
      * Override [toString()] to avoid using the enum variable name as the value, and instead use
@@ -55,12 +55,11 @@ enum class MealType(
         /**
          * Returns a valid [MealType] for [data], null otherwise.
          */
-        fun decode(data: kotlin.Any?): MealType? =
-            data?.let {
-                val normalizedData = "$it".lowercase()
-                entries.firstOrNull { value ->
-                    it == value || normalizedData == "$value".lowercase()
-                }
-            }
+        fun decode(data: kotlin.Any?): MealType? = data?.let {
+          val normalizedData = "$it".lowercase()
+          entries.firstOrNull { value ->
+            it == value || normalizedData == "$value".lowercase()
+          }
+        }
     }
 }

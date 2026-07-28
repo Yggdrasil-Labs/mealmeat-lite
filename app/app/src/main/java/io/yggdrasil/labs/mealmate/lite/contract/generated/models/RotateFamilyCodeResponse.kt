@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -25,7 +26,13 @@ import kotlinx.serialization.Serializable
  * @param familyCode
  */
 @Serializable
-data class RotateFamilyCodeResponse(
+
+data class RotateFamilyCodeResponse (
+
     @SerialName(value = "familyCode")
-    val familyCode: kotlin.String,
-)
+    val familyCode: kotlin.String
+
+) {
+
+
+}

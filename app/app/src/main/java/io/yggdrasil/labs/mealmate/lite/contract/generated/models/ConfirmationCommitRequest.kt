@@ -10,26 +10,34 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
  * @param confirmationToken
- * @param commitActionId UUID v7 格式
+ * @param commitActionId 小写 canonical UUID 格式
  */
 @Serializable
-data class ConfirmationCommitRequest(
+
+data class ConfirmationCommitRequest (
+
     @SerialName(value = "confirmationToken")
     val confirmationToken: kotlin.String,
-    // UUID v7 格式
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "commitActionId")
-    val commitActionId: java.util.UUID,
-)
+    val commitActionId: java.util.UUID
+
+) {
+
+
+}

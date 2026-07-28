@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOfResource
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -31,18 +32,29 @@ import kotlinx.serialization.Serializable
  * @param serverVersion 服务端版本号，正整数十进制字符串，上限 9223372036854775807
  */
 @Serializable
-data class RejectedResultDtoOneOf(
+
+data class RejectedResultDtoOneOf (
+
     @SerialName(value = "status")
     val status: kotlin.String,
+
     @SerialName(value = "errCode")
     val errCode: kotlin.String,
+
     @SerialName(value = "errMessage")
     val errMessage: kotlin.String,
+
     @SerialName(value = "requiresFullResync")
     val requiresFullResync: kotlin.String,
+
     @SerialName(value = "authoritative")
-    val authoritative: SyncActionResultDtoOneOfResource,
-    // 服务端版本号，正整数十进制字符串，上限 9223372036854775807
+    val authoritative: AppliedResultDtoResource,
+
+    /* 服务端版本号，正整数十进制字符串，上限 9223372036854775807 */
     @SerialName(value = "serverVersion")
-    val serverVersion: kotlin.String,
-)
+    val serverVersion: kotlin.String
+
+) {
+
+
+}

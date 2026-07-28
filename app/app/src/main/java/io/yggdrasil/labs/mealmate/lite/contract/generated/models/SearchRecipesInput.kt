@@ -10,14 +10,15 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -28,13 +29,22 @@ import kotlinx.serialization.Serializable
  * @param limit
  */
 @Serializable
-data class SearchRecipesInput(
+
+data class SearchRecipesInput (
+
     @SerialName(value = "query")
     val query: kotlin.String? = null,
+
     @SerialName(value = "tags")
     val tags: kotlin.collections.List<kotlin.String>? = null,
+
     @SerialName(value = "includeDeleted")
     val includeDeleted: kotlin.Boolean? = false,
+
     @SerialName(value = "limit")
-    val limit: kotlin.Int? = 20,
-)
+    val limit: kotlin.Int? = 20
+
+) {
+
+
+}

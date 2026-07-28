@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.DeviceView
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -26,7 +27,13 @@ import kotlinx.serialization.Serializable
  * @param items
  */
 @Serializable
-data class DeviceListResponse(
+
+data class DeviceListResponse (
+
     @SerialName(value = "items")
-    val items: kotlin.collections.List<DeviceView>,
-)
+    val items: kotlin.collections.List<DeviceView>
+
+) {
+
+
+}

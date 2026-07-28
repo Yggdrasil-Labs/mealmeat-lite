@@ -126,6 +126,11 @@ dependencies {
 
 ktlint {
     version.set("1.8.0")
+    // 契约生成器的输出以脚本后处理后的字节为准；生成任务与检查任务必须比较同一份
+    // canonical output，而不能再由 ktlint 改写。
+    filter {
+        exclude("**/contract/generated/**")
+    }
 }
 
 tasks.withType<Test> {
@@ -163,10 +168,17 @@ tasks.register<Exec>("generateContractModels") {
     workingDir = rootProject.projectDir
     commandLine("bash", "scripts/generate-contract-models.sh", "--output-dir", outputDir.absolutePath)
 
+    // 生成脚本拒绝清理调用方传入的目录。Gradle 只在自身受控的 build staging
+    // 目录上负责创建 fresh output，避免脚本拥有任意路径删除能力。
+    doFirst {
+        delete(outputDir)
+    }
+
     doLast {
         // Sync generated files to committed source
         val generatedSrc = file("$outputDir/src/main/kotlin/io/yggdrasil/labs/mealmate/lite/contract/generated")
         if (generatedSrc.exists()) {
+            delete(contractGeneratedDir)
             copy {
                 from(generatedSrc)
                 into(contractGeneratedDir)
@@ -186,11 +198,10 @@ tasks.register<Exec>("checkContractModels") {
     commandLine("bash", "scripts/check-contract-models.sh")
 }
 
-// 生成并格式化契约模型（完整流程）
+// 生成契约模型（完整流程）。生成输出已是 canonical，不能再被 formatter 改写。
 tasks.register("generateAndFormatContractModels") {
     group = "contract"
-    description = "Generate and format Kotlin DTOs from OpenAPI spec"
+    description = "Generate canonical Kotlin DTOs from OpenAPI spec"
 
     dependsOn("generateContractModels")
-    finalizedBy("ktlintMainSourceSetFormat")
 }

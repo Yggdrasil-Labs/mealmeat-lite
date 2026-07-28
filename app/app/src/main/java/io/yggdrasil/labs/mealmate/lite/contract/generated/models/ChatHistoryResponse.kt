@@ -10,15 +10,16 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.ChatMessage
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
@@ -26,7 +27,13 @@ import kotlinx.serialization.Serializable
  * @param messages
  */
 @Serializable
-data class ChatHistoryResponse(
+
+data class ChatHistoryResponse (
+
     @SerialName(value = "messages")
-    val messages: kotlin.collections.List<ChatMessage>,
-)
+    val messages: kotlin.collections.List<ChatMessage>
+
+) {
+
+
+}

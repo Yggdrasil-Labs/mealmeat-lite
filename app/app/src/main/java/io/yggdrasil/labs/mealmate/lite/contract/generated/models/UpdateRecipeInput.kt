@@ -10,27 +10,35 @@
     "UnnecessaryVariable",
     "UnusedImport",
     "UnnecessaryVariable",
-    "unused",
+    "unused"
 )
 
 package io.yggdrasil.labs.mealmate.lite.contract.generated.models
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.UpdateRecipeInputPatch
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
+
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 
 /**
  *
  *
- * @param recipeId UUID v7 格式
+ * @param recipeId 小写 canonical UUID 格式
  * @param patch
  */
 @Serializable
-data class UpdateRecipeInput(
-    // UUID v7 格式
+
+data class UpdateRecipeInput (
+
+    /* 小写 canonical UUID 格式 */
     @Contextual @SerialName(value = "recipeId")
     val recipeId: java.util.UUID,
+
     @SerialName(value = "patch")
-    val patch: UpdateRecipeInputPatch,
-)
+    val patch: UpdateRecipeInputPatch
+
+) {
+
+
+}
