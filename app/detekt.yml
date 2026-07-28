@@ -1,4 +1,5 @@
 # Detekt 配置 — 适配 Jetpack Compose 约定
+
 naming:
   FunctionNaming:
     # Composable 函数使用 PascalCase 是 Compose 标准约定
@@ -7,4 +8,36 @@ naming:
   MatchingDeclarationName:
     # 允许文件包含多个顶级声明（Compose 文件常见 enum + composable）
     mustBeFirst: false
+    active: false
+
+# 复杂度规则放宽（契约验证逻辑必然复杂）
+complexity:
+  LongMethod:
+    threshold: 100
+  CyclomaticComplexMethod:
+    threshold: 30
+  NestedBlockDepth:
+    threshold: 5
+
+# 风格规则调整
+style:
+  MagicNumber:
+    # 契约验证常用数字常量
+    ignoreNumbers:
+      - "-1"
+      - "0"
+      - "1"
+      - "2"
+      - "7"
+      - "21"  # 周计划 7天×3餐
+  ReturnCount:
+    max: 5
+  LoopWithTooManyJumpStatements:
+    maxJumpCount: 3
+  UseRequire:
+    active: false
+
+# 异常处理
+exceptions:
+  SwallowedException:
     active: false

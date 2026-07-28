@@ -1,0 +1,44 @@
+# OpenAPI Generator 7.22.0 Kotlin 配置
+# 只生成 DTO，不生成 Retrofit API
+
+generatorName: kotlin
+inputSpec: ../../contracts/v1/source/openapi.yaml
+outputDir: ./build/contract-generation
+templateDir: null
+
+# 只生成模型，不生成 API
+generateApis: false
+generateApiTests: false
+generateApiDocumentation: false
+generateModelTests: false
+generateModelDocumentation: false
+
+globalProperties:
+  models: ""
+  supportingFiles: false
+
+additionalProperties:
+  # 基础配置
+  packageName: io.yggdrasil.labs.mealmate.lite.contract.generated
+  artifactId: mealmate-lite-contract
+  groupId: io.yggdrasil.labs
+  artifactVersion: 0.1.0
+  
+  # Kotlin 配置
+  library: jvm-kotlinx-serialization
+  serializationLibrary: kotlinx_serialization
+  
+  # 严格解析配置
+  enumPropertyNaming: original
+  dateLibrary: java8
+  useCoroutines: false
+  
+  # oneOf 包装器 - 为联合类型生成 sealed class
+  generateOneOfAnyOfWrappers: true
+  
+  # 禁止生成不需要的文件
+  generateGradleProjectWithWrapper: false
+  
+  # 可空性处理
+  nullableReturnType: true
+  omitGradleWrapper: true

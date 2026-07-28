@@ -329,26 +329,26 @@ Expected: **PASS**。
 
 **Acceptance Criteria:**
 
-- [ ] 生成 Kotlin 源在 JDK 21/Kotlin 2.4.10 下编译，strict JSON 拒绝 unknown、非法类型、非法 UUID/URI/date/date-time 和歧义联合；注入陈旧 DTO 时非变更型检查必须失败并报告该路径。
-- [ ] `update_recipe` 的 missing、clear、set 三态互不合并；SSE trace 与 invariant golden vectors 和 TS 端结果一致。
+- [x] 生成 Kotlin 源在 JDK 21/Kotlin 2.4.10 下编译，strict JSON 拒绝 unknown、非法类型、非法 UUID/URI/date/date-time 和歧义联合；注入陈旧 DTO 时非变更型检查必须失败并报告该路径。
+- [x] `update_recipe` 的 missing、clear、set 三态互不合并；SSE trace 与 invariant golden vectors 和 TS 端结果一致。
 
 **Execution:**
 
-- **Status:** pending
-- **Commit SHA:** null
-- **Attempts:** 0
+- **Status:** done
+- **Commit SHA:** 331d31c
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** pass
+- **Verify Result:** pass (compileDebugKotlin + contract tests + stale-check)
+- **AC Result:** pass (2/2)
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Commit SHA belongs to this task only
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 

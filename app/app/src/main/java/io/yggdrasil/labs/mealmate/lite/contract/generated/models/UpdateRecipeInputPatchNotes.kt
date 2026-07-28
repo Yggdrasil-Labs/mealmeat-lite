@@ -1,0 +1,104 @@
+@file:Suppress(
+    "ArrayInDataClass",
+    "DuplicatedCode",
+    "EnumEntryName",
+    "RemoveRedundantQualifierName",
+    "RemoveRedundantCallsOfConversionMethods",
+    "REDUNDANT_CALL_OF_CONVERSION_METHOD",
+    "RedundantUnitReturnType",
+    "RemoveEmptyClassBody",
+    "UnnecessaryVariable",
+    "UnusedImport",
+    "UnnecessaryVariable",
+    "unused",
+)
+
+package io.yggdrasil.labs.mealmate.lite.contract.generated.models
+
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.ClearPatch
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SetStringPatch
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+
+/**
+ *
+ *
+ */
+@Serializable(with = UpdateRecipeInputPatchNotesSerializer::class)
+sealed interface UpdateRecipeInputPatchNotes {
+    @JvmInline
+    value class ClearPatchValue(
+        val value: ClearPatch,
+    ) : UpdateRecipeInputPatchNotes
+
+    @JvmInline
+    value class SetStringPatchValue(
+        val value: SetStringPatch,
+    ) : UpdateRecipeInputPatchNotes
+}
+
+object UpdateRecipeInputPatchNotesSerializer : KSerializer<UpdateRecipeInputPatchNotes> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("UpdateRecipeInputPatchNotes")
+
+    override fun serialize(
+        encoder: Encoder,
+        value: UpdateRecipeInputPatchNotes,
+    ) {
+        val jsonEncoder =
+            encoder as? JsonEncoder ?: throw SerializationException("UpdateRecipeInputPatchNotes can only be serialized with Json")
+
+        when (value) {
+            is UpdateRecipeInputPatchNotes.ClearPatchValue -> {
+                jsonEncoder.encodeSerializableValue(ClearPatch.serializer(), value.value)
+            }
+
+            is UpdateRecipeInputPatchNotes.SetStringPatchValue -> {
+                jsonEncoder.encodeSerializableValue(
+                    SetStringPatch.serializer(),
+                    value.value,
+                )
+            }
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): UpdateRecipeInputPatchNotes {
+        val jsonDecoder =
+            decoder as? JsonDecoder ?: throw SerializationException("UpdateRecipeInputPatchNotes can only be deserialized with Json")
+        val jsonElement = jsonDecoder.decodeJsonElement()
+
+        val errorMessages = mutableListOf<String>()
+
+        if (jsonElement !is JsonPrimitive) {
+            try {
+                val instance = jsonDecoder.json.decodeFromJsonElement<ClearPatch>(jsonElement)
+                return UpdateRecipeInputPatchNotes.ClearPatchValue(instance)
+            } catch (e: Exception) {
+                errorMessages.add("Failed to deserialize as ClearPatch: ${e.message}")
+            }
+        }
+        if (jsonElement !is JsonPrimitive) {
+            try {
+                val instance = jsonDecoder.json.decodeFromJsonElement<SetStringPatch>(jsonElement)
+                return UpdateRecipeInputPatchNotes.SetStringPatchValue(instance)
+            } catch (e: Exception) {
+                errorMessages.add("Failed to deserialize as SetStringPatch: ${e.message}")
+            }
+        }
+
+        throw SerializationException("Cannot deserialize UpdateRecipeInputPatchNotes. Tried: ${errorMessages.joinToString(", ")}")
+    }
+}

@@ -135,4 +135,62 @@ tasks.withType<Test> {
 detekt {
     config.setFrom(files("${rootProject.projectDir}/detekt.yml"))
     buildUponDefaultConfig = true
+    // 排除 OpenAPI Generator 生成的代码
+    source.setFrom(
+        "src/main/java",
+        "src/main/kotlin",
+    )
+}
+
+// 排除生成代码目录
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    exclude("**/contract/generated/**")
+}
+
+// Contract model generation tasks
+val contractGeneratedDir = file("src/main/java/io/yggdrasil/labs/mealmate/lite/contract/generated")
+
+tasks.register<Exec>("generateContractModels") {
+    group = "contract"
+    description = "Generate Kotlin DTOs from OpenAPI spec using OpenAPI Generator"
+
+    val outputDir =
+        layout.buildDirectory
+            .dir("contract-generation")
+            .get()
+            .asFile
+
+    workingDir = rootProject.projectDir
+    commandLine("bash", "scripts/generate-contract-models.sh", "--output-dir", outputDir.absolutePath)
+
+    doLast {
+        // Sync generated files to committed source
+        val generatedSrc = file("$outputDir/src/main/kotlin/io/yggdrasil/labs/mealmate/lite/contract/generated")
+        if (generatedSrc.exists()) {
+            copy {
+                from(generatedSrc)
+                into(contractGeneratedDir)
+            }
+            println("Contract models synced to $contractGeneratedDir")
+        } else {
+            println("Warning: Generated source not found at $generatedSrc")
+        }
+    }
+}
+
+tasks.register<Exec>("checkContractModels") {
+    group = "contract"
+    description = "Check if contract models are up to date with OpenAPI spec"
+
+    workingDir = rootProject.projectDir
+    commandLine("bash", "scripts/check-contract-models.sh")
+}
+
+// 生成并格式化契约模型（完整流程）
+tasks.register("generateAndFormatContractModels") {
+    group = "contract"
+    description = "Generate and format Kotlin DTOs from OpenAPI spec"
+
+    dependsOn("generateContractModels")
+    finalizedBy("ktlintMainSourceSetFormat")
 }
