@@ -1,5 +1,6 @@
-/**
- * Drizzle schema 统一导出入口
- * 阶段 1 在此定义 Recipe, WeeklyPlan, PlanItem 等表
- */
-export {}
+export * from './auth.js'
+export * from './chat.js'
+export * from './plans.js'
+export * from './recipes.js'
+export * from './settings.js'
+export * from './sync.js'
