@@ -17,4 +17,16 @@ describe('database readiness', () => {
     }
     await expect(assertDatabaseSchemaCurrent(db)).rejects.toMatchObject({ code: 'NOT_READY' })
   })
+
+  it('rejects an applied migration with the right count but the wrong identity', async () => {
+    let calls = 0
+    const db: ReadinessDatabase = {
+      async execute() {
+        calls += 1
+        return [{ count: calls === 1 ? '1' : '0' }]
+      },
+    }
+
+    await expect(assertDatabaseSchemaCurrent(db)).rejects.toMatchObject({ code: 'NOT_READY' })
+  })
 })

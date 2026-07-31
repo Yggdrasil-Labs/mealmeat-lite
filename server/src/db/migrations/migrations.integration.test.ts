@@ -32,8 +32,36 @@ describe('v0.1 migration', () => {
         where table_schema = 'public' and table_type = 'BASE TABLE'
         order by table_name
       `
-      expect(tables).toHaveLength(13)
-      expect(tables.map((table) => table.table_name)).toContain('sync_changes')
+      expect(tables.map((table) => table.table_name)).toEqual([
+        'auth_attempt_throttles',
+        'auth_config',
+        'chat_request_receipts',
+        'conversations',
+        'device_tokens',
+        'pending_confirmations',
+        'plan_items',
+        'recipes',
+        'settings',
+        'sync_action_receipts',
+        'sync_changes',
+        'weekly_plans',
+      ])
+      const jsonbCarriers = await client<{ column_name: string }[]>`
+        select column_name from information_schema.columns
+        where table_schema = 'public' and data_type = 'jsonb'
+        order by column_name
+      `
+      expect(jsonbCarriers).toHaveLength(7)
+      const constraintNames = await client<{ conname: string }[]>`
+        select conname from pg_constraint where connamespace = 'public'::regnamespace
+      `
+      expect(constraintNames.map((row) => row.conname)).toEqual(
+        expect.arrayContaining([
+          'pending_confirmations_chat_receipt_fk',
+          'chat_request_receipts_tool_receipts_version_pair_check',
+          'sync_action_receipts_status_check',
+        ]),
+      )
     } finally {
       await client.end()
       await container.stop()

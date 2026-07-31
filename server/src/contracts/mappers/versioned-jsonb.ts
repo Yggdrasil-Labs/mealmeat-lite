@@ -33,10 +33,10 @@ const schemaByKind: Readonly<Record<VersionedJsonbKind, PublicSchemaId>> = {
   'pending_confirmation.result': 'ConfirmationCommitResultDto',
   'chat_request_receipt.tool_receipts': 'SyncActionResultDto',
   'sync_action_receipt.result': 'SyncActionResultDto',
-  'sync_change.recipe.upsert': 'SyncChangeDto',
-  'sync_change.recipe.delete': 'SyncChangeDto',
-  'sync_change.weekly_plan.upsert': 'SyncChangeDto',
-  'sync_change.settings.upsert': 'SyncChangeDto',
+  'sync_change.recipe.upsert': 'RecipeView',
+  'sync_change.recipe.delete': 'RecipeTombstone',
+  'sync_change.weekly_plan.upsert': 'WeeklyPlanView',
+  'sync_change.settings.upsert': 'SettingsDto',
 }
 
 /**
@@ -56,9 +56,7 @@ export function validateVersionedJsonb(
     )
   }
 
-  const candidate =
-    kind === 'settings.value' ? { key: 'familyPreference', value: payload } : payload
-  const result = validateContract(schemaByKind[kind], candidate)
+  const result = validateContract(schemaByKind[kind], payload)
   if (!result.success) {
     throw new VersionedJsonbError(
       'CONTRACT_VALIDATION_FAILED',

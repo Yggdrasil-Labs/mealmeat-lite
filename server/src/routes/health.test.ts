@@ -1,7 +1,19 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { assertDatabaseSchemaCurrent } = vi.hoisted(() => ({ assertDatabaseSchemaCurrent: vi.fn() }))
+
+vi.mock('../utils/db.js', () => ({
+  createSql: () => async () => [{ ok: 1 }],
+}))
+
+vi.mock('drizzle-orm/postgres-js', () => ({ drizzle: () => ({ execute: async () => [] }) }))
+
+vi.mock('../db/migrations/status.js', () => ({ assertDatabaseSchemaCurrent }))
+
 import { healthRoutes } from './health.js'
 
 describe('health routes', () => {
+  beforeEach(() => assertDatabaseSchemaCurrent.mockReset())
   describe('GET /health/live', () => {
     it('returns 200 with status ok', async () => {
       const res = await healthRoutes.request('/live')
@@ -12,11 +24,22 @@ describe('health routes', () => {
   })
 
   describe('GET /health/ready', () => {
-    it('returns 503 when DB_PASSWORD is not configured', async () => {
+    it('returns 503 NOT_READY when schema readiness rejects a migration mismatch', async () => {
+      assertDatabaseSchemaCurrent.mockRejectedValueOnce(
+        Object.assign(new Error('migration mismatch'), { code: 'NOT_READY' }),
+      )
+
       const res = await healthRoutes.request('/ready')
+
       expect(res.status).toBe(503)
-      const body = (await res.json()) as { status: string; reason?: string }
-      expect(body.status).toBe('not ready')
+      expect(await res.json()).toMatchObject({ status: 'not ready', code: 'NOT_READY' })
+    })
+
+    it('returns 200 when database connectivity and schema readiness succeed', async () => {
+      assertDatabaseSchemaCurrent.mockResolvedValueOnce(undefined)
+      const res = await healthRoutes.request('/ready')
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ status: 'ready' })
     })
   })
 })

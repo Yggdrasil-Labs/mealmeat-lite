@@ -30,6 +30,7 @@ export const syncActionReceipts = pgTable(
       'sync_action_receipts_result_schema_version_check',
       sql`${table.resultSchemaVersion} >= 1`,
     ),
+    check('sync_action_receipts_status_check', sql`${table.status} in ('applied', 'rejected')`),
   ],
 )
 

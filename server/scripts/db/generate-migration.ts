@@ -55,8 +55,13 @@ export async function normaliseMigrationArtifacts(folder: string): Promise<void>
   snapshot.prevId = ''
   snapshot.id = stableSnapshotId(snapshot)
 
-  await writeFile(journalPath, `${JSON.stringify(sortJson(journal))}\n`, 'utf8')
-  await writeFile(snapshotPath, `${JSON.stringify(sortJson(snapshot))}\n`, 'utf8')
+  await writeFile(journalPath, `${JSON.stringify(sortJson(journal), null, 2)}\n`, 'utf8')
+  await writeFile(snapshotPath, `${JSON.stringify(sortJson(snapshot), null, 2)}\n`, 'utf8')
+  execFileSync(
+    resolve(process.cwd(), 'node_modules/.bin/biome'),
+    ['format', '--write', '--config-path', resolve(process.cwd(), '..'), journalPath, snapshotPath],
+    { stdio: 'inherit', env: process.env },
+  )
 
   const sqlPath = join(folder, `${migrationTag}.sql`)
   const generatedSql = await readFile(sqlPath, 'utf8')

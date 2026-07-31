@@ -6,9 +6,6 @@ export class ContractMapperError extends Error {
   readonly code = 'CONTRACT_VALIDATION_FAILED'
 }
 
-/** A draft cannot allocate a sync version; only sync-write.ts may do that. */
-export type RecipeInsertValues = Omit<NewRecipeRow, 'serverVersion'>
-
 function assertContract<T>(schemaId: Parameters<typeof validateContract>[0], value: T): T {
   const result = validateContract(schemaId, value)
   if (!result.success) {
@@ -33,7 +30,8 @@ export function recipeRowToContract(row: RecipeRow): RecipeView {
   return assertContract('RecipeView', value) as RecipeView
 }
 
-export function recipeContractToInsert(value: RecipeDraft): RecipeInsertValues {
+/** The caller obtains serverVersion from withSyncWriteTransaction before creating this row. */
+export function recipeContractToInsert(value: RecipeDraft, serverVersion: bigint): NewRecipeRow {
   const draft = assertContract('RecipeDraft', value) as RecipeDraft
   return {
     name: draft.name,
@@ -42,5 +40,6 @@ export function recipeContractToInsert(value: RecipeDraft): RecipeInsertValues {
     steps: [...(draft.steps ?? [])],
     imageUrl: draft.imageUrl ?? null,
     notes: draft.notes ?? null,
+    serverVersion,
   }
 }

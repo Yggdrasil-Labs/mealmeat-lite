@@ -35,12 +35,14 @@ CREATE TABLE "chat_request_receipts" (
 	"chat_request_id" uuid NOT NULL,
 	"generation" integer DEFAULT 1 NOT NULL,
 	"lease_expires_at" timestamp with time zone NOT NULL,
-	"tool_receipts" jsonb NOT NULL,
-	"tool_receipts_schema_version" integer NOT NULL,
+	"tool_receipts" jsonb,
+	"tool_receipts_schema_version" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "chat_request_receipts_device_request_unique" UNIQUE("device_id","chat_request_id"),
-	CONSTRAINT "chat_request_receipts_tool_receipts_schema_version_check" CHECK ("chat_request_receipts"."tool_receipts_schema_version" >= 1)
+	CONSTRAINT "chat_request_receipts_tool_receipts_schema_version_check" CHECK ("chat_request_receipts"."tool_receipts_schema_version" IS NULL OR "chat_request_receipts"."tool_receipts_schema_version" >= 1),
+	CONSTRAINT "chat_request_receipts_tool_receipts_version_pair_check" CHECK (("chat_request_receipts"."tool_receipts" IS NULL) = ("chat_request_receipts"."tool_receipts_schema_version" IS NULL)),
+	CONSTRAINT "chat_request_receipts_lease_check" CHECK ("chat_request_receipts"."lease_expires_at" >= "chat_request_receipts"."created_at" AND "chat_request_receipts"."lease_expires_at" <= "chat_request_receipts"."created_at" + interval '30 seconds')
 );
 --> statement-breakpoint
 CREATE TABLE "conversations" (
@@ -131,7 +133,8 @@ CREATE TABLE "sync_action_receipts" (
 	"result_schema_version" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sync_action_receipts_device_id_action_id_pk" PRIMARY KEY("device_id","action_id"),
-	CONSTRAINT "sync_action_receipts_result_schema_version_check" CHECK ("sync_action_receipts"."result_schema_version" >= 1)
+	CONSTRAINT "sync_action_receipts_result_schema_version_check" CHECK ("sync_action_receipts"."result_schema_version" >= 1),
+	CONSTRAINT "sync_action_receipts_status_check" CHECK ("sync_action_receipts"."status" in ('applied', 'rejected'))
 );
 --> statement-breakpoint
 CREATE TABLE "sync_changes" (

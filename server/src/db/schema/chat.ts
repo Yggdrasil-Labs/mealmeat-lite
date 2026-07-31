@@ -39,8 +39,8 @@ export const chatRequestReceipts = pgTable(
     chatRequestId: uuid('chat_request_id').notNull(),
     generation: integer('generation').default(1).notNull(),
     leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }).notNull(),
-    toolReceipts: jsonb('tool_receipts').$type<unknown>().notNull(),
-    toolReceiptsSchemaVersion: integer('tool_receipts_schema_version').notNull(),
+    toolReceipts: jsonb('tool_receipts').$type<unknown>(),
+    toolReceiptsSchemaVersion: integer('tool_receipts_schema_version'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -48,7 +48,15 @@ export const chatRequestReceipts = pgTable(
     unique('chat_request_receipts_device_request_unique').on(table.deviceId, table.chatRequestId),
     check(
       'chat_request_receipts_tool_receipts_schema_version_check',
-      sql`${table.toolReceiptsSchemaVersion} >= 1`,
+      sql`${table.toolReceiptsSchemaVersion} IS NULL OR ${table.toolReceiptsSchemaVersion} >= 1`,
+    ),
+    check(
+      'chat_request_receipts_tool_receipts_version_pair_check',
+      sql`(${table.toolReceipts} IS NULL) = (${table.toolReceiptsSchemaVersion} IS NULL)`,
+    ),
+    check(
+      'chat_request_receipts_lease_check',
+      sql`${table.leaseExpiresAt} >= ${table.createdAt} AND ${table.leaseExpiresAt} <= ${table.createdAt} + interval '30 seconds'`,
     ),
   ],
 )

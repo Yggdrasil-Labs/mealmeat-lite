@@ -1,4 +1,6 @@
+import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
+import { assertDatabaseSchemaCurrent } from '../db/migrations/status.js'
 import { createSql } from '../utils/db.js'
 
 export const healthRoutes = new Hono()
@@ -43,8 +45,9 @@ healthRoutes.get('/ready', async (c) => {
     // 执行轻量查询验证数据库可达且可响应
     const result = await sql`SELECT 1 AS ok`
     if (result[0]?.ok !== 1) {
-      return c.json({ status: 'not ready' }, 503)
+      return c.json({ status: 'not ready', code: 'NOT_READY' }, 503)
     }
+    await assertDatabaseSchemaCurrent(drizzle(sql))
     return c.json({ status: 'ready' })
   } catch (err) {
     // 连接失败时重置实例，下次 probe 会重新建立连接
@@ -53,6 +56,6 @@ healthRoutes.get('/ready', async (c) => {
     console.error('[health] readiness check failed:', message)
     // 生产环境不泄露内部错误详情
     const reason = process.env.NODE_ENV === 'production' ? undefined : message
-    return c.json({ status: 'not ready', ...(reason && { reason }) }, 503)
+    return c.json({ status: 'not ready', code: 'NOT_READY', ...(reason && { reason }) }, 503)
   }
 })
