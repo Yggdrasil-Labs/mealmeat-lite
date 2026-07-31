@@ -45,6 +45,7 @@ export const syncChanges = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check('sync_changes_server_version_positive_check', sql`${table.serverVersion} >= 1`),
     check('sync_changes_payload_schema_version_check', sql`${table.payloadSchemaVersion} >= 1`),
     check(
       'sync_changes_resource_operation_check',

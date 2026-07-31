@@ -25,7 +25,10 @@ export const conversations = pgTable(
   },
   (table) => [
     check('conversations_messages_schema_version_check', sql`${table.messagesSchemaVersion} >= 1`),
-    check('conversations_messages_limit_check', sql`jsonb_array_length(${table.messages}) <= 40`),
+    check(
+      'conversations_messages_limit_check',
+      sql`CASE WHEN jsonb_typeof(${table.messages} -> 'messages') = 'array' THEN jsonb_array_length(${table.messages} -> 'messages') <= 40 ELSE false END`,
+    ),
   ],
 )
 
@@ -46,6 +49,7 @@ export const chatRequestReceipts = pgTable(
   },
   (table) => [
     unique('chat_request_receipts_device_request_unique').on(table.deviceId, table.chatRequestId),
+    check('chat_request_receipts_generation_check', sql`${table.generation} >= 1`),
     check(
       'chat_request_receipts_tool_receipts_schema_version_check',
       sql`${table.toolReceiptsSchemaVersion} IS NULL OR ${table.toolReceiptsSchemaVersion} >= 1`,
@@ -87,6 +91,11 @@ export const pendingConfirmations = pgTable(
       table.toolIndex,
     ),
     check(
+      'pending_confirmations_token_hash_format_check',
+      sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check('pending_confirmations_tool_index_check', sql`${table.toolIndex} >= 0`),
+    check(
       'pending_confirmations_draft_schema_version_check',
       sql`${table.draftSchemaVersion} >= 1`,
     ),
@@ -100,7 +109,7 @@ export const pendingConfirmations = pgTable(
     ),
     check(
       'pending_confirmations_expiry_check',
-      sql`${table.expiresAt} <= ${table.createdAt} + interval '10 minutes'`,
+      sql`${table.expiresAt} >= ${table.createdAt} AND ${table.expiresAt} <= ${table.createdAt} + interval '10 minutes'`,
     ),
     foreignKey({
       columns: [table.deviceId, table.chatRequestId],

@@ -13,5 +13,6 @@ export const settings = pgTable(
   (table) => [
     check('settings_key_check', sql`${table.key} = 'familyPreference'`),
     check('settings_value_schema_version_check', sql`${table.valueSchemaVersion} >= 1`),
+    check('settings_server_version_positive_check', sql`${table.serverVersion} >= 1`),
   ],
 )

@@ -30,8 +30,11 @@ export function recipeRowToContract(row: RecipeRow): RecipeView {
   return assertContract('RecipeView', value) as RecipeView
 }
 
-/** The caller obtains serverVersion from withSyncWriteTransaction before creating this row. */
-export function recipeContractToInsert(value: RecipeDraft, serverVersion: bigint): NewRecipeRow {
+/**
+ * Converts validated user input only. The transaction-side writer appends a
+ * version from `SyncWriteContext.nextServerVersion()` before calling Drizzle.
+ */
+export function recipeContractToInsert(value: RecipeDraft): NewRecipeRow {
   const draft = assertContract('RecipeDraft', value) as RecipeDraft
   return {
     name: draft.name,
@@ -40,6 +43,5 @@ export function recipeContractToInsert(value: RecipeDraft, serverVersion: bigint
     steps: [...(draft.steps ?? [])],
     imageUrl: draft.imageUrl ?? null,
     notes: draft.notes ?? null,
-    serverVersion,
   }
 }

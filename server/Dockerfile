@@ -16,8 +16,8 @@ COPY tsconfig.json ./
 COPY src/ src/
 RUN pnpm build
 
-# tsc 不复制非 TS 文件（.sql），需手动拷贝 migration SQL 到 dist/
-RUN cp -r src/db/migrations dist/db/migrations
+# tsc 不复制非 TS 文件（.sql）；迁移目录是稳定 symlink，构建时解引用为完整 release。
+RUN cp -rL src/db/migrations dist/db/migrations
 
 # === Production stage ===
 FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS production

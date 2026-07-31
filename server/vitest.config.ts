@@ -21,13 +21,14 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['src/**/*.test.ts'],
-          exclude: ['src/**/*.integration.test.ts'],
+          exclude: ['src/**/*.integration.test.ts', 'src/db/.migrations-releases/**'],
         },
       },
       {
         test: {
           name: 'integration',
           include: ['src/**/*.integration.test.ts'],
+          exclude: ['src/db/.migrations-releases/**'],
           testTimeout: 30_000,
         },
       },

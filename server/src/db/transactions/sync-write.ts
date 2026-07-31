@@ -1,4 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm'
+import type { NewRecipeRow, VersionedRecipeInsertRow } from '../schema/recipes.js'
 
 export type SyncResourceLock =
   | { resource: 'recipe' | 'weekly_plan'; id: string }
@@ -15,6 +16,14 @@ export interface Database {
 export interface SyncWriteContext {
   tx: SyncWriteTransaction
   nextServerVersion(): Promise<bigint>
+}
+
+/** Adds a version only inside an already-locked sync write transaction. */
+export async function assignRecipeServerVersion(
+  context: Pick<SyncWriteContext, 'nextServerVersion'>,
+  row: NewRecipeRow,
+): Promise<VersionedRecipeInsertRow> {
+  return { ...row, serverVersion: await context.nextServerVersion() }
 }
 
 const resourceOrder: Readonly<Record<SyncResourceLock['resource'], number>> = {

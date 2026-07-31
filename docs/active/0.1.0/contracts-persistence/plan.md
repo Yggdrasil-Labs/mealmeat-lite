@@ -12,7 +12,7 @@ updated: 2026-07-28
 - **Baseline SHA:** c10eb870c979724125456f9128adc6db8e987898
 - **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 - **Started At:** 2026-07-26T17:30:00+08:00
-- **Updated At:** 2026-07-28T15:53:08+08:00
+- **Updated At:** 2026-07-31T10:00:09+08:00
 - **Goal:** 从唯一权威源生成并验证 v0.1 跨端契约，建立 PostgreSQL 12 实体、Room 9 表及显式 mapper，通过阶段 1 全部门禁。
 - **Architecture:** `contracts/v1/source/` 唯一定义 wire schema 和协议目录，生成 TS/Ajv、Provider JSONSchema7、Kotlin DTO、错误/SSE/不变量表。Drizzle 与 Room 保持独立，只通过显式 mapper 消费生成 DTO。
 - **Tech Stack:** Node.js 24.18.0、TypeScript 7.0.2、Ajv 8.20.0、json-schema-to-ts 3.1.1、OpenAPI Generator 7.22.0、Kotlin 2.4.10、Room 2.8.4、Drizzle 0.45.2、PostgreSQL 16
@@ -429,10 +429,11 @@ Expected: **PASS**。
 - Create: `server/src/contracts/mappers/sync.ts`
 - Create: `server/src/contracts/mappers/versioned-jsonb.ts`
 - Create: `server/src/db/transactions/sync-write.ts`
-- Create: `server/src/db/migrations/status.ts`
+- Create: `server/src/db/migration-folder.ts`
+- Create: `server/src/db/migration-status.ts`
 - Create: `server/src/db/schema/schema.test.ts`
-- Create: `server/src/db/migrations/migrations.integration.test.ts`
-- Create: `server/src/db/migrations/readiness.integration.test.ts`
+- Create: `server/src/db/migrations.integration.test.ts`
+- Create: `server/src/db/readiness.integration.test.ts`
 - Create: `server/src/db/transactions/sync-write.integration.test.ts`
 - Create: `server/src/contracts/mappers/mappers.test.ts`
 - Create: `server/scripts/db/generate-migration.ts`
@@ -442,10 +443,7 @@ Expected: **PASS**。
 - Modify: `server/src/healthcheck.ts`
 - Modify: `server/package.json`
 - Modify: `pnpm-lock.yaml`
-- Create: `server/src/db/migrations/0000_v01_contract_persistence.sql`
-- Create: `server/src/db/migrations/migration-lock.json`
-- Modify: `server/src/db/migrations/meta/_journal.json`
-- Create: `server/src/db/migrations/meta/0000_snapshot.json`
+- Create: `server/src/db/migrations` stable symlink and immutable `server/src/db/.migrations-releases/<release>/` artifacts (`0000_v01_contract_persistence.sql`, `migration-lock.json`, `meta/_journal.json`, `meta/0000_snapshot.json`)
 
 **Interfaces:**
 
@@ -460,7 +458,7 @@ Expected: **PASS**。
 
 **Behavior:**
 
-建立 Recipe、WeeklyPlan、PlanItem、Conversation、Settings、AuthConfig、DeviceToken、PendingConfirmation、ChatRequestReceipt、SyncActionReceipt、SyncChange、AuthAttemptThrottle 共 12 个 PostgreSQL 16 逻辑实体及索引、FK/CHECK/UNIQUE 与首版 migration。wire DTO 不直接作为 Drizzle row；每个 JSONB 都有相邻 schema version，读取和写入都通过 `(kind,schemaVersion)` validator。`withSyncWriteTransaction` 统一取得 advisory lock、按序锁定已有资源，并通过私有 sequence allocator 支持单项或批量分配版本，令业务数据/SyncChange/receipt 原子提交；`assertDatabaseSchemaCurrent` 将 migration 或已知 JSONB version 不匹配映射为 readiness `503 NOT_READY`。阶段 1 只交付基础设施原语，不实现阶段 2 领域服务。
+建立 Recipe、WeeklyPlan、PlanItem、Conversation、Settings、AuthConfig、DeviceToken、PendingConfirmation、ChatRequestReceipt、SyncActionReceipt、SyncChange、AuthAttemptThrottle 共 12 个 PostgreSQL 16 逻辑实体及索引、FK/CHECK/UNIQUE 与首版 migration。wire DTO 不直接作为 Drizzle row；每个 JSONB 都有相邻 schema version，读取和写入都通过 `(kind,schemaVersion)` validator。hash 字段在 DB 端限制为 Argon2id 或 SHA-256 hex，confirmation 过期时间限制为创建后 0–10 分钟，chat receipt generation 必须正数。完整 WeeklyPlan 在 mapper 和 PostgreSQL deferred constraint trigger 中均要求恰好 7 天 × 三餐且日期属于 weekStart 起的七天。迁移 artifacts 通过不可变 release + 原子稳定 symlink 发布，runtime 只解析一次 release。`withSyncWriteTransaction` 统一取得 advisory lock、按序锁定已有资源，并通过私有 sequence allocator 支持单项或批量分配版本，令业务数据/SyncChange/receipt 原子提交；`assertDatabaseSchemaCurrent` 将 migration 或已知 JSONB version 不匹配映射为 readiness `503 NOT_READY`。阶段 1 只交付基础设施原语，不实现阶段 2 领域服务。
 
 **Acceptance Criteria:**
 
@@ -469,20 +467,21 @@ Expected: **PASS**。
 
 **Execution:**
 
-- **Status:** pending
-- **Commit SHA:** null
-- **Attempts:** 0
-- **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Status:** blocked
+- **Commit SHA:** 7781d91b261d38ea9660d881df14b7c9e867c30b
+- **Corrective Commit SHA:** 5652ca70cd47f63f6ec5c007f274a6d4dadafceb
+- **Attempts:** 5
+- **Blocked Reason:** Testcontainers 在当前主机找不到 Docker 或 Podman container runtime，PostgreSQL 16 migration 与并发事务集成用例均无法启动。
+- **Red Result:** FAIL → PASS (2026-07-31) — 先新增 JSONB envelope 与正 server version 的 migration 结构断言，旧 migration 失败；生成 schema/migration 后通过。readiness 的 unknown-version mock 另经独立代码审查修正为查询语义回归。
+- **Verify Result:** PARTIAL PASS (2026-07-31) — `typecheck`、`test:unit`（112 tests）、Biome lint、`contract:check`、`db:migrations:check` 均通过；迁移发布 pointer、7 个 JSONB carrier、hash/expiry/generation、完整周计划和 migration re-run 均有静态或集成测试证据。`test:integration` 的 PostgreSQL 16 用例仍在启动容器前被环境门禁阻断。
+- **AC Result:** 0/2 fully passed; 2 deferred only for live PostgreSQL 16 execution. 静态 schema、mapper、deterministic artifacts、readiness、锁序与 rollback 证据均已通过独立规格和代码质量复核。
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
+- [x] Red Result exists and passed
 - [ ] Verify Result exists and passed
 - [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
+- [x] Commit SHA belongs to this task only
 - [ ] Per-task AC checkbox synced
 
 **Step 1: Red**
@@ -514,7 +513,7 @@ Run:
 ```bash
 mise exec -- corepack pnpm --dir server vitest run src/db/schema/schema.test.ts src/contracts/mappers/mappers.test.ts
 mise exec -- corepack pnpm --dir server vitest run src/scripts/db/check-migrations.test.ts
-mise exec -- corepack pnpm --dir server vitest run --project integration src/db/migrations/migrations.integration.test.ts src/db/migrations/readiness.integration.test.ts src/db/transactions/sync-write.integration.test.ts
+mise exec -- corepack pnpm --dir server vitest run --project integration src/db/migrations.integration.test.ts src/db/readiness.integration.test.ts src/db/transactions/sync-write.integration.test.ts
 ```
 
 Expected: **FAIL** — schema/migration/mappers 尚未实现。
@@ -523,7 +522,7 @@ Expected: **FAIL** — schema/migration/mappers 尚未实现。
 
 - 按 design 拆分 12 实体；
 - 所有 7 个 JSONB carrier 都有相邻 schema version；nullable payload/version 通过 CHECK 保证同时为空或同时非空，非空 version `>= 1`；
-- `migration-lock.json` 固定 tag=`0000_v01_contract_persistence` 和审计值 `journalWhen=2026-07-26T00:00:00.000Z`；`db:migration:generate` 调用 Drizzle `--out <empty-staging> --name v01_contract_persistence`，再以 `Date.parse(journalWhen)` 把 `_journal.json.entries[].when` 规范化为 number `1785024000000`，并测试类型和值；snapshot 移除顶层 id/prevId 后递归排序 key、以 UTF-8/LF 无多余空白序列化并计算 SHA-256，取前 16 bytes 设置 version nibble=8/RFC 4122 variant 作为稳定 id，首版 prevId 为空；最后原子同步 SQL/journal/snapshot；
+- `migration-lock.json` 固定 tag=`0000_v01_contract_persistence` 和审计值 `journalWhen=2026-07-26T00:00:00.000Z`；`db:migration:generate` 调用 Drizzle `--out <empty-staging> --name v01_contract_persistence`，再以 `Date.parse(journalWhen)` 把 `_journal.json.entries[].when` 规范化为 number `1785024000000`，并测试类型和值；snapshot 移除顶层 id/prevId 后递归排序 key、以 UTF-8/LF 无多余空白序列化并计算 SHA-256，取前 16 bytes 设置 version nibble=8/RFC 4122 variant 作为稳定 id，首版 prevId 为空；完整 artifacts 先写不可变 release，再原子替换 `migrations` 稳定 symlink，runtime 在交给 Drizzle 前固定解析一次路径；
 - `db:migrations:check` 在两个独立空 staging 重复上述生成和规范化，精确比较生成路径、SQL 字节、snapshot 字节和 journal 字节，并与 committed artifacts 比较；检查只读 committed 目录；
 - checker 负测复制 committed artifacts 后篡改 SQL，必须非零失败并报告精确路径；规范化只允许 journal `when` 与 snapshot 顶层 `id`，其它字段不得忽略；
 - 数据库可表达的约束必须落 DB；

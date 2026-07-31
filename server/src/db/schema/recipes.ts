@@ -20,8 +20,12 @@ export const recipes = pgTable(
   (table) => [
     index('recipes_deleted_at_idx').on(table.deletedAt),
     check('recipes_name_non_empty_check', sql`char_length(${table.name}) >= 1`),
+    check('recipes_server_version_positive_check', sql`${table.serverVersion} >= 1`),
   ],
 )
 
 export type RecipeRow = typeof recipes.$inferSelect
-export type NewRecipeRow = typeof recipes.$inferInsert
+/** Contract-mapped fields before the sync transaction assigns the version. */
+export type NewRecipeRow = Omit<typeof recipes.$inferInsert, 'serverVersion'>
+/** The row accepted by Drizzle once SyncWriteContext has allocated a version. */
+export type VersionedRecipeInsertRow = typeof recipes.$inferInsert

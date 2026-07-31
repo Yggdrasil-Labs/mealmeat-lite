@@ -1,6 +1,7 @@
 import * as path from 'node:path'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { resolveMigrationsFolder } from './db/migration-folder.js'
 import { createSql } from './utils/db.js'
 
 /**
@@ -19,10 +20,11 @@ async function runMigration(): Promise<void> {
   const sql = createSql()
   const db = drizzle(sql)
 
-  const migrationsFolder = path.join(import.meta.dirname, 'db', 'migrations')
+  const migrationsPointer = path.join(import.meta.dirname, 'db', 'migrations')
+  const migrationsFolder = await resolveMigrationsFolder(migrationsPointer)
 
   console.log('[migrate] Running database migrations...')
-  console.log(`[migrate] Migrations folder: ${migrationsFolder}`)
+  console.log(`[migrate] Migrations release: ${migrationsFolder}`)
 
   try {
     await migrate(db, { migrationsFolder })

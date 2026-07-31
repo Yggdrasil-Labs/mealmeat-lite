@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { weeklyPlanRowsToContract } from './plan.js'
 import { recipeContractToInsert, recipeRowToContract } from './recipe.js'
 import { syncChangeRowToContract } from './sync.js'
 import { validateVersionedJsonb } from './versioned-jsonb.js'
@@ -63,14 +64,26 @@ describe('contract mappers', () => {
 
   it('validates an incoming recipe draft before converting it to a Drizzle insert row', () => {
     try {
-      recipeContractToInsert(
-        { name: '', unknown: true } as unknown as Parameters<typeof recipeContractToInsert>[0],
-        1n,
-      )
+      recipeContractToInsert({ name: '', unknown: true } as unknown as Parameters<
+        typeof recipeContractToInsert
+      >[0])
       throw new Error('expected recipe mapper to reject invalid draft')
     } catch (error) {
       expect(error).toMatchObject({ code: 'CONTRACT_VALIDATION_FAILED' })
     }
+  })
+
+  it('maps a validated draft without manufacturing a server version', () => {
+    const insert = recipeContractToInsert({ name: '番茄鸡蛋面' })
+    expect(insert).toEqual({
+      name: '番茄鸡蛋面',
+      tags: [],
+      ingredients: [],
+      steps: [],
+      imageUrl: null,
+      notes: null,
+    })
+    expect(insert).not.toHaveProperty('serverVersion')
   })
 
   it('rejects an unknown versioned JSONB schema version', () => {
@@ -127,6 +140,85 @@ describe('contract mappers', () => {
     for (const [kind, payload] of vectors) {
       expect(validateVersionedJsonb(kind, 1, payload)).toEqual(payload)
     }
+  })
+
+  it('rejects invalid payload vectors for every JSONB carrier', () => {
+    const kinds = [
+      'conversation.messages',
+      'settings.value',
+      'pending_confirmation.draft_payload.recipe_batch',
+      'pending_confirmation.result',
+      'chat_request_receipt.tool_receipts',
+      'sync_action_receipt.result',
+      'sync_change.weekly_plan.upsert',
+    ] as const
+
+    for (const kind of kinds) {
+      expect(() => validateVersionedJsonb(kind, 1, null)).toThrow(/Invalid JSONB payload/)
+    }
+  })
+
+  it('maps all 21 weekly-plan rows and rejects an incomplete aggregate', () => {
+    const planRow = {
+      id,
+      weekStart: '2026-07-27',
+      serverVersion: 2n,
+      createdAt: new Date('2026-07-26T00:00:00.000Z'),
+      updatedAt: new Date('2026-07-26T00:00:00.000Z'),
+    } as Parameters<typeof weeklyPlanRowsToContract>[0]
+    const rows = Array.from({ length: 21 }, (_, index) => {
+      const dayOffset = Math.floor(index / 3)
+      const mealType = ['breakfast', 'lunch', 'dinner'][index % 3]
+      const date = new Date('2026-07-27T00:00:00.000Z')
+      date.setUTCDate(date.getUTCDate() + dayOffset)
+      return {
+        id: `13b3ad2e-ef4c-420d-b67c-${String(index).padStart(12, '0')}`,
+        weeklyPlanId: id,
+        date: date.toISOString().slice(0, 10),
+        mealType,
+        recipeId: id,
+        recipeNameSnapshot: '番茄鸡蛋面',
+      }
+    }) as Parameters<typeof weeklyPlanRowsToContract>[1]
+
+    const mapped = weeklyPlanRowsToContract(planRow, rows)
+    expect(mapped).toMatchObject({
+      id,
+      serverVersion: '2',
+    })
+    expect(mapped.items).toHaveLength(21)
+    expect(mapped.items[0]).toEqual({
+      id: rows[0]?.id,
+      date: '2026-07-27',
+      mealType: 'breakfast',
+      recipeId: id,
+      recipeNameSnapshot: '番茄鸡蛋面',
+    })
+    expect(() => weeklyPlanRowsToContract(planRow, rows.slice(1))).toThrow(
+      /Weekly plan must cover every meal slot in its week/,
+    )
+  })
+
+  it('rejects a 21-item plan whose meal slots are outside its week or duplicated', () => {
+    const planRow = {
+      id,
+      weekStart: '2026-07-27',
+      serverVersion: 2n,
+      createdAt: new Date('2026-07-26T00:00:00.000Z'),
+      updatedAt: new Date('2026-07-26T00:00:00.000Z'),
+    } as Parameters<typeof weeklyPlanRowsToContract>[0]
+    const outsideWeekRows = Array.from({ length: 21 }, (_, index) => ({
+      id: `13b3ad2e-ef4c-420d-b67c-${String(index).padStart(12, '0')}`,
+      weeklyPlanId: id,
+      date: '2026-08-10',
+      mealType: index % 2 === 0 ? 'breakfast' : 'lunch',
+      recipeId: id,
+      recipeNameSnapshot: '番茄鸡蛋面',
+    })) as Parameters<typeof weeklyPlanRowsToContract>[1]
+
+    expect(() => weeklyPlanRowsToContract(planRow, outsideWeekRows)).toThrow(
+      /Weekly plan must cover every meal slot in its week/,
+    )
   })
 
   it('maps a plan sync payload without attempting to validate it as an enclosing SyncChange first', () => {

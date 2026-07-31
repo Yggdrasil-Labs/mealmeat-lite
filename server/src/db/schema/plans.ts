@@ -24,6 +24,7 @@ export const weeklyPlans = pgTable(
   },
   (table) => [
     check('weekly_plans_week_start_monday_check', sql`extract(isodow from ${table.weekStart}) = 1`),
+    check('weekly_plans_server_version_positive_check', sql`${table.serverVersion} >= 1`),
   ],
 )
 

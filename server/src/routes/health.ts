@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
-import { assertDatabaseSchemaCurrent } from '../db/migrations/status.js'
+import { assertDatabaseSchemaCurrent } from '../db/migration-status.js'
 import { createSql } from '../utils/db.js'
 
 export const healthRoutes = new Hono()

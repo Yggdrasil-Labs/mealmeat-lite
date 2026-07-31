@@ -44,6 +44,6 @@
     }
   },
   "files": {
-    "includes": ["**/*.ts", "**/*.json", "**/*.md", "!**/contracts/generated/**", "!**/node_modules", "!**/dist"]
+    "includes": ["**/*.ts", "**/*.json", "**/*.md", "!**/contracts/generated/**", "!**/node_modules", "!**/dist", "!**/.migrations-releases/**"]
   }
 }

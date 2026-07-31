@@ -8,7 +8,7 @@ vi.mock('../utils/db.js', () => ({
 
 vi.mock('drizzle-orm/postgres-js', () => ({ drizzle: () => ({ execute: async () => [] }) }))
 
-vi.mock('../db/migrations/status.js', () => ({ assertDatabaseSchemaCurrent }))
+vi.mock('../db/migration-status.js', () => ({ assertDatabaseSchemaCurrent }))
 
 import { healthRoutes } from './health.js'
 

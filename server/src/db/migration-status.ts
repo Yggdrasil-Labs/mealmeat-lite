@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type SQL, sql } from 'drizzle-orm'
+import { resolveMigrationsFolder } from './migration-folder.js'
 
 export class DatabaseNotReadyError extends Error {
   readonly code = 'NOT_READY'
@@ -22,12 +24,15 @@ function firstNumber(result: unknown): number {
 }
 
 async function expectedMigrationHashes(): Promise<readonly string[]> {
+  const migrationsFolder = await resolveMigrationsFolder(
+    fileURLToPath(new URL('./migrations/', import.meta.url)),
+  )
   const journal = JSON.parse(
-    await readFile(fileURLToPath(new URL('./meta/_journal.json', import.meta.url)), 'utf8'),
+    await readFile(join(migrationsFolder, 'meta/_journal.json'), 'utf8'),
   ) as { entries: Array<{ tag: string }> }
   return Promise.all(
     journal.entries.map(async ({ tag }) => {
-      const migration = await readFile(fileURLToPath(new URL(`./${tag}.sql`, import.meta.url)))
+      const migration = await readFile(join(migrationsFolder, `${tag}.sql`))
       return createHash('sha256').update(migration).digest('hex')
     }),
   )

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readlink, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +11,63 @@ const migrationFiles = [
   `${migrationTag}.sql`,
   'meta/_journal.json',
   'meta/0000_snapshot.json',
+  'migration-lock.json',
 ] as const
+
+const migrationLock = {
+  tag: migrationTag,
+  journalWhen,
+} as const
+
+const weeklyPlanIntegritySql = `
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION "assert_weekly_plan_slots"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  target_plan_id uuid;
+  target_week_start date;
+BEGIN
+  FOR target_plan_id IN
+    SELECT DISTINCT candidate.plan_id
+    FROM unnest(
+      CASE
+        WHEN TG_TABLE_NAME = 'weekly_plans' AND TG_OP = 'DELETE' THEN ARRAY[OLD.id]
+        WHEN TG_TABLE_NAME = 'weekly_plans' THEN ARRAY[NEW.id]
+        WHEN TG_OP = 'UPDATE' THEN ARRAY[OLD.weekly_plan_id, NEW.weekly_plan_id]
+        WHEN TG_OP = 'DELETE' THEN ARRAY[OLD.weekly_plan_id]
+        ELSE ARRAY[NEW.weekly_plan_id]
+      END
+    ) AS candidate(plan_id)
+  LOOP
+    SELECT week_start INTO target_week_start FROM weekly_plans WHERE id = target_plan_id;
+    IF NOT FOUND THEN
+      CONTINUE;
+    END IF;
+    IF (SELECT count(*) FROM plan_items WHERE weekly_plan_id = target_plan_id) <> 21
+      OR EXISTS (
+        SELECT 1 FROM plan_items
+        WHERE weekly_plan_id = target_plan_id
+          AND (date < target_week_start OR date >= target_week_start + 7)
+      ) THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23514',
+        CONSTRAINT = 'weekly_plans_complete_slots_check',
+        MESSAGE = 'weekly plan must contain exactly 21 in-week meal slots';
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER "weekly_plans_complete_slots_check"
+AFTER INSERT OR UPDATE OR DELETE ON "weekly_plans"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION "assert_weekly_plan_slots"();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER "plan_items_weekly_plan_range_check"
+AFTER INSERT OR UPDATE OR DELETE ON "plan_items"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION "assert_weekly_plan_slots"();
+`
 
 function stableSnapshotId(snapshot: Record<string, unknown>): string {
   const { id: _id, prevId: _prevId, ...content } = snapshot
@@ -27,6 +83,25 @@ function stableSnapshotId(snapshot: Record<string, unknown>): string {
   hash[8] = (byte8 & 0x3f) | 0x80
   const hex = hash.toString('hex')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+async function releaseDigest(folder: string): Promise<string> {
+  const hash = createHash('sha256')
+  for (const file of migrationFiles) {
+    hash.update(file).update('\0').update(await readFile(join(folder, file))).update('\0')
+  }
+  return hash.digest('hex').slice(0, 16)
+}
+
+async function hasSameArtifacts(left: string, right: string): Promise<boolean> {
+  for (const file of migrationFiles) {
+    const [leftBytes, rightBytes] = await Promise.all([
+      readFile(join(left, file)),
+      readFile(join(right, file)),
+    ])
+    if (!leftBytes.equals(rightBytes)) return false
+  }
+  return true
 }
 
 function sortJson(value: unknown): unknown {
@@ -67,11 +142,71 @@ export async function normaliseMigrationArtifacts(folder: string): Promise<void>
   const generatedSql = await readFile(sqlPath, 'utf8')
   const sequence =
     'CREATE SEQUENCE "sync_server_version_seq" AS bigint START WITH 1 INCREMENT BY 1;\n--> statement-breakpoint\n'
+  const withSequence = generatedSql.startsWith(sequence) ? generatedSql : `${sequence}${generatedSql}`
   await writeFile(
     sqlPath,
-    generatedSql.startsWith(sequence) ? generatedSql : `${sequence}${generatedSql}`,
+    withSequence.includes('CREATE OR REPLACE FUNCTION "assert_weekly_plan_slots"')
+      ? withSequence
+      : `${withSequence}${weeklyPlanIntegritySql}`,
     'utf8',
   )
+  await writeFile(
+    join(folder, 'migration-lock.json'),
+    `${JSON.stringify(migrationLock, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+export interface MigrationPublishHooks {
+  /** Test-only seam invoked after a release is complete and before the stable pointer changes. */
+  beforeCommit?(): void | Promise<void>
+}
+
+/**
+ * Publishes a complete, immutable migration release by atomically replacing the
+ * stable `migrations` symlink. Consumers must resolve that symlink once before
+ * handing the physical path to Drizzle, so a single migration run never spans
+ * two releases.
+ */
+export async function synchroniseMigrationArtifactsAtomically(
+  targetFolder: string,
+  generatedFolder: string,
+  hooks: MigrationPublishHooks = {},
+): Promise<void> {
+  const parent = dirname(targetFolder)
+  const base = basename(targetFolder)
+  const releasesRoot = join(parent, `.${base}-releases`)
+  const stablePointer = await readlink(targetFolder).catch(() => undefined)
+  if (stablePointer === undefined) {
+    throw new Error(`Migration target must be a stable symlink: ${targetFolder}`)
+  }
+  await mkdir(releasesRoot, { recursive: true })
+  const publishRoot = await mkdtemp(join(releasesRoot, '.publish-'))
+  const replacement = join(publishRoot, base)
+  const previousRelease = await realpath(targetFolder)
+  try {
+    await cp(previousRelease, replacement, { recursive: true })
+    for (const file of migrationFiles) {
+      await cp(join(generatedFolder, file), join(replacement, file), { force: true })
+    }
+    await hooks.beforeCommit?.()
+
+    const release = join(releasesRoot, `${migrationTag}-${await releaseDigest(replacement)}`)
+    try {
+      await rename(replacement, release)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      if (!(await hasSameArtifacts(replacement, release))) {
+        throw new Error(`Migration release digest collision: ${release}`)
+      }
+      await rm(replacement, { recursive: true, force: true })
+    }
+    const nextPointer = join(parent, `.${base}.next-${process.pid}-${Date.now()}`)
+    await symlink(join(`.${base}-releases`, basename(release)), nextPointer)
+    await rename(nextPointer, targetFolder)
+  } finally {
+    await rm(publishRoot, { recursive: true, force: true })
+  }
 }
 
 export async function generateMigrationInto(targetFolder: string): Promise<void> {
@@ -93,10 +228,13 @@ export async function generateMigrationInto(targetFolder: string): Promise<void>
       { stdio: 'inherit', env: process.env },
     )
     await normaliseMigrationArtifacts(staging)
-    for (const file of migrationFiles) {
-      const source = join(staging, file)
-      const destination = join(targetFolder, file)
-      await cp(source, destination, { force: true })
+    const stablePointer = await readlink(targetFolder).catch(() => undefined)
+    if (stablePointer === undefined) {
+      for (const file of migrationFiles) {
+        await cp(join(staging, file), join(targetFolder, file), { force: true })
+      }
+    } else {
+      await synchroniseMigrationArtifactsAtomically(targetFolder, staging)
     }
   } finally {
     await rm(staging, { recursive: true, force: true })
