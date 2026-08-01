@@ -67,7 +67,12 @@ describe('withSyncWriteTransaction', () => {
         POSTGRES_USER: 'mealmate',
       })
       .withExposedPorts(5432)
-      .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/))
+      .withWaitStrategy(
+        Wait.forAll([
+          Wait.forListeningPorts(),
+          Wait.forLogMessage(/database system is ready to accept connections/, 2),
+        ]),
+      )
       .start()
     const client = postgres({
       host: container.getHost(),
@@ -119,7 +124,9 @@ describe('withSyncWriteTransaction', () => {
           drizzle(client).transaction(async (tx) =>
             work({
               execute: async (query) => {
-                const queryText = JSON.stringify(query)
+                const queryText = JSON.stringify(query, (_key, value: unknown) =>
+                  typeof value === 'bigint' ? value.toString() : value,
+                )
                 observedQueries.push(queryText)
                 if (expectSecondAdvisoryLock && queryText.includes('pg_advisory_xact_lock')) {
                   secondAdvisoryLockAttempted?.()

@@ -15,7 +15,12 @@ describe('v0.1 migration', () => {
         POSTGRES_USER: 'mealmate',
       })
       .withExposedPorts(5432)
-      .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/))
+      .withWaitStrategy(
+        Wait.forAll([
+          Wait.forListeningPorts(),
+          Wait.forLogMessage(/database system is ready to accept connections/, 2),
+        ]),
+      )
       .start()
     const client = postgres({
       host: container.getHost(),
@@ -123,6 +128,34 @@ describe('v0.1 migration', () => {
         'weekly_plans_server_version_unique',
         'weekly_plans_week_start_monday_check',
         'weekly_plans_week_start_unique',
+      ])
+      const primaryKeys = await client<{ conname: string }[]>`
+        select conname from pg_constraint
+        where connamespace = 'public'::regnamespace and contype = 'p'
+        order by conname
+      `
+      expect(primaryKeys.map((row) => row.conname)).toEqual([
+        'auth_attempt_throttles_scope_source_key_hash_pk',
+        'auth_config_pkey',
+        'chat_request_receipts_pkey',
+        'conversations_pkey',
+        'device_tokens_pkey',
+        'pending_confirmations_pkey',
+        'plan_items_pkey',
+        'recipes_pkey',
+        'settings_pkey',
+        'sync_action_receipts_device_id_action_id_pk',
+        'sync_changes_pkey',
+        'weekly_plans_pkey',
+      ])
+      const constraintTriggers = await client<{ conname: string }[]>`
+        select conname from pg_constraint
+        where connamespace = 'public'::regnamespace and contype = 't'
+        order by conname
+      `
+      expect(constraintTriggers.map((row) => row.conname)).toEqual([
+        'plan_items_weekly_plan_range_check',
+        'weekly_plans_complete_slots_check',
       ])
       const indexes = await client<{ indexname: string }[]>`
         select indexname from pg_indexes
@@ -324,7 +357,7 @@ describe('v0.1 migration', () => {
           cross join unnest(array['breakfast', 'lunch', 'dinner']) as meal_type
         `
         }),
-      ).resolves.toBeDefined()
+      ).resolves.toBeUndefined()
 
       const secondWeeklyPlanId = '54b3ad2e-ef4c-420d-b67c-474b4f33fa7e'
       await client.begin(async (tx) => {
@@ -355,20 +388,20 @@ describe('v0.1 migration', () => {
               and meal_type = 'dinner'
           `
         }),
-      ).rejects.toThrow('weekly_plans_complete_slots_check')
+      ).rejects.toMatchObject({ constraint_name: 'weekly_plans_complete_slots_check' })
 
       const invalidWeeklyPlanId = '44b3ad2e-ef4c-420d-b67c-474b4f33fa7e'
       await expect(
         client.begin(async (tx) => {
           await tx`
-          insert into weekly_plans (id, week_start, server_version)
-          values (${invalidWeeklyPlanId}::uuid, '2026-08-03', 5)
+            insert into weekly_plans (id, week_start, server_version)
+            values (${invalidWeeklyPlanId}::uuid, '2026-08-10', 5)
         `
           await tx`
           insert into plan_items (weekly_plan_id, date, meal_type, recipe_id, recipe_name_snapshot)
           select
             ${invalidWeeklyPlanId}::uuid,
-            case when day_offset = 6 and meal_type = 'dinner' then '2026-08-10'::date else '2026-08-03'::date + day_offset end,
+            case when day_offset = 6 and meal_type = 'dinner' then '2026-08-17'::date else '2026-08-10'::date + day_offset end,
             meal_type,
             ${validWeeklyRecipeId}::uuid,
             'weekly-plan recipe'
@@ -376,7 +409,13 @@ describe('v0.1 migration', () => {
           cross join unnest(array['breakfast', 'lunch', 'dinner']) as meal_type
         `
         }),
-      ).rejects.toThrow('weekly_plans_complete_slots_check')
+      ).rejects.toMatchObject({ constraint_name: 'weekly_plans_complete_slots_check' })
+
+      await client`delete from weekly_plans where id = ${secondWeeklyPlanId}::uuid`
+      const deletedPlans = await client<{ count: string }[]>`
+        select count(*) as count from weekly_plans where id = ${secondWeeklyPlanId}::uuid
+      `
+      expect(deletedPlans[0]?.count).toBe('0')
 
       await expect(client`
         insert into recipes (name, tags, ingredients, steps, server_version)

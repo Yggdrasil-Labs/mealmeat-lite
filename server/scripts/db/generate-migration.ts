@@ -26,21 +26,11 @@ DECLARE
   target_plan_id uuid;
   target_week_start date;
 BEGIN
-  FOR target_plan_id IN
-    SELECT DISTINCT candidate.plan_id
-    FROM unnest(
-      CASE
-        WHEN TG_TABLE_NAME = 'weekly_plans' AND TG_OP = 'DELETE' THEN ARRAY[OLD.id]
-        WHEN TG_TABLE_NAME = 'weekly_plans' THEN ARRAY[NEW.id]
-        WHEN TG_OP = 'UPDATE' THEN ARRAY[OLD.weekly_plan_id, NEW.weekly_plan_id]
-        WHEN TG_OP = 'DELETE' THEN ARRAY[OLD.weekly_plan_id]
-        ELSE ARRAY[NEW.weekly_plan_id]
-      END
-    ) AS candidate(plan_id)
-  LOOP
+  IF TG_TABLE_NAME = 'weekly_plans' THEN
+    target_plan_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END;
     SELECT week_start INTO target_week_start FROM weekly_plans WHERE id = target_plan_id;
     IF NOT FOUND THEN
-      CONTINUE;
+      RETURN NULL;
     END IF;
     IF (SELECT count(*) FROM plan_items WHERE weekly_plan_id = target_plan_id) <> 21
       OR EXISTS (
@@ -53,7 +43,34 @@ BEGIN
         CONSTRAINT = 'weekly_plans_complete_slots_check',
         MESSAGE = 'weekly plan must contain exactly 21 in-week meal slots';
     END IF;
-  END LOOP;
+  ELSE
+    FOR target_plan_id IN
+      SELECT DISTINCT candidate.plan_id
+      FROM unnest(
+        CASE
+          WHEN TG_OP = 'UPDATE' THEN ARRAY[OLD.weekly_plan_id, NEW.weekly_plan_id]
+          WHEN TG_OP = 'DELETE' THEN ARRAY[OLD.weekly_plan_id]
+          ELSE ARRAY[NEW.weekly_plan_id]
+        END
+      ) AS candidate(plan_id)
+    LOOP
+      SELECT week_start INTO target_week_start FROM weekly_plans WHERE id = target_plan_id;
+      IF NOT FOUND THEN
+        CONTINUE;
+      END IF;
+      IF (SELECT count(*) FROM plan_items WHERE weekly_plan_id = target_plan_id) <> 21
+        OR EXISTS (
+          SELECT 1 FROM plan_items
+          WHERE weekly_plan_id = target_plan_id
+            AND (date < target_week_start OR date >= target_week_start + 7)
+        ) THEN
+        RAISE EXCEPTION USING
+          ERRCODE = '23514',
+          CONSTRAINT = 'weekly_plans_complete_slots_check',
+          MESSAGE = 'weekly plan must contain exactly 21 in-week meal slots';
+      END IF;
+    END LOOP;
+  END IF;
   RETURN NULL;
 END;
 $$;
