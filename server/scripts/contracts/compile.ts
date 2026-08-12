@@ -10,8 +10,9 @@
 import { resolve } from 'node:path'
 import {
   compileContractSources,
-  generateTypeScriptSchemas,
   generateStandaloneValidators,
+  generateTypeScriptCatalog,
+  generateTypeScriptSchemas,
 } from '../../src/contracts/source-compiler.js'
 
 const rootDir = resolve(import.meta.dirname, '../../..')
@@ -19,7 +20,11 @@ const sourceRoot = resolve(rootDir, 'contracts/v1/source')
 const outputRoot = resolve(rootDir, 'contracts/v1/generated')
 const schemasDir = resolve(sourceRoot, 'schemas')
 const typesOutputPath = resolve(import.meta.dirname, '../../src/contracts/generated/schemas.ts')
-const validatorsOutputPath = resolve(import.meta.dirname, '../../src/contracts/generated/validators.ts')
+const validatorsOutputPath = resolve(
+  import.meta.dirname,
+  '../../src/contracts/generated/validators.ts',
+)
+const catalogsOutputPath = resolve(import.meta.dirname, '../../src/contracts/generated/catalogs.ts')
 
 async function main() {
   console.log('Compiling contract sources...')
@@ -30,7 +35,7 @@ async function main() {
 
   console.log('\nGenerated JSON:')
   console.log('  Contract version:', manifest.contractVersion)
-  console.log('  Fingerprint:', manifest.fingerprint.slice(0, 16) + '...')
+  console.log('  Fingerprint:', `${manifest.fingerprint.slice(0, 16)}...`)
   console.log('  HTTP operations:', manifest.httpOperations.length)
   console.log('  Function tools:', manifest.functionTools.length)
   console.log('  SSE events:', manifest.sseEvents.length)
@@ -50,6 +55,9 @@ async function main() {
   console.log('  Output:', validatorsOutputPath)
   await generateStandaloneValidators(schemasDir, validatorsOutputPath)
   console.log('  ✓ validators.ts generated')
+
+  await generateTypeScriptCatalog(catalogsOutputPath)
+  console.log('  ✓ catalogs.ts generated')
 
   console.log('\n✓ Contract compilation complete')
 }

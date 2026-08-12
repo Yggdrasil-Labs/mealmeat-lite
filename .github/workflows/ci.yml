@@ -46,6 +46,14 @@ jobs:
       - name: Install dependencies
         run: mise exec -- corepack pnpm install --frozen-lockfile
 
+      - name: Contract generation check
+        run: mise exec -- corepack pnpm contract:check
+
+      - name: Migration artifact check
+        run: mise exec -- corepack pnpm db:migrations:check
+        env:
+          DB_PASSWORD: contract_generation
+
       - name: Lint (Biome)
         run: mise exec -- corepack pnpm lint
 
@@ -67,6 +75,9 @@ jobs:
           DB_USER: mealmate
           DB_PASSWORD: mealmate_test
 
+      - name: Contract v1 final gate
+        run: mise exec -- corepack pnpm contract:final-gate
+
   # ============================================================
   # App — Android Kotlin + Compose
   # ============================================================
@@ -86,6 +97,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      - name: Contract model freshness
+        run: mise exec -- ./gradlew :app:checkContractModels
+
+      - name: Contract stale-file negative test
+        run: bash ./scripts/test-check-contract-models.sh
+
       - name: ktlint check
         run: mise exec -- ./gradlew --refresh-dependencies --info --stacktrace ktlintCheck
 
@@ -95,13 +112,13 @@ jobs:
       - name: Lint (Android)
         run: mise exec -- ./gradlew :app:lintDebug
 
-      - name: Unit tests
+      - name: Kotlin contract and Room unit tests
         run: mise exec -- ./gradlew :app:testDebugUnitTest
 
       - name: Enable KVM access
         run: sudo chmod 666 /dev/kvm
 
-      - name: Managed device tests
+      - name: Room managed device tests
         run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
 
   # ============================================================

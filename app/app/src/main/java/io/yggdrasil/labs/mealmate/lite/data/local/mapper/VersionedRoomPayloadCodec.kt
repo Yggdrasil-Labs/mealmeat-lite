@@ -12,6 +12,9 @@ import kotlinx.serialization.encodeToString
 import java.security.MessageDigest
 
 const val ROOM_PAYLOAD_SCHEMA_VERSION = 1
+private const val MAX_RECIPE_NAME_LENGTH = 100
+private const val MAX_RECIPE_TAG_COUNT = 20
+private const val MAX_RECIPE_TAG_LENGTH = 30
 
 typealias PendingActionPayloadDto = SyncActionDto
 typealias SyncAuthoritativeSnapshotDto = AppliedResultDtoResource
@@ -24,7 +27,9 @@ fun decodePendingActionPayload(
     schemaVersion: Int,
     payloadJson: String,
 ): PendingActionPayloadDto {
-    require(schemaVersion == ROOM_PAYLOAD_SCHEMA_VERSION) { "Unsupported pending action schema version: $schemaVersion" }
+    require(schemaVersion == ROOM_PAYLOAD_SCHEMA_VERSION) {
+        "Unsupported pending action schema version: $schemaVersion"
+    }
     return contractJson
         .decodeFromString(SyncActionDto.serializer(), payloadJson)
         .also(::requireValidPendingActionPayload)
@@ -77,10 +82,16 @@ fun requireValidPendingActionPayload(payload: PendingActionPayloadDto) {
             require(payload.value.type == "recipe.patch") { "recipe.patch action must have type=recipe.patch" }
             val patch = payload.value.payload.patch
             require(patch.name != null || patch.tags != null) { "recipe.patch must change at least one field" }
-            patch.name?.let { require(it.length in 1..100) { "recipe.patch name length is invalid" } }
+            patch.name?.let {
+                require(it.length in 1..MAX_RECIPE_NAME_LENGTH) { "recipe.patch name length is invalid" }
+            }
             patch.tags?.let { tags ->
-                require(tags.size <= 20) { "recipe.patch may contain at most 20 tags" }
-                require(tags.all { it.length <= 30 }) { "recipe.patch tag length is invalid" }
+                require(tags.size <= MAX_RECIPE_TAG_COUNT) {
+                    "recipe.patch may contain at most $MAX_RECIPE_TAG_COUNT tags"
+                }
+                require(tags.all { it.length <= MAX_RECIPE_TAG_LENGTH }) {
+                    "recipe.patch tag length is invalid"
+                }
             }
         }
 
@@ -99,7 +110,9 @@ fun requireCanonicalPendingActionEntity(entity: PendingActionEntity) {
     val payload = decodePendingActionPayload(entity.payloadSchemaVersion, entity.payloadJson)
     val canonicalJson = contractJson.encodeToString(SyncActionDto.serializer(), payload)
     require(canonicalJson == entity.payloadJson) { "pending action payload must be canonical JSON" }
-    require(sha256Hex(canonicalJson) == entity.payloadHash) { "pending action payload hash does not match canonical JSON" }
+    require(sha256Hex(canonicalJson) == entity.payloadHash) {
+        "pending action payload hash does not match canonical JSON"
+    }
     val (actionId, type) =
         when (payload) {
             is SyncActionDto.SyncActionDtoOneOfValue -> payload.value.actionId.toString() to payload.value.type

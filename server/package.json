@@ -18,6 +18,7 @@
     "test:integration": "vitest run --project integration",
     "contract:generate": "tsx scripts/contracts/compile.ts",
     "contract:check": "tsx scripts/contracts/check.ts",
+    "contract:final-gate": "tsx scripts/contracts/final-gate.ts",
     "db:migration:generate": "tsx scripts/db/generate-migration.ts",
     "db:migrations:check": "tsx scripts/db/check-migrations.ts"
   },

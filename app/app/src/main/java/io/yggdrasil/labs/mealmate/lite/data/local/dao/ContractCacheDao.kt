@@ -21,6 +21,7 @@ import io.yggdrasil.labs.mealmate.lite.data.local.mapper.requireValidSyncFailure
  * Source: https://developer.android.com/training/data-storage/room/accessing-data
  */
 @Dao
+@Suppress("TooManyFunctions") // Room requires all cache queries and transactions on this DAO boundary.
 abstract class ContractCacheDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertRecipe(entity: RecipeEntity)
@@ -57,7 +58,8 @@ abstract class ContractCacheDao {
 
     @Query(
         "DELETE FROM conversation_messages " +
-            "WHERE localSequence NOT IN (SELECT localSequence FROM conversation_messages ORDER BY localSequence DESC LIMIT 40)",
+            "WHERE localSequence NOT IN " +
+            "(SELECT localSequence FROM conversation_messages ORDER BY localSequence DESC LIMIT 40)",
     )
     internal abstract suspend fun retainLatestConversationMessages()
 
@@ -88,7 +90,9 @@ abstract class ContractCacheDao {
 
     @Transaction
     open suspend fun appendConversationMessage(entity: ConversationMessageEntity) {
-        require(entity.content.length <= 10_000) { "conversation message exceeds 10000 characters" }
+        require(entity.content.length <= MAX_CONVERSATION_MESSAGE_LENGTH) {
+            "conversation message exceeds $MAX_CONVERSATION_MESSAGE_LENGTH characters"
+        }
         insertConversationMessageUnchecked(entity)
         retainLatestConversationMessages()
     }
@@ -101,5 +105,9 @@ abstract class ContractCacheDao {
         upsertWeeklyPlan(entity)
         deletePlanItems(entity.id)
         insertPlanItems(items)
+    }
+
+    private companion object {
+        const val MAX_CONVERSATION_MESSAGE_LENGTH = 10_000
     }
 }

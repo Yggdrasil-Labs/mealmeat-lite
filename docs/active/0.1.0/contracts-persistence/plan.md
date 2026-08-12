@@ -1,9 +1,9 @@
 ---
 id: mealmate-0.1.0-contracts-persistence-plan
-status: in-progress
+status: completed
 owner: Yggdrasil-Labs
 created: 2026-07-26
-updated: 2026-08-12
+updated: 2026-08-13
 ---
 
 # 阶段 1：契约与持久化
@@ -12,7 +12,7 @@ updated: 2026-08-12
 - **Baseline SHA:** c10eb870c979724125456f9128adc6db8e987898
 - **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 - **Started At:** 2026-07-26T17:30:00+08:00
-- **Updated At:** 2026-08-12T23:20:05+08:00
+- **Updated At:** 2026-08-13T00:40:53+08:00
 - **Goal:** 从唯一权威源生成并验证 v0.1 跨端契约，建立 PostgreSQL 12 实体、Room 9 表及显式 mapper，通过阶段 1 全部门禁。
 - **Architecture:** `contracts/v1/source/` 唯一定义 wire schema 和协议目录，生成 TS/Ajv、Provider JSONSchema7、Kotlin DTO、错误/SSE/不变量表。Drizzle 与 Room 保持独立，只通过显式 mapper 消费生成 DTO。
 - **Tech Stack:** Node.js 24.18.0、TypeScript 7.0.2、Ajv 8.20.0、json-schema-to-ts 3.1.1、OpenAPI Generator 7.22.0、Kotlin 2.4.10、Room 2.8.4、Drizzle 0.45.2、PostgreSQL 16
@@ -471,7 +471,7 @@ Expected: **PASS**。
 - **Commit SHA:** 7781d91b261d38ea9660d881df14b7c9e867c30b
 - **Corrective Commit SHA:** 5652ca70cd47f63f6ec5c007f274a6d4dadafceb
 - **Final Corrective Commit SHA:** 14c7d35fc30046b3d732a9766bdeddddea1d77b5
-- **Attempts:** 6
+- **Attempts:** 7
 - **Blocked Reason:** null
 - **Red Result:** FAIL → PASS (2026-07-31) — 先新增 JSONB envelope 与正 server version 的 migration 结构断言，旧 migration 失败；生成 schema/migration 后通过。readiness 的 unknown-version mock 另经独立代码审查修正为查询语义回归。
 - **Verify Result:** PASS (2026-08-01) — Docker PostgreSQL 16 实跑 `test:integration`（4 files / 10 tests）、`test:unit`（9 files / 112 tests）、`typecheck`、Biome lint、`contract:check` 和 `db:migrations:check` 均通过。
@@ -745,20 +745,20 @@ Expected: **PASS**。
 
 **Execution:**
 
-- **Status:** in_progress
-- **Commit SHA:** null
+- **Status:** done
+- **Commit SHA:** e479ad4
 - **Attempts:** 13
 - **Blocked Reason:** null
 - **Red Result:** FAIL → PASS (2026-08-10/11/12) — Room fixture application first reproduced an incorrect same-page recipe upsert/delete round-trip assertion. Review then exposed loss of Kotlin boolean-`const` semantics, missing function-cardinality vectors and a non-persistence-backed Room execution counter. Later reviews exposed unknown-tool `TypeError` leakage, missing shared HTTP/SSE negative vectors, encode-side boolean-`const` coverage, an unclassified Room rejection path, incomplete Android error-tuple validation, and unchecked fixture metadata; each added guard failed before the corresponding fixture/validation/harness repair.
 - **Verify Result:** PASS (2026-08-12) — Server `contract:check`, `typecheck`, Biome, unit tests (10 files / 122 tests), and PostgreSQL 16 integration (5 files / 11 tests) passed. Android `checkContractModels`, `ktlintCheck`, `lintDebug`, all JVM tests, and managed Pixel 2 API 27 (4/4) passed; the first managed-device attempt timed out before instrumentation because ADB was unavailable, and the diagnostic retry passed in 64 seconds. The corpus now also rejects empty/unknown consumers and duplicate IDs and validates Android JSON error tuples against generated status/retry metadata. Android `detekt` remains at the existing 19 findings in unchanged production files.
-- **AC Result:** 2/2 passed after fresh verification — declared consumers execute shared fixtures exactly once; metadata cannot silently remove consumers; unknown tools return `UNKNOWN_TOOL` before executor input; Kotlin rejects opposite boolean-`const` values on both decode and encode; 50/51 recipe-batch and 21/20 weekly-plan boundaries are cross-end enforced; HTTP canonical round-trips, generated error catalog rules, and PostgreSQL/Room mapper round-trips, including rejected Room writes, passed. No task-only commit has been authorized.
+- **AC Result:** 2/2 passed after fresh verification — declared consumers execute shared fixtures exactly once; metadata cannot silently remove consumers; unknown tools return `UNKNOWN_TOOL` before executor input; Kotlin rejects opposite boolean-`const` values on both decode and encode; 50/51 recipe-batch and 21/20 weekly-plan boundaries are cross-end enforced; HTTP canonical round-trips, generated error catalog rules, and PostgreSQL/Room mapper round-trips, including rejected Room writes, passed. Task-only commit `e479ad4` belongs to T6.
 
 **Task Completion Gate:**
 
 - [x] Red Result exists and passed
 - [x] Verify Result exists and passed
 - [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
+- [x] Commit SHA belongs to this task only
 - [x] Per-task AC checkbox synced
 
 **Step 1: Red**
@@ -826,9 +826,19 @@ Expected: **PASS**。
 **Files:**
 
 - Create: `server/scripts/contracts/final-gate.ts`
+- Create: `server/src/contracts/final-gate-guards.ts`
+- Create: `server/src/contracts/final-gate.test.ts`
 - Create: `contracts/v1/FROZEN.md`
+- Create: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/ProtocolInvariantValidators.kt`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `server/package.json`
+- Modify: `server/scripts/contracts/compile.ts`
+- Modify: `server/src/contracts/source-compiler.ts`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/ProtocolValidators.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/WireFormatSerializers.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/local/dao/ContractCacheDao.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/local/mapper/ContractRoomMappers.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/local/mapper/VersionedRoomPayloadCodec.kt`
 - Modify: `docs/roadmap.md`
 - Modify: `docs/active/0.1.0/release.md`
 - Modify: `docs/active/0.1.0/contracts-persistence/plan.md`
@@ -844,26 +854,26 @@ Expected: **PASS**。
 
 **Acceptance Criteria:**
 
-- [ ] CI 明确运行 contract:check、Server contract/integration、Kotlin generation/unit、Room 和 stale-file checks，任一失败都会阻止阶段 1 通过。
-- [ ] `FROZEN.md` fingerprint 等于生成 manifest；最终提交区间包含 T1-T7 声明文件且工作区无本计划遗留未提交文件。
+- [x] CI 明确运行 contract:check、Server contract/integration、Kotlin generation/unit、Room 和 stale-file checks，任一失败都会阻止阶段 1 通过。
+- [x] `FROZEN.md` fingerprint 等于生成 manifest；最终提交区间包含 T1-T7 声明文件且工作区无本计划遗留未提交文件。
 
 **Execution:**
 
-- **Status:** pending
+- **Status:** done
 - **Commit SHA:** final-record-exception
-- **Attempts:** 0
+- **Attempts:** 6
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** FAIL → PASS (2026-08-12/13) — 冻结前确认 `FROZEN.md` 与 CI 契约步骤不存在；首版 final gate 又暴露 Markdown 换行误判。启用完整 Android `detekt` 后复现 19 项既有违规；两轮独立终审进一步命中未生成比较 `catalogs.ts`、不完整 fixture coverage/secret scan、unknown binding 绕过和缺少负路径测试，均在修复前有失败证据。
+- **Verify Result:** PASS (2026-08-13) — Server `contract:check`、typecheck、Biome、11 files / 125 unit tests、5 files / 11 PostgreSQL integration tests、双次 12-table migration check 与 `contract:final-gate` 全通过；CI 组合门禁对三端 committed generated trees，以及 fixture/schema/consumer/accepted-trace coverage、凭据和文档做确定性检查，fingerprint 为 `99bf8389196a148a22e8d50b6dfbe2c85a43e5470a46d0e9f9664ab8b51859fe`。Android `checkContractModels`、ktlint、detekt、lint、JVM/Room tests、stale-file 负测通过；Pixel 2 API 27 与 Pixel 6 API 37 均强制执行 4 tests / 0 failures / 0 errors。
+- **AC Result:** 2/2 passed — CI 的 Server/Android/migration/Room/stale-file 步骤已解析并实跑；冻结 fingerprint 与 manifest 相等，baseline 区间覆盖 T1-T7 声明文件。terminal-exception 的实际提交 SHA 在提交后终验输出中记录，避免文档自引用。
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA uses final-record-exception and terminal verification records the final interval
-- [ ] Per-task AC checkbox synced
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Commit SHA uses final-record-exception and terminal verification records the final interval
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
@@ -920,7 +930,15 @@ Expected: **PASS** — 所有自动化门禁通过；生成物零差异；提交
 
 ## Acceptance Criteria
 
-- [ ] AC1: 从唯一权威源可重复生成 Server、Provider、Android 和协议目录，manifest 精确覆盖 21 HTTP、8 FC、6 SSE，两个空目录字节一致且无陈旧文件。
-- [ ] AC2: Server 与 Android 对共享 valid/invalid/trace corpus 的结论一致，PATCH 三态、错误 tuple、SSE lifecycle 和 `serverVersion="9007199254740993"` 均有跨端证据。
-- [ ] AC3: PostgreSQL 16 的 12 实体和 Room 的 9 表通过显式 mapper 消费相同 wire DTO，聚合、同步变更、回执和 cursor 的成功/回滚路径都有集成证据。
-- [ ] AC4: 全部门禁通过后 `contracts/v1/FROZEN.md` fingerprint 与 manifest 一致；后续 wire shape 变化必须创建新 contract version。
+- [x] AC1: 从唯一权威源可重复生成 Server、Provider、Android 和协议目录，manifest 精确覆盖 21 HTTP、8 FC、6 SSE，两个空目录字节一致且无陈旧文件。
+- [x] AC2: Server 与 Android 对共享 valid/invalid/trace corpus 的结论一致，PATCH 三态、错误 tuple、SSE lifecycle 和 `serverVersion="9007199254740993"` 均有跨端证据。
+- [x] AC3: PostgreSQL 16 的 12 实体和 Room 的 9 表通过显式 mapper 消费相同 wire DTO，聚合、同步变更、回执和 cursor 的成功/回滚路径都有集成证据。
+- [x] AC4: 全部门禁通过后 `contracts/v1/FROZEN.md` fingerprint 与 manifest 一致；后续 wire shape 变化必须创建新 contract version。
+
+**Plan Verdict:**
+
+- **Status:** completed
+- **Verified At:** 2026-08-13T00:40:53+08:00
+- **Evidence:** T1-T7 全部 done；Server 125 unit / 11 PostgreSQL integration、Android static/JVM/Room、Pixel 2 API 27 与 Pixel 6 API 37、migration、stale-file、生成物与 freeze final gate 全通过；全局 AC 4/4。
+- **Blocked Tasks:** none
+- **Concerns:** none

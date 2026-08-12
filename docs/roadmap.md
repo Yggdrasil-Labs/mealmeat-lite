@@ -113,7 +113,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 | 阶段 | 可开始条件 | 交付物 | 退出条件 | 当前状态 |
 |---|---|---|---|---|
 | 0. 仓库与运行骨架 | 四文档范围稳定 | pnpm/Gradle monorepo、Biome、Android lint、Compose、健康检查、CI 命令 | 本地空实现可构建，DB migration 可重复执行 | 已完成：`main` CI 的 server、app、compose 门禁均通过 |
-| 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误与 SSE 状态机、Drizzle migration、Room entities、契约 fixtures | 21 HTTP/8 FC/6 SSE manifest 完整；后端和 Android 消费同一 fixtures；协议 trace、确定性生成与迁移集成测试通过 | 当前阶段，设计已定稿，尚未开始实现 |
+| 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误与 SSE 状态机、Drizzle migration、Room entities、契约 fixtures | 21 HTTP/8 FC/6 SSE manifest 完整；后端和 Android 消费同一 fixtures；协议 trace、确定性生成与迁移集成测试通过 | 已完成：v1 契约已冻结，fingerprint 由 `contracts/v1/FROZEN.md` 记录 |
 | 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 未开始 |
 | 3. 菜谱与计划领域 | 阶段 2 完成 | Recipe/WeeklyPlan/PlanItem service、8 个 FC executor、确认草稿 | AC1、AC2、AC3、AC9、AC11 通过 | 未开始 |
 | 4. 对话与 Android 闭环 | 阶段 3 完成 | provider adapter、SSE、4 个页面、Room/WorkManager | AC4、AC7、AC8、AC13 通过 | 未开始 |

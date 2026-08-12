@@ -20,6 +20,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
 
+private const val MAX_SETTINGS_VALUE_LENGTH = 5_000
+
 interface ContractRoomMapper<Contract : Any, Entity : Any> {
     fun toEntity(contract: Contract): Entity
 
@@ -115,6 +117,8 @@ fun planItemEntityFromContract(
 
 fun settingsCacheEntityFromContract(contract: SettingsDto): SettingsCacheEntity {
     require(contract.key == "familyPreference") { "Settings key must be familyPreference" }
-    require(contract.value.length <= 5_000) { "Settings value exceeds 5000 characters" }
+    require(contract.value.length <= MAX_SETTINGS_VALUE_LENGTH) {
+        "Settings value exceeds $MAX_SETTINGS_VALUE_LENGTH characters"
+    }
     return SettingsCacheEntity(key = contract.key, value = contract.value)
 }

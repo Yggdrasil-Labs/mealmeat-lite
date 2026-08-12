@@ -15,6 +15,7 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.UUID
 
 /**
@@ -57,7 +58,7 @@ object OffsetDateTimeSerializer : KSerializer<OffsetDateTime> {
         val dateTime =
             try {
                 OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            } catch (error: Exception) {
+            } catch (error: DateTimeParseException) {
                 throw SerializationException("Invalid RFC 3339 date-time: $value", error)
             }
         if (dateTime.offset != ZoneOffset.UTC) {
@@ -81,7 +82,9 @@ object LocalDateSerializer : KSerializer<LocalDate> {
     override fun deserialize(decoder: Decoder): LocalDate =
         try {
             LocalDate.parse(decoder.decodeString(), DateTimeFormatter.ISO_LOCAL_DATE)
-        } catch (error: Exception) {
+        } catch (error: SerializationException) {
+            throw SerializationException("Invalid ISO local date", error)
+        } catch (error: DateTimeParseException) {
             throw SerializationException("Invalid ISO local date", error)
         }
 }
