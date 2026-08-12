@@ -3,7 +3,7 @@ id: mealmate-0.1.0-contracts-persistence-plan
 status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-07-26
-updated: 2026-07-28
+updated: 2026-08-12
 ---
 
 # 阶段 1：契约与持久化
@@ -12,7 +12,7 @@ updated: 2026-07-28
 - **Baseline SHA:** c10eb870c979724125456f9128adc6db8e987898
 - **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 - **Started At:** 2026-07-26T17:30:00+08:00
-- **Updated At:** 2026-07-31T10:00:09+08:00
+- **Updated At:** 2026-08-12T23:20:05+08:00
 - **Goal:** 从唯一权威源生成并验证 v0.1 跨端契约，建立 PostgreSQL 12 实体、Room 9 表及显式 mapper，通过阶段 1 全部门禁。
 - **Architecture:** `contracts/v1/source/` 唯一定义 wire schema 和协议目录，生成 TS/Ajv、Provider JSONSchema7、Kotlin DTO、错误/SSE/不变量表。Drizzle 与 Room 保持独立，只通过显式 mapper 消费生成 DTO。
 - **Tech Stack:** Node.js 24.18.0、TypeScript 7.0.2、Ajv 8.20.0、json-schema-to-ts 3.1.1、OpenAPI Generator 7.22.0、Kotlin 2.4.10、Room 2.8.4、Drizzle 0.45.2、PostgreSQL 16
@@ -462,27 +462,28 @@ Expected: **PASS**。
 
 **Acceptance Criteria:**
 
-- [ ] 空 PostgreSQL 16 应用 migration 后存在 12 实体及全部约束；从两个空 staging 生成并规范化后的 SQL/journal/snapshot 路径与字节相同且匹配 committed artifacts，篡改 SQL 必须被发现；schema 落后或存在未知 JSONB version 时 readiness 返回 `503 NOT_READY`。
-- [ ] 所有 JSONB carrier 均具备相邻版本列与 nullable 配对 CHECK；同步事务机械验证固定资源锁序、回调前已持锁、并发可见顺序和批量版本单调性；任何非法 mapper、约束或事务回调失败均零部分提交。
+- [x] 空 PostgreSQL 16 应用 migration 后存在 12 实体及全部约束；从两个空 staging 生成并规范化后的 SQL/journal/snapshot 路径与字节相同且匹配 committed artifacts，篡改 SQL 必须被发现；schema 落后或存在未知 JSONB version 时 readiness 返回 `503 NOT_READY`。
+- [x] 所有 JSONB carrier 均具备相邻版本列与 nullable 配对 CHECK；同步事务机械验证固定资源锁序、回调前已持锁、并发可见顺序和批量版本单调性；任何非法 mapper、约束或事务回调失败均零部分提交。
 
 **Execution:**
 
-- **Status:** blocked
+- **Status:** done
 - **Commit SHA:** 7781d91b261d38ea9660d881df14b7c9e867c30b
 - **Corrective Commit SHA:** 5652ca70cd47f63f6ec5c007f274a6d4dadafceb
-- **Attempts:** 5
-- **Blocked Reason:** Testcontainers 在当前主机找不到 Docker 或 Podman container runtime，PostgreSQL 16 migration 与并发事务集成用例均无法启动。
+- **Final Corrective Commit SHA:** 14c7d35fc30046b3d732a9766bdeddddea1d77b5
+- **Attempts:** 6
+- **Blocked Reason:** null
 - **Red Result:** FAIL → PASS (2026-07-31) — 先新增 JSONB envelope 与正 server version 的 migration 结构断言，旧 migration 失败；生成 schema/migration 后通过。readiness 的 unknown-version mock 另经独立代码审查修正为查询语义回归。
-- **Verify Result:** PARTIAL PASS (2026-07-31) — `typecheck`、`test:unit`（112 tests）、Biome lint、`contract:check`、`db:migrations:check` 均通过；迁移发布 pointer、7 个 JSONB carrier、hash/expiry/generation、完整周计划和 migration re-run 均有静态或集成测试证据。`test:integration` 的 PostgreSQL 16 用例仍在启动容器前被环境门禁阻断。
-- **AC Result:** 0/2 fully passed; 2 deferred only for live PostgreSQL 16 execution. 静态 schema、mapper、deterministic artifacts、readiness、锁序与 rollback 证据均已通过独立规格和代码质量复核。
+- **Verify Result:** PASS (2026-08-01) — Docker PostgreSQL 16 实跑 `test:integration`（4 files / 10 tests）、`test:unit`（9 files / 112 tests）、`typecheck`、Biome lint、`contract:check` 和 `db:migrations:check` 均通过。
+- **AC Result:** 2/2 passed — catalog 明确断言 12 个 primary key 和 2 个 constraint trigger；空 PG16 migration、readiness 503、确定性 artifacts/篡改负测、7 个 JSONB、锁序/并发/批量版本与 rollback 全部在 live integration 中验证。独立复核无 P0/P1。
 
 **Task Completion Gate:**
 
 - [x] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
 - [x] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
@@ -596,26 +597,26 @@ Expected: **PASS**。
 
 **Acceptance Criteria:**
 
-- [ ] Room schema 精确包含 9 表及声明的 PK/UNIQUE/FK，serverVersion 全部使用 String；两个持久化联合均有相邻版本列，nullable authoritative payload/version 严格配对。
-- [ ] pending action 保存读取后原 actionId、canonical strict payload、payloadHash 和 pending state 不变；完整同步页成功时实体和 cursor 同事务提交，未知版本或非法数据全部回滚，schema 中不存在敏感 token 字段。
+- [x] Room schema 精确包含 9 表及声明的 PK/UNIQUE/FK，serverVersion 全部使用 String；两个持久化联合均有相邻版本列，nullable authoritative payload/version 严格配对。
+- [x] pending action 保存读取后原 actionId、canonical strict payload、payloadHash 和 pending state 不变；完整同步页成功时实体和 cursor 同事务提交，未知版本或非法数据全部回滚，schema 中不存在敏感 token 字段。
 
 **Execution:**
 
-- **Status:** pending
-- **Commit SHA:** null
-- **Attempts:** 0
+- **Status:** done
+- **Commit SHA:** 35599e9db2564a6c0c325b6aedc163fea647043d
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** FAIL → PASS (2026-07-31) — 先以 Room schema、payload/version invariant、sync rollback 与敏感字段负测建立验收，缺少实体/DAO/mapper/applier 时失败；实现后通过。
+- **Verify Result:** PASS (2026-07-31) — `:app:ktlintCheck :app:testDebugUnitTest :app:lintDebug` 通过；managed Pixel 2 API 27 `pixel2Api27DebugAndroidTest` 通过（3 tests / 0 failures / 0 errors）。
+- **AC Result:** 2/2 passed — 9 表/PK/UNIQUE/FK 与 String serverVersion、两个 version carrier 的配对约束、pending action 原样 round-trip、同步页原子写入和非法输入 rollback、敏感字段零命中均有 JVM 与 instrumented Room 证据。
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
-- [ ] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Commit SHA belongs to this task only
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
@@ -703,13 +704,30 @@ Expected: **PASS**。
 - Create: `contracts/v1/fixtures/invalid/functions.jsonl`
 - Create: `contracts/v1/fixtures/invalid/sync.jsonl`
 - Create: `contracts/v1/fixtures/invalid/errors.jsonl`
+- Create: `contracts/v1/fixtures/traces/sse-error.json`
 - Create: `contracts/v1/fixtures/traces/sse-valid.json`
 - Create: `contracts/v1/fixtures/traces/sse-invalid.json`
+- Create: `contracts/v1/fixtures/traces/sse-invalid-after-terminal.json`
+- Create: `contracts/v1/fixtures/traces/sse-invalid-double-terminal.json`
+- Create: `contracts/v1/fixtures/traces/sse-invalid-missing-start.json`
+- Create: `contracts/v1/fixtures/traces/sse-invalid-non-increasing-event-id.json`
+- Create: `contracts/v1/fixtures/traces/sse-invalid-tool-terminal-before-start.json`
 - Create: `server/src/contracts/fixtures.test.ts`
 - Create: `server/src/contracts/fixtures.integration.test.ts`
 - Create: `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/contract/ContractFixturesTest.kt`
 - Create: `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/contract/ContractPersistenceFixturesTest.kt`
+- Create: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/BooleanConstSerializers.kt`
 - Modify: `app/app/build.gradle.kts`
+- Modify: `app/scripts/generate-contract-models.sh`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/generated/models/{BatchGenerateRecipesOutput,ErrorResponse,LogoutResponse,RejectedResultDtoOneOf,RejectedResultDtoOneOf1,RevokeDeviceResponse,SuccessResponse,SyncActionResultDtoOneOf1,SyncActionResultDtoOneOf2}.kt`
+- Modify: `contracts/v1/source/schemas/{auth,common,recipe,sync}.schema.json`
+- Modify: `contracts/v1/generated/{manifest.json,openapi-with-schemas.yaml}`
+- Modify: `server/src/contracts/generated/{schemas.ts,validators.ts}`
+- Modify: `server/src/contracts/{types.ts,validation.ts}`
+- Modify: `server/src/contracts/{source-compiler.ts,source-compiler.test.ts}`
+- Modify: `contracts/v1/generated/ProtocolCatalog.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/generated/ProtocolCatalog.kt`
+- Modify: `.husky/pre-commit`
 
 **Interfaces:**
 
@@ -718,30 +736,30 @@ Expected: **PASS**。
 
 **Behavior:**
 
-用一份 manifest 管理 valid、invalid 和 trace fixtures。每个样本声明 schema/invariant、期望结果和必须消费的 consumer；Server 与 Android 不允许各自维护影子 fixture。所有 HTTP success fixture 在两端解析后重新序列化，并以递归排序 object key、保留 JSON token 类型和数值/字符串表示的 canonical JSON 与原样本比较。
+用一份 manifest 管理 valid、invalid 和 trace fixtures。每个样本声明 schema/invariant、期望结果和必须消费的 consumer；consumer 列表必须非空且只能使用已知值，fixture ID 在全语料中唯一。Server 与 Android 不允许各自维护影子 fixture。所有 HTTP success fixture 在两端解析后重新序列化，并以递归排序 object key、保留 JSON token 类型和数值/字符串表示的 canonical JSON 与原样本比较。Android 错误 tuple 必须使用生成目录校验 JSON channel、HTTP status、retryable 与 `Retry-After` 策略。
 
 **Acceptance Criteria:**
 
-- [ ] manifest 中每个样本至少被声明 consumer 实际执行，valid 全接受、invalid 按预期分类拒绝、SSE traces 两端结论一致；每个 HTTP success fixture 在 Server/Android 重序列化后的 canonical JSON 均与原 fixture 等价。
-- [ ] `serverVersion="9007199254740993"`、PATCH 三态、ConfirmationEvent、SyncActionResult、SyncChange、完整 21 餐和错误 tuple 都有跨端正反 consumer 测试；其中实际持久化的 Recipe、WeeklyPlan、Settings 和 SyncChange 通过其适用的 PostgreSQL/Room mapper round-trip。
+- [x] manifest 中每个样本至少被声明 consumer 实际执行，valid 全接受、invalid 按预期分类拒绝、SSE traces 两端结论一致；每个 HTTP success fixture 在 Server/Android 重序列化后的 canonical JSON 均与原 fixture 等价。
+- [x] `serverVersion="9007199254740993"`、PATCH 三态、ConfirmationEvent、SyncActionResult、SyncChange、完整 21 餐和错误 tuple 都有跨端正反 consumer 测试；其中实际持久化的 Recipe、WeeklyPlan、Settings 和 SyncChange 通过其适用的 PostgreSQL/Room mapper round-trip。
 
 **Execution:**
 
-- **Status:** pending
+- **Status:** in_progress
 - **Commit SHA:** null
-- **Attempts:** 0
+- **Attempts:** 13
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
+- **Red Result:** FAIL → PASS (2026-08-10/11/12) — Room fixture application first reproduced an incorrect same-page recipe upsert/delete round-trip assertion. Review then exposed loss of Kotlin boolean-`const` semantics, missing function-cardinality vectors and a non-persistence-backed Room execution counter. Later reviews exposed unknown-tool `TypeError` leakage, missing shared HTTP/SSE negative vectors, encode-side boolean-`const` coverage, an unclassified Room rejection path, incomplete Android error-tuple validation, and unchecked fixture metadata; each added guard failed before the corresponding fixture/validation/harness repair.
+- **Verify Result:** PASS (2026-08-12) — Server `contract:check`, `typecheck`, Biome, unit tests (10 files / 122 tests), and PostgreSQL 16 integration (5 files / 11 tests) passed. Android `checkContractModels`, `ktlintCheck`, `lintDebug`, all JVM tests, and managed Pixel 2 API 27 (4/4) passed; the first managed-device attempt timed out before instrumentation because ADB was unavailable, and the diagnostic retry passed in 64 seconds. The corpus now also rejects empty/unknown consumers and duplicate IDs and validates Android JSON error tuples against generated status/retry metadata. Android `detekt` remains at the existing 19 findings in unchanged production files.
+- **AC Result:** 2/2 passed after fresh verification — declared consumers execute shared fixtures exactly once; metadata cannot silently remove consumers; unknown tools return `UNKNOWN_TOOL` before executor input; Kotlin rejects opposite boolean-`const` values on both decode and encode; 50/51 recipe-batch and 21/20 weekly-plan boundaries are cross-end enforced; HTTP canonical round-trips, generated error catalog rules, and PostgreSQL/Room mapper round-trips, including rejected Room writes, passed. No task-only commit has been authorized.
 
 **Task Completion Gate:**
 
-- [ ] Red Result exists and passed
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Red Result exists and passed
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
 - [ ] Commit SHA belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 
@@ -762,7 +780,7 @@ assertEquals(canonicalJson(fixture.value), canonicalJson(reserializeHttpSuccess(
 Run:
 
 ```bash
-mise exec -- corepack pnpm --dir server vitest run src/contracts/fixtures.test.ts
+mise exec -- corepack pnpm --dir=server exec vitest run src/contracts/fixtures.test.ts
 mise exec -- ./app/gradlew -p app :app:testDebugUnitTest --tests '*ContractFixturesTest'
 mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app pixel2Api27DebugAndroidTest
 ```
@@ -782,8 +800,8 @@ Expected: **FAIL** — corpus 尚不存在。
 Run:
 
 ```bash
-mise exec -- corepack pnpm --dir server vitest run src/contracts/fixtures.test.ts
-mise exec -- corepack pnpm --dir server vitest run --project integration src/contracts/fixtures.integration.test.ts
+mise exec -- corepack pnpm --dir=server exec vitest run src/contracts/fixtures.test.ts
+mise exec -- corepack pnpm --dir=server exec vitest run --project integration src/contracts/fixtures.integration.test.ts
 mise exec -- ./app/gradlew -p app :app:testDebugUnitTest --tests '*ContractFixturesTest'
 mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app pixel2Api27DebugAndroidTest
 ```

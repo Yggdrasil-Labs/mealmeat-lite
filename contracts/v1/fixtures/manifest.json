@@ -1,0 +1,12 @@
+{
+  "contractVersion": "v1",
+  "syntheticSecret": true,
+  "files": [
+    "valid/http.jsonl", "valid/functions.jsonl", "valid/sync.jsonl", "valid/errors.jsonl",
+    "invalid/http.jsonl", "invalid/functions.jsonl", "invalid/sync.jsonl", "invalid/errors.jsonl",
+    "traces/sse-valid.json", "traces/sse-error.json", "traces/sse-invalid.json",
+    "traces/sse-invalid-missing-start.json", "traces/sse-invalid-non-increasing-event-id.json",
+    "traces/sse-invalid-tool-terminal-before-start.json", "traces/sse-invalid-after-terminal.json",
+    "traces/sse-invalid-double-terminal.json"
+  ]
+}

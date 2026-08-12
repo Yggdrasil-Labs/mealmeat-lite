@@ -50,7 +50,8 @@ data class SyncActionResultDtoOneOf1 (
     val errMessage: kotlin.String,
 
     @SerialName(value = "requiresFullResync")
-    val requiresFullResync: kotlin.String,
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstFalseSerializer::class)
+    val requiresFullResync: kotlin.Boolean,
 
     @SerialName(value = "authoritative")
     val authoritative: AppliedResultDtoResource,
@@ -61,5 +62,14 @@ data class SyncActionResultDtoOneOf1 (
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `false`
+     */
+    @Serializable
+    enum class RequiresFullResync(val value: kotlin.Boolean) {
+        @SerialName(value = "false") `false`(false);
+    }
 
 }

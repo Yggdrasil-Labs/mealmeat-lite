@@ -30,9 +30,19 @@ import kotlinx.serialization.Contextual
 data class LogoutResponse (
 
     @SerialName(value = "revoked")
-    val revoked: kotlin.String
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstTrueSerializer::class)
+    val revoked: kotlin.Boolean
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `true`
+     */
+    @Serializable
+    enum class Revoked(val value: kotlin.Boolean) {
+        @SerialName(value = "true") `true`(true);
+    }
 
 }

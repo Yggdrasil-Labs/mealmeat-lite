@@ -44,7 +44,7 @@
     "LogoutResponse": {
       "type": "object",
       "properties": {
-        "revoked": { "const": true }
+        "revoked": { "type": "boolean", "const": true }
       },
       "required": ["revoked"],
       "additionalProperties": false
@@ -76,7 +76,7 @@
       "type": "object",
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/UUID" },
-        "revoked": { "const": true }
+        "revoked": { "type": "boolean", "const": true }
       },
       "required": ["id", "revoked"],
       "additionalProperties": false

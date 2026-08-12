@@ -64,7 +64,7 @@
     "SuccessResponse": {
       "type": "object",
       "properties": {
-        "success": { "const": true },
+        "success": { "type": "boolean", "const": true },
         "data": {}
       },
       "required": ["success", "data"],
@@ -73,7 +73,7 @@
     "ErrorResponse": {
       "type": "object",
       "properties": {
-        "success": { "const": false },
+        "success": { "type": "boolean", "const": false },
         "errCode": { "type": "string" },
         "errMessage": { "type": "string" },
         "requestId": { "type": "string", "minLength": 1 },

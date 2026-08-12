@@ -1,0 +1,1 @@
+{"id":"sse-invalid-mutually-exclusive","expected":"reject","expectedCategory":"trace","consumers":["server","android"],"frames":[{"event":"start","eventId":"1","data":{"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":true,"resumed":true}},{"event":"done","eventId":"2","data":{"chatRequestId":"44444444-4444-4444-8444-444444444444"}}]}

@@ -163,7 +163,7 @@
             "status": { "const": "rejected" },
             "errCode": { "type": "string" },
             "errMessage": { "type": "string" },
-            "requiresFullResync": { "const": false },
+            "requiresFullResync": { "type": "boolean", "const": false },
             "authoritative": {
               "oneOf": [
                 { "$ref": "recipe.schema.json#/$defs/RecipeView" },
@@ -182,7 +182,7 @@
             "status": { "const": "rejected" },
             "errCode": { "type": "string" },
             "errMessage": { "type": "string" },
-            "requiresFullResync": { "const": true }
+            "requiresFullResync": { "type": "boolean", "const": true }
           },
           "required": ["actionId", "status", "errCode", "errMessage", "requiresFullResync"],
           "additionalProperties": false
@@ -227,7 +227,7 @@
             "status": { "const": "rejected" },
             "errCode": { "type": "string" },
             "errMessage": { "type": "string" },
-            "requiresFullResync": { "const": false },
+            "requiresFullResync": { "type": "boolean", "const": false },
             "authoritative": {
               "oneOf": [
                 { "$ref": "recipe.schema.json#/$defs/RecipeView" },
@@ -245,7 +245,7 @@
             "status": { "const": "rejected" },
             "errCode": { "type": "string" },
             "errMessage": { "type": "string" },
-            "requiresFullResync": { "const": true }
+            "requiresFullResync": { "type": "boolean", "const": true }
           },
           "required": ["status", "errCode", "errMessage", "requiresFullResync"],
           "additionalProperties": false

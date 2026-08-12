@@ -31,12 +31,22 @@ import kotlinx.serialization.Contextual
 data class SuccessResponse (
 
     @SerialName(value = "success")
-    val success: kotlin.String,
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstTrueSerializer::class)
+    val success: kotlin.Boolean,
 
     @Contextual @SerialName(value = "data")
     val `data`: kotlin.Any?
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `true`
+     */
+    @Serializable
+    enum class Success(val value: kotlin.Boolean) {
+        @SerialName(value = "true") `true`(true);
+    }
 
 }

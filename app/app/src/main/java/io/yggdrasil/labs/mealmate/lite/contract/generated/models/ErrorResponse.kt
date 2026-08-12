@@ -36,7 +36,8 @@ import kotlinx.serialization.Contextual
 data class ErrorResponse (
 
     @SerialName(value = "success")
-    val success: kotlin.String,
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstFalseSerializer::class)
+    val success: kotlin.Boolean,
 
     @SerialName(value = "errCode")
     val errCode: kotlin.String,
@@ -55,5 +56,14 @@ data class ErrorResponse (
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `false`
+     */
+    @Serializable
+    enum class Success(val value: kotlin.Boolean) {
+        @SerialName(value = "false") `false`(false);
+    }
 
 }

@@ -839,6 +839,7 @@ components:
       type: object
       properties:
         revoked:
+          type: boolean
           const: true
       required:
         - revoked
@@ -874,6 +875,7 @@ components:
         id:
           $ref: "#/components/schemas/UUID"
         revoked:
+          type: boolean
           const: true
       required:
         - id
@@ -1010,6 +1012,7 @@ components:
       type: object
       properties:
         success:
+          type: boolean
           const: false
         errCode:
           type: string
@@ -1093,6 +1096,7 @@ components:
       type: object
       properties:
         success:
+          type: boolean
           const: true
         data: {}
       required:
@@ -1302,6 +1306,7 @@ components:
       type: object
       properties:
         confirmationRequired:
+          type: boolean
           const: true
         count:
           type: integer
@@ -1842,6 +1847,7 @@ components:
             errMessage:
               type: string
             requiresFullResync:
+              type: boolean
               const: false
             authoritative:
               oneOf:
@@ -1866,6 +1872,7 @@ components:
             errMessage:
               type: string
             requiresFullResync:
+              type: boolean
               const: true
           required:
             - status
@@ -1966,6 +1973,7 @@ components:
             errMessage:
               type: string
             requiresFullResync:
+              type: boolean
               const: false
             authoritative:
               oneOf:
@@ -1993,6 +2001,7 @@ components:
             errMessage:
               type: string
             requiresFullResync:
+              type: boolean
               const: true
           required:
             - actionId

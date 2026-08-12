@@ -118,6 +118,10 @@ describe('契约源编译器', () => {
       expect(catalog).toContain('GeneratedSseEventDefinition')
       expect(catalog).toContain('ConfirmationEventDto')
       expect(catalog).toContain('enum class GeneratedInvariantId')
+      expect(catalog).toContain('val httpStatus: Int')
+      expect(catalog).toContain('val retryAfter: GeneratedRetryAfterPolicy')
+      expect(catalog).toContain('httpStatus = 429')
+      expect(catalog).toContain('minSeconds = 1')
     })
 
     it('所有 schema ID 唯一', async () => {

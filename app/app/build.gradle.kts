@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ManagedVirtualDevice
+import org.gradle.api.tasks.PathSensitivity
 
 plugins {
     alias(libs.plugins.android.application)
@@ -41,6 +42,12 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDir(rootProject.file("../contracts/v1/fixtures"))
+        }
     }
 
     testOptions {
@@ -135,6 +142,9 @@ ktlint {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    val contractFixturesRoot = rootProject.file("../contracts/v1/fixtures")
+    inputs.dir(contractFixturesRoot).withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("mealmate.fixtures.root", contractFixturesRoot.absolutePath)
 }
 
 detekt {

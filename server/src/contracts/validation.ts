@@ -62,6 +62,13 @@ export function validateToolInput<TName extends FunctionToolName>(
   input: unknown,
 ): ContractValidationResult<ToolInput<TName>> {
   const loc = toolInputSchemaLocations[toolName]
+  if (!loc) {
+    return {
+      success: false,
+      code: 'UNKNOWN_TOOL',
+      error: `Unknown function tool: ${toolName}`,
+    }
+  }
 
   try {
     const validator = getValidator(loc.file, loc.defPath)

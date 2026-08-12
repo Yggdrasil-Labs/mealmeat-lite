@@ -1066,8 +1066,17 @@ async function generateKotlinProtocolCatalog(
     '',
     'data class GeneratedPublicErrorDefinition(',
     '    val errCode: String,',
+    '    val httpStatus: Int,',
     '    val retryable: Boolean,',
+    '    val retryAfter: GeneratedRetryAfterPolicy,',
     '    val channels: Set<String>,',
+    ')',
+    '',
+    'data class GeneratedRetryAfterPolicy(',
+    '    val kind: String,',
+    '    val seconds: Int? = null,',
+    '    val minSeconds: Int? = null,',
+    '    val maxSeconds: Int? = null,',
     ')',
     '',
     'data class GeneratedInvariantDefinition(',
@@ -1166,7 +1175,17 @@ async function generateKotlinProtocolCatalog(
   for (const error of manifest.errors) {
     lines.push('            GeneratedPublicErrorDefinition(')
     lines.push(`                errCode = ${kotlinString(error.errCode)},`)
+    lines.push(`                httpStatus = ${error.httpStatus},`)
     lines.push(`                retryable = ${error.retryable},`)
+    lines.push('                retryAfter = GeneratedRetryAfterPolicy(')
+    lines.push(`                    kind = ${kotlinString(error.retryAfter.kind)},`)
+    if (error.retryAfter.kind === 'fixed') {
+      lines.push(`                    seconds = ${error.retryAfter.seconds},`)
+    } else if (error.retryAfter.kind === 'range') {
+      lines.push(`                    minSeconds = ${error.retryAfter.minSeconds},`)
+      lines.push(`                    maxSeconds = ${error.retryAfter.maxSeconds},`)
+    }
+    lines.push('                ),')
     lines.push(`                channels = ${kotlinStringSet(error.channels)},`)
     lines.push('            ),')
   }

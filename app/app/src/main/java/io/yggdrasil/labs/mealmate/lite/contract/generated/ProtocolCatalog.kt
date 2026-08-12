@@ -37,8 +37,17 @@ data class GeneratedSseErrorCatalogRule(
 
 data class GeneratedPublicErrorDefinition(
     val errCode: String,
+    val httpStatus: Int,
     val retryable: Boolean,
+    val retryAfter: GeneratedRetryAfterPolicy,
     val channels: Set<String>,
+)
+
+data class GeneratedRetryAfterPolicy(
+    val kind: String,
+    val seconds: Int? = null,
+    val minSeconds: Int? = null,
+    val maxSeconds: Int? = null,
 )
 
 data class GeneratedInvariantDefinition(
@@ -147,167 +156,308 @@ object GeneratedProtocolCatalog {
         listOf(
             GeneratedPublicErrorDefinition(
                 errCode = "BAD_REQUEST",
+                httpStatus = 400,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "INVALID_CURSOR",
+                httpStatus = 400,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "UNAUTHORIZED",
+                httpStatus = 401,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "INVALID_BOOTSTRAP_SECRET",
+                httpStatus = 401,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "INVALID_FAMILY_CODE",
+                httpStatus = 401,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "RECIPE_NOT_FOUND",
+                httpStatus = 404,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "PLAN_NOT_FOUND",
+                httpStatus = 404,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "DEVICE_NOT_FOUND",
+                httpStatus = 404,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CONFIRMATION_NOT_FOUND",
+                httpStatus = 404,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CHAT_REQUEST_EXPIRED",
+                httpStatus = 410,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CONFIRMATION_EXPIRED",
+                httpStatus = 410,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "ALREADY_INITIALIZED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "NOT_INITIALIZED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "IDEMPOTENCY_KEY_REUSED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "RECIPE_DELETED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CHAT_REQUEST_SUPERSEDED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CONFIRMATION_CONSUMED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CONFIRMATION_SUPERSEDED",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CONFIRMATION_STALE",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "RECIPE_IN_USE",
+                httpStatus = 409,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CHAT_IN_PROGRESS",
+                httpStatus = 409,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "range",
+                    minSeconds = 1,
+                    maxSeconds = 30,
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "CHAT_DEVICE_BUSY",
+                httpStatus = 409,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "range",
+                    minSeconds = 1,
+                    maxSeconds = 30,
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "VALIDATION_ERROR",
+                httpStatus = 422,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "INVALID_WEEK_START",
+                httpStatus = 422,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "MODEL_UNAVAILABLE",
+                httpStatus = 422,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "NO_NEW_RECIPES",
+                httpStatus = 422,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "RATE_LIMITED",
+                httpStatus = 429,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "range",
+                    minSeconds = 1,
+                    maxSeconds = 900,
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "INTERNAL_ERROR",
+                httpStatus = 500,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "SYNC_CHANGE_TOO_LARGE",
+                httpStatus = 500,
                 retryable = false,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "PROVIDER_ERROR",
+                httpStatus = 502,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "fixed",
+                    seconds = 5,
+                ),
                 channels = setOf("json", "sse"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "NOT_READY",
+                httpStatus = 503,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "fixed",
+                    seconds = 5,
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "SERVICE_BUSY",
+                httpStatus = 503,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "fixed",
+                    seconds = 1,
+                ),
                 channels = setOf("json"),
             ),
             GeneratedPublicErrorDefinition(
                 errCode = "MODEL_TIMEOUT",
+                httpStatus = 504,
                 retryable = true,
+                retryAfter = GeneratedRetryAfterPolicy(
+                    kind = "none",
+                ),
                 channels = setOf("json", "sse"),
             ),
         )

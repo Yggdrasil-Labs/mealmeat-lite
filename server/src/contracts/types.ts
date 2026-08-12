@@ -263,7 +263,12 @@ export interface GeneratedDiff {
  */
 export type ContractValidationResult<T = unknown> =
   | { success: true; value: T }
-  | { success: false; error: string; errors?: ReadonlyArray<{ path: string; message: string }> }
+  | {
+      success: false
+      error: string
+      code?: 'UNKNOWN_TOOL'
+      errors?: ReadonlyArray<{ path: string; message: string }>
+    }
 
 /**
  * SSE Trace 校验结果 — 使用 discriminated union 支持类型收窄

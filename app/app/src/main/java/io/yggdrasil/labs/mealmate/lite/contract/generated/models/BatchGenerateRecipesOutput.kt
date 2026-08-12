@@ -33,7 +33,8 @@ import kotlinx.serialization.Contextual
 data class BatchGenerateRecipesOutput (
 
     @SerialName(value = "confirmationRequired")
-    val confirmationRequired: kotlin.String,
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstTrueSerializer::class)
+    val confirmationRequired: kotlin.Boolean,
 
     @SerialName(value = "count")
     val count: kotlin.Int,
@@ -47,5 +48,14 @@ data class BatchGenerateRecipesOutput (
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `true`
+     */
+    @Serializable
+    enum class ConfirmationRequired(val value: kotlin.Boolean) {
+        @SerialName(value = "true") `true`(true);
+    }
 
 }

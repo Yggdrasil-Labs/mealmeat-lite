@@ -342,6 +342,7 @@ export const BatchGenerateRecipesOutputSchema = {
   "type": "object",
   "properties": {
     "confirmationRequired": {
+      "type": "boolean",
       "const": true
     },
     "count": {
@@ -1426,6 +1427,7 @@ export const ErrorResponseSchema = {
   "type": "object",
   "properties": {
     "success": {
+      "type": "boolean",
       "const": false
     },
     "errCode": {
@@ -1683,6 +1685,7 @@ export const LogoutResponseSchema = {
   "type": "object",
   "properties": {
     "revoked": {
+      "type": "boolean",
       "const": true
     }
   },
@@ -2271,6 +2274,7 @@ export const RejectedResultDtoSchema = {
           "type": "string"
         },
         "requiresFullResync": {
+          "type": "boolean",
           "const": false
         },
         "authoritative": {
@@ -2401,6 +2405,7 @@ export const RejectedResultDtoSchema = {
           "type": "string"
         },
         "requiresFullResync": {
+          "type": "boolean",
           "const": true
         }
       },
@@ -2518,6 +2523,7 @@ export const RevokeDeviceResponseSchema = {
       "description": "小写 canonical UUID 格式"
     },
     "revoked": {
+      "type": "boolean",
       "const": true
     }
   },
@@ -3257,6 +3263,7 @@ export const SuccessResponseSchema = {
   "type": "object",
   "properties": {
     "success": {
+      "type": "boolean",
       "const": true
     },
     "data": {}
@@ -3524,6 +3531,7 @@ export const SyncActionResultDtoSchema = {
           "type": "string"
         },
         "requiresFullResync": {
+          "type": "boolean",
           "const": false
         },
         "authoritative": {
@@ -3661,6 +3669,7 @@ export const SyncActionResultDtoSchema = {
           "type": "string"
         },
         "requiresFullResync": {
+          "type": "boolean",
           "const": true
         }
       },
@@ -3820,6 +3829,7 @@ export const SyncActionResultDtoSchema = {
                       "type": "string"
                     },
                     "requiresFullResync": {
+                      "type": "boolean",
                       "const": false
                     },
                     "authoritative": {
@@ -3950,6 +3960,7 @@ export const SyncActionResultDtoSchema = {
                       "type": "string"
                     },
                     "requiresFullResync": {
+                      "type": "boolean",
                       "const": true
                     }
                   },
@@ -4251,6 +4262,7 @@ export const SyncActionsResponseSchema = {
                 "type": "string"
               },
               "requiresFullResync": {
+                "type": "boolean",
                 "const": false
               },
               "authoritative": {
@@ -4388,6 +4400,7 @@ export const SyncActionsResponseSchema = {
                 "type": "string"
               },
               "requiresFullResync": {
+                "type": "boolean",
                 "const": true
               }
             },
@@ -4547,6 +4560,7 @@ export const SyncActionsResponseSchema = {
                             "type": "string"
                           },
                           "requiresFullResync": {
+                            "type": "boolean",
                             "const": false
                           },
                           "authoritative": {
@@ -4677,6 +4691,7 @@ export const SyncActionsResponseSchema = {
                             "type": "string"
                           },
                           "requiresFullResync": {
+                            "type": "boolean",
                             "const": true
                           }
                         },

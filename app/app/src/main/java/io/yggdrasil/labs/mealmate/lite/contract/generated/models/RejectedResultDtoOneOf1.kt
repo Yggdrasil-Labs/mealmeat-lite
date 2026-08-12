@@ -42,9 +42,19 @@ data class RejectedResultDtoOneOf1 (
     val errMessage: kotlin.String,
 
     @SerialName(value = "requiresFullResync")
-    val requiresFullResync: kotlin.String
+    @Serializable(with = io.yggdrasil.labs.mealmate.lite.contract.BooleanConstTrueSerializer::class)
+    val requiresFullResync: kotlin.Boolean
 
 ) {
 
+    /**
+     *
+     *
+     * Values: `true`
+     */
+    @Serializable
+    enum class RequiresFullResync(val value: kotlin.Boolean) {
+        @SerialName(value = "true") `true`(true);
+    }
 
 }

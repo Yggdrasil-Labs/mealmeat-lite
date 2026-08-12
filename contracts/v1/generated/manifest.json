@@ -1,6 +1,6 @@
 {
   "contractVersion": "v1",
-  "fingerprint": "a1d517986f6c20a30d12137ac10c145555cf58978bbe7c35f0d3df8efed3ce9c",
+  "fingerprint": "99bf8389196a148a22e8d50b6dfbe2c85a43e5470a46d0e9f9664ab8b51859fe",
   "httpOperations": [
     {
       "operationId": "healthLive",

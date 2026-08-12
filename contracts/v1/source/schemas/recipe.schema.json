@@ -222,7 +222,7 @@
     "BatchGenerateRecipesOutput": {
       "type": "object",
       "properties": {
-        "confirmationRequired": { "const": true },
+        "confirmationRequired": { "type": "boolean", "const": true },
         "count": { "type": "integer", "minimum": 1 },
         "skippedDuplicates": { "type": "array", "items": { "type": "string" } },
         "expiresAt": { "$ref": "common.schema.json#/$defs/Rfc3339DateTime" }

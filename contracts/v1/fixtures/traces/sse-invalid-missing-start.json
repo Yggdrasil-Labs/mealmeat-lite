@@ -1,0 +1,1 @@
+{"id":"sse-invalid-missing-start","expected":"reject","expectedCategory":"trace","consumers":["server","android"],"frames":[{"event":"delta","eventId":"1","data":{"text":"没有 start"}},{"event":"done","eventId":"2","data":{"chatRequestId":"44444444-4444-4444-8444-444444444444"}}]}
