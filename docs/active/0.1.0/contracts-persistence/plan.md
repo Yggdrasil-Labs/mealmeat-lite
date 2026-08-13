@@ -864,7 +864,7 @@ Expected: **PASS**。
 - **Attempts:** 6
 - **Blocked Reason:** null
 - **Red Result:** FAIL → PASS (2026-08-12/13) — 冻结前确认 `FROZEN.md` 与 CI 契约步骤不存在；首版 final gate 又暴露 Markdown 换行误判。启用完整 Android `detekt` 后复现 19 项既有违规；两轮独立终审进一步命中未生成比较 `catalogs.ts`、不完整 fixture coverage/secret scan、unknown binding 绕过和缺少负路径测试，均在修复前有失败证据。
-- **Verify Result:** PASS (2026-08-13) — Server `contract:check`、typecheck、Biome、11 files / 125 unit tests、5 files / 11 PostgreSQL integration tests、双次 12-table migration check 与 `contract:final-gate` 全通过；CI 组合门禁对三端 committed generated trees，以及 fixture/schema/consumer/accepted-trace coverage、凭据和文档做确定性检查，fingerprint 为 `99bf8389196a148a22e8d50b6dfbe2c85a43e5470a46d0e9f9664ab8b51859fe`。Android `checkContractModels`、ktlint、detekt、lint、JVM/Room tests、stale-file 负测通过；Pixel 2 API 27 与 Pixel 6 API 37 均强制执行 4 tests / 0 failures / 0 errors。
+- **Verify Result:** PASS (2026-08-13) — Server `contract:check`、typecheck、Biome、11 files / 130 unit tests、5 files / 11 PostgreSQL integration tests、双次 12-table migration check、production Docker build/dist-only probe 与 `contract:final-gate` 全通过；CI 组合门禁对三端 committed generated trees，以及 fixture/schema/consumer/accepted-trace coverage、凭据和文档做确定性检查，fingerprint 为 `30066e9a4464a348a8c18291421dc00313acefbe73905daa16348de6dd2e1260`。Android `checkContractModels`、ktlint、detekt、lint、JVM/Room tests、stale-file 负测通过；Pixel 2 API 27 与 Pixel 6 API 37 均强制执行 4 tests / 0 failures / 0 errors。
 - **AC Result:** 2/2 passed — CI 的 Server/Android/migration/Room/stale-file 步骤已解析并实跑；冻结 fingerprint 与 manifest 相等，baseline 区间覆盖 T1-T7 声明文件。terminal-exception 的实际提交 SHA 在提交后终验输出中记录，避免文档自引用。
 
 **Task Completion Gate:**
@@ -939,6 +939,6 @@ Expected: **PASS** — 所有自动化门禁通过；生成物零差异；提交
 
 - **Status:** completed
 - **Verified At:** 2026-08-13T00:40:53+08:00
-- **Evidence:** T1-T7 全部 done；Server 125 unit / 11 PostgreSQL integration、Android static/JVM/Room、Pixel 2 API 27 与 Pixel 6 API 37、migration、stale-file、生成物与 freeze final gate 全通过；全局 AC 4/4。
+- **Evidence:** T1-T7 全部 done；Server 130 unit / 11 PostgreSQL integration、Android static/JVM/Room、Pixel 2 API 27 与 Pixel 6 API 37、migration、stale-file、生成物与 freeze final gate 全通过；全局 AC 4/4。
 - **Blocked Tasks:** none
 - **Concerns:** none

@@ -1,0 +1,1293 @@
+{
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  },
+  "dialect": "postgresql",
+  "enums": {},
+  "id": "09826123-439e-885a-a705-6068aa4c2aee",
+  "policies": {},
+  "prevId": "",
+  "roles": {},
+  "schemas": {},
+  "sequences": {},
+  "tables": {
+    "public.auth_attempt_throttles": {
+      "checkConstraints": {
+        "auth_attempt_throttles_failure_count_check": {
+          "name": "auth_attempt_throttles_failure_count_check",
+          "value": "\"auth_attempt_throttles\".\"failure_count\" >= 0"
+        },
+        "auth_attempt_throttles_scope_check": {
+          "name": "auth_attempt_throttles_scope_check",
+          "value": "\"auth_attempt_throttles\".\"scope\" in ('bootstrap', 'register')"
+        },
+        "auth_attempt_throttles_source_key_hash_format_check": {
+          "name": "auth_attempt_throttles_source_key_hash_format_check",
+          "value": "\"auth_attempt_throttles\".\"source_key_hash\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "columns": {
+        "failure_count": {
+          "default": 0,
+          "name": "failure_count",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "scope": {
+          "name": "scope",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(40)"
+        },
+        "source_key_hash": {
+          "name": "source_key_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        }
+      },
+      "compositePrimaryKeys": {
+        "auth_attempt_throttles_scope_source_key_hash_pk": {
+          "columns": ["scope", "source_key_hash"],
+          "name": "auth_attempt_throttles_scope_source_key_hash_pk"
+        }
+      },
+      "foreignKeys": {},
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "auth_attempt_throttles",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.auth_config": {
+      "checkConstraints": {
+        "auth_config_family_code_hash_format_check": {
+          "name": "auth_config_family_code_hash_format_check",
+          "value": "\"auth_config\".\"family_code_hash\" ~ '^\\$argon2id\\$v=19\\$m=[1-9][0-9]*,t=[1-9][0-9]*,p=[1-9][0-9]*\\$[A-Za-z0-9+/]+={0,2}\\$[A-Za-z0-9+/]+={0,2}$'"
+        },
+        "auth_config_family_code_version_check": {
+          "name": "auth_config_family_code_version_check",
+          "value": "\"auth_config\".\"family_code_version\" >= 1"
+        },
+        "auth_config_singleton_check": {
+          "name": "auth_config_singleton_check",
+          "value": "\"auth_config\".\"singleton\" = true"
+        }
+      },
+      "columns": {
+        "family_code_hash": {
+          "name": "family_code_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "family_code_version": {
+          "default": "1",
+          "name": "family_code_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "initialized_at": {
+          "default": "now()",
+          "name": "initialized_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "singleton": {
+          "default": true,
+          "name": "singleton",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "boolean"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "auth_config",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.chat_request_receipts": {
+      "checkConstraints": {
+        "chat_request_receipts_attempt_count_check": {
+          "name": "chat_request_receipts_attempt_count_check",
+          "value": "\"chat_request_receipts\".\"attempt_count\" >= 1"
+        },
+        "chat_request_receipts_lease_check": {
+          "name": "chat_request_receipts_lease_check",
+          "value": "CASE WHEN \"chat_request_receipts\".\"status\" = 'running' THEN \"chat_request_receipts\".\"lease_owner\" IS NOT NULL AND \"chat_request_receipts\".\"lease_expires_at\" IS NOT NULL AND \"chat_request_receipts\".\"heartbeat_at\" IS NOT NULL AND \"chat_request_receipts\".\"lease_expires_at\" >= \"chat_request_receipts\".\"heartbeat_at\" AND \"chat_request_receipts\".\"lease_expires_at\" <= \"chat_request_receipts\".\"heartbeat_at\" + interval '30 seconds' ELSE \"chat_request_receipts\".\"lease_owner\" IS NULL AND \"chat_request_receipts\".\"lease_expires_at\" IS NULL AND \"chat_request_receipts\".\"heartbeat_at\" IS NULL END"
+        },
+        "chat_request_receipts_lease_generation_check": {
+          "name": "chat_request_receipts_lease_generation_check",
+          "value": "\"chat_request_receipts\".\"lease_generation\" >= 1"
+        },
+        "chat_request_receipts_request_hash_format_check": {
+          "name": "chat_request_receipts_request_hash_format_check",
+          "value": "\"chat_request_receipts\".\"request_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "chat_request_receipts_status_check": {
+          "name": "chat_request_receipts_status_check",
+          "value": "\"chat_request_receipts\".\"status\" in ('running', 'completed', 'failed', 'expired')"
+        },
+        "chat_request_receipts_terminal_state_check": {
+          "name": "chat_request_receipts_terminal_state_check",
+          "value": "CASE WHEN \"chat_request_receipts\".\"status\" = 'running' THEN \"chat_request_receipts\".\"model_id\" IS NOT NULL AND \"chat_request_receipts\".\"message\" IS NOT NULL AND \"chat_request_receipts\".\"final_response\" IS NULL AND \"chat_request_receipts\".\"error_code\" IS NULL WHEN \"chat_request_receipts\".\"status\" = 'completed' THEN \"chat_request_receipts\".\"final_response\" IS NOT NULL AND \"chat_request_receipts\".\"error_code\" IS NULL AND \"chat_request_receipts\".\"retryable\" = false WHEN \"chat_request_receipts\".\"status\" = 'failed' THEN \"chat_request_receipts\".\"final_response\" IS NULL AND \"chat_request_receipts\".\"error_code\" IS NOT NULL WHEN \"chat_request_receipts\".\"status\" = 'expired' THEN \"chat_request_receipts\".\"model_id\" IS NULL AND \"chat_request_receipts\".\"message\" IS NULL AND \"chat_request_receipts\".\"tool_receipts\" IS NULL AND \"chat_request_receipts\".\"final_response\" IS NULL AND \"chat_request_receipts\".\"error_code\" IS NULL AND \"chat_request_receipts\".\"retryable\" = false ELSE false END"
+        },
+        "chat_request_receipts_tool_receipts_schema_version_check": {
+          "name": "chat_request_receipts_tool_receipts_schema_version_check",
+          "value": "\"chat_request_receipts\".\"tool_receipts_schema_version\" IS NULL OR \"chat_request_receipts\".\"tool_receipts_schema_version\" >= 1"
+        },
+        "chat_request_receipts_tool_receipts_version_pair_check": {
+          "name": "chat_request_receipts_tool_receipts_version_pair_check",
+          "value": "(\"chat_request_receipts\".\"tool_receipts\" IS NULL) = (\"chat_request_receipts\".\"tool_receipts_schema_version\" IS NULL)"
+        }
+      },
+      "columns": {
+        "attempt_count": {
+          "default": 1,
+          "name": "attempt_count",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "chat_request_id": {
+          "name": "chat_request_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "device_id": {
+          "name": "device_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "error_code": {
+          "name": "error_code",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "varchar(100)"
+        },
+        "final_response": {
+          "name": "final_response",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "heartbeat_at": {
+          "name": "heartbeat_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "lease_generation": {
+          "default": 1,
+          "name": "lease_generation",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "message": {
+          "name": "message",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "model_id": {
+          "name": "model_id",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "varchar(100)"
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "retryable": {
+          "default": false,
+          "name": "retryable",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "boolean"
+        },
+        "status": {
+          "name": "status",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(16)"
+        },
+        "tool_receipts": {
+          "name": "tool_receipts",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "tool_receipts_schema_version": {
+          "name": "tool_receipts_schema_version",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        }
+      },
+      "compositePrimaryKeys": {
+        "chat_request_receipts_device_id_chat_request_id_pk": {
+          "columns": ["device_id", "chat_request_id"],
+          "name": "chat_request_receipts_device_id_chat_request_id_pk"
+        }
+      },
+      "foreignKeys": {
+        "chat_request_receipts_device_id_device_tokens_id_fk": {
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "name": "chat_request_receipts_device_id_device_tokens_id_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "chat_request_receipts",
+          "tableTo": "device_tokens"
+        }
+      },
+      "indexes": {
+        "chat_request_receipts_device_status_lease_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "device_id",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "status",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "chat_request_receipts_device_status_lease_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "chat_request_receipts",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.conversations": {
+      "checkConstraints": {
+        "conversations_messages_limit_check": {
+          "name": "conversations_messages_limit_check",
+          "value": "CASE WHEN jsonb_typeof(\"conversations\".\"messages\" -> 'messages') = 'array' THEN jsonb_array_length(\"conversations\".\"messages\" -> 'messages') <= 40 ELSE false END"
+        },
+        "conversations_messages_schema_version_check": {
+          "name": "conversations_messages_schema_version_check",
+          "value": "\"conversations\".\"messages_schema_version\" >= 1"
+        }
+      },
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "messages": {
+          "name": "messages",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "messages_schema_version": {
+          "name": "messages_schema_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {
+        "conversations_device_id_device_tokens_id_fk": {
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "name": "conversations_device_id_device_tokens_id_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "conversations",
+          "tableTo": "device_tokens"
+        }
+      },
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "conversations",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.device_tokens": {
+      "checkConstraints": {
+        "device_tokens_device_name_check": {
+          "name": "device_tokens_device_name_check",
+          "value": "char_length(\"device_tokens\".\"device_name\") >= 1"
+        },
+        "device_tokens_timestamps_check": {
+          "name": "device_tokens_timestamps_check",
+          "value": "\"device_tokens\".\"last_used_at\" >= \"device_tokens\".\"created_at\" AND (\"device_tokens\".\"revoked_at\" IS NULL OR \"device_tokens\".\"revoked_at\" >= \"device_tokens\".\"created_at\")"
+        },
+        "device_tokens_token_hash_format_check": {
+          "name": "device_tokens_token_hash_format_check",
+          "value": "\"device_tokens\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "device_name": {
+          "name": "device_name",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(80)"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "name": "id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "last_used_at": {
+          "default": "now()",
+          "name": "last_used_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "device_tokens",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "device_tokens_token_hash_unique": {
+          "columns": ["token_hash"],
+          "name": "device_tokens_token_hash_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.pending_confirmations": {
+      "checkConstraints": {
+        "pending_confirmations_commit_pair_check": {
+          "name": "pending_confirmations_commit_pair_check",
+          "value": "(\"pending_confirmations\".\"commit_action_id\" IS NULL) = (\"pending_confirmations\".\"commit_request_hash\" IS NULL)"
+        },
+        "pending_confirmations_commit_request_hash_format_check": {
+          "name": "pending_confirmations_commit_request_hash_format_check",
+          "value": "\"pending_confirmations\".\"commit_request_hash\" IS NULL OR \"pending_confirmations\".\"commit_request_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "pending_confirmations_draft_schema_version_check": {
+          "name": "pending_confirmations_draft_schema_version_check",
+          "value": "\"pending_confirmations\".\"draft_schema_version\" >= 1"
+        },
+        "pending_confirmations_expiry_check": {
+          "name": "pending_confirmations_expiry_check",
+          "value": "\"pending_confirmations\".\"expires_at\" >= \"pending_confirmations\".\"created_at\" AND \"pending_confirmations\".\"expires_at\" <= \"pending_confirmations\".\"created_at\" + interval '10 minutes'"
+        },
+        "pending_confirmations_kind_check": {
+          "name": "pending_confirmations_kind_check",
+          "value": "\"pending_confirmations\".\"kind\" in ('recipe_batch', 'weekly_plan_replace')"
+        },
+        "pending_confirmations_result_schema_version_check": {
+          "name": "pending_confirmations_result_schema_version_check",
+          "value": "\"pending_confirmations\".\"result_schema_version\" IS NULL OR \"pending_confirmations\".\"result_schema_version\" >= 1"
+        },
+        "pending_confirmations_result_version_pair_check": {
+          "name": "pending_confirmations_result_version_pair_check",
+          "value": "(\"pending_confirmations\".\"result\" IS NULL) = (\"pending_confirmations\".\"result_schema_version\" IS NULL)"
+        },
+        "pending_confirmations_state_check": {
+          "name": "pending_confirmations_state_check",
+          "value": "\"pending_confirmations\".\"state\" in ('pending', 'expired', 'superseded', 'consumed')"
+        },
+        "pending_confirmations_state_timestamps_check": {
+          "name": "pending_confirmations_state_timestamps_check",
+          "value": "CASE WHEN \"pending_confirmations\".\"state\" in ('pending', 'expired') THEN \"pending_confirmations\".\"consumed_at\" IS NULL AND \"pending_confirmations\".\"superseded_at\" IS NULL WHEN \"pending_confirmations\".\"state\" = 'superseded' THEN \"pending_confirmations\".\"consumed_at\" IS NULL AND \"pending_confirmations\".\"superseded_at\" IS NOT NULL WHEN \"pending_confirmations\".\"state\" = 'consumed' THEN \"pending_confirmations\".\"consumed_at\" IS NOT NULL AND \"pending_confirmations\".\"superseded_at\" IS NULL AND \"pending_confirmations\".\"commit_action_id\" IS NOT NULL AND \"pending_confirmations\".\"result\" IS NOT NULL ELSE false END"
+        },
+        "pending_confirmations_target_version_pair_check": {
+          "name": "pending_confirmations_target_version_pair_check",
+          "value": "(\"pending_confirmations\".\"target_resource_id\" IS NULL) = (\"pending_confirmations\".\"target_version\" IS NULL) AND (\"pending_confirmations\".\"target_version\" IS NULL OR \"pending_confirmations\".\"target_version\" >= 1)"
+        },
+        "pending_confirmations_token_hash_format_check": {
+          "name": "pending_confirmations_token_hash_format_check",
+          "value": "\"pending_confirmations\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "pending_confirmations_tool_index_check": {
+          "name": "pending_confirmations_tool_index_check",
+          "value": "\"pending_confirmations\".\"tool_index\" >= 0"
+        }
+      },
+      "columns": {
+        "chat_request_id": {
+          "name": "chat_request_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "commit_action_id": {
+          "name": "commit_action_id",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "commit_request_hash": {
+          "name": "commit_request_hash",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "device_id": {
+          "name": "device_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "draft_payload": {
+          "name": "draft_payload",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "draft_schema_version": {
+          "name": "draft_schema_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "name": "id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "kind": {
+          "name": "kind",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(32)"
+        },
+        "result": {
+          "name": "result",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "result_schema_version": {
+          "name": "result_schema_version",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "state": {
+          "name": "state",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(16)"
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "target_resource_id": {
+          "name": "target_resource_id",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "target_version": {
+          "name": "target_version",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "tool_index": {
+          "name": "tool_index",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {
+        "pending_confirmations_chat_receipt_fk": {
+          "columnsFrom": ["device_id", "chat_request_id"],
+          "columnsTo": ["device_id", "chat_request_id"],
+          "name": "pending_confirmations_chat_receipt_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "pending_confirmations",
+          "tableTo": "chat_request_receipts"
+        },
+        "pending_confirmations_device_id_device_tokens_id_fk": {
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "name": "pending_confirmations_device_id_device_tokens_id_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "pending_confirmations",
+          "tableTo": "device_tokens"
+        }
+      },
+      "indexes": {
+        "pending_confirmations_device_commit_action_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "device_id",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "commit_action_id",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": true,
+          "method": "btree",
+          "name": "pending_confirmations_device_commit_action_idx",
+          "where": "\"pending_confirmations\".\"commit_action_id\" IS NOT NULL",
+          "with": {}
+        },
+        "pending_confirmations_device_kind_created_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "device_id",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "kind",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "created_at",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "pending_confirmations_device_kind_created_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "pending_confirmations",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "pending_confirmations_device_request_tool_unique": {
+          "columns": ["device_id", "chat_request_id", "tool_index"],
+          "name": "pending_confirmations_device_request_tool_unique",
+          "nullsNotDistinct": false
+        },
+        "pending_confirmations_token_hash_unique": {
+          "columns": ["token_hash"],
+          "name": "pending_confirmations_token_hash_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.plan_items": {
+      "checkConstraints": {
+        "plan_items_meal_type_check": {
+          "name": "plan_items_meal_type_check",
+          "value": "\"plan_items\".\"meal_type\" in ('breakfast', 'lunch', 'dinner')"
+        }
+      },
+      "columns": {
+        "date": {
+          "name": "date",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "date"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "name": "id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "meal_type": {
+          "name": "meal_type",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(16)"
+        },
+        "recipe_id": {
+          "name": "recipe_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "recipe_name_snapshot": {
+          "name": "recipe_name_snapshot",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "weekly_plan_id": {
+          "name": "weekly_plan_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {
+        "plan_items_recipe_id_recipes_id_fk": {
+          "columnsFrom": ["recipe_id"],
+          "columnsTo": ["id"],
+          "name": "plan_items_recipe_id_recipes_id_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "plan_items",
+          "tableTo": "recipes"
+        },
+        "plan_items_weekly_plan_id_weekly_plans_id_fk": {
+          "columnsFrom": ["weekly_plan_id"],
+          "columnsTo": ["id"],
+          "name": "plan_items_weekly_plan_id_weekly_plans_id_fk",
+          "onDelete": "cascade",
+          "onUpdate": "no action",
+          "tableFrom": "plan_items",
+          "tableTo": "weekly_plans"
+        }
+      },
+      "indexes": {
+        "plan_items_recipe_id_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "recipe_id",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "plan_items_recipe_id_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "plan_items",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "plan_items_plan_date_meal_type_unique": {
+          "columns": ["weekly_plan_id", "date", "meal_type"],
+          "name": "plan_items_plan_date_meal_type_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.recipes": {
+      "checkConstraints": {
+        "recipes_name_non_empty_check": {
+          "name": "recipes_name_non_empty_check",
+          "value": "char_length(\"recipes\".\"name\") >= 1"
+        },
+        "recipes_server_version_positive_check": {
+          "name": "recipes_server_version_positive_check",
+          "value": "\"recipes\".\"server_version\" >= 1"
+        }
+      },
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "name": "id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "image_url": {
+          "name": "image_url",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "ingredients": {
+          "name": "ingredients",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text[]"
+        },
+        "name": {
+          "name": "name",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(100)"
+        },
+        "notes": {
+          "name": "notes",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "server_version": {
+          "name": "server_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "steps": {
+          "name": "steps",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text[]"
+        },
+        "tags": {
+          "name": "tags",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text[]"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {
+        "recipes_deleted_at_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "deleted_at",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "recipes_deleted_at_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "recipes",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "recipes_server_version_unique": {
+          "columns": ["server_version"],
+          "name": "recipes_server_version_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.settings": {
+      "checkConstraints": {
+        "settings_key_check": {
+          "name": "settings_key_check",
+          "value": "\"settings\".\"key\" = 'familyPreference'"
+        },
+        "settings_server_version_positive_check": {
+          "name": "settings_server_version_positive_check",
+          "value": "\"settings\".\"server_version\" >= 1"
+        },
+        "settings_value_schema_version_check": {
+          "name": "settings_value_schema_version_check",
+          "value": "\"settings\".\"value_schema_version\" >= 1"
+        }
+      },
+      "columns": {
+        "key": {
+          "name": "key",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "text"
+        },
+        "server_version": {
+          "name": "server_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "value": {
+          "name": "value",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "value_schema_version": {
+          "name": "value_schema_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "settings",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "settings_server_version_unique": {
+          "columns": ["server_version"],
+          "name": "settings_server_version_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.sync_action_receipts": {
+      "checkConstraints": {
+        "sync_action_receipts_action_type_check": {
+          "name": "sync_action_receipts_action_type_check",
+          "value": "\"sync_action_receipts\".\"action_type\" in ('recipe.patch', 'recipe.delete')"
+        },
+        "sync_action_receipts_payload_hash_format_check": {
+          "name": "sync_action_receipts_payload_hash_format_check",
+          "value": "\"sync_action_receipts\".\"payload_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "sync_action_receipts_result_schema_version_check": {
+          "name": "sync_action_receipts_result_schema_version_check",
+          "value": "\"sync_action_receipts\".\"result_schema_version\" >= 1"
+        },
+        "sync_action_receipts_server_version_check": {
+          "name": "sync_action_receipts_server_version_check",
+          "value": "\"sync_action_receipts\".\"server_version\" IS NULL OR \"sync_action_receipts\".\"server_version\" >= 1"
+        },
+        "sync_action_receipts_status_check": {
+          "name": "sync_action_receipts_status_check",
+          "value": "\"sync_action_receipts\".\"status\" in ('applied', 'rejected')"
+        }
+      },
+      "columns": {
+        "action_id": {
+          "name": "action_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "action_type": {
+          "name": "action_type",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(32)"
+        },
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "device_id": {
+          "name": "device_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "payload_hash": {
+          "name": "payload_hash",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "result": {
+          "name": "result",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "result_schema_version": {
+          "name": "result_schema_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "server_version": {
+          "name": "server_version",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "status": {
+          "name": "status",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(16)"
+        }
+      },
+      "compositePrimaryKeys": {
+        "sync_action_receipts_device_id_action_id_pk": {
+          "columns": ["device_id", "action_id"],
+          "name": "sync_action_receipts_device_id_action_id_pk"
+        }
+      },
+      "foreignKeys": {
+        "sync_action_receipts_device_id_device_tokens_id_fk": {
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "name": "sync_action_receipts_device_id_device_tokens_id_fk",
+          "onDelete": "restrict",
+          "onUpdate": "no action",
+          "tableFrom": "sync_action_receipts",
+          "tableTo": "device_tokens"
+        }
+      },
+      "indexes": {
+        "sync_action_receipts_created_at_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "created_at",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "sync_action_receipts_created_at_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "sync_action_receipts",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.sync_changes": {
+      "checkConstraints": {
+        "sync_changes_payload_object_check": {
+          "name": "sync_changes_payload_object_check",
+          "value": "jsonb_typeof(\"sync_changes\".\"payload\") = 'object'"
+        },
+        "sync_changes_payload_schema_version_check": {
+          "name": "sync_changes_payload_schema_version_check",
+          "value": "\"sync_changes\".\"payload_schema_version\" >= 1"
+        },
+        "sync_changes_resource_id_check": {
+          "name": "sync_changes_resource_id_check",
+          "value": "CASE WHEN \"sync_changes\".\"resource\" = 'settings' THEN \"sync_changes\".\"resource_id\" = 'familyPreference' ELSE \"sync_changes\".\"resource_id\" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' END"
+        },
+        "sync_changes_resource_operation_check": {
+          "name": "sync_changes_resource_operation_check",
+          "value": "(\"sync_changes\".\"resource\", \"sync_changes\".\"operation\") in (('recipe', 'upsert'), ('recipe', 'delete'), ('weekly_plan', 'upsert'), ('settings', 'upsert'))"
+        },
+        "sync_changes_server_version_positive_check": {
+          "name": "sync_changes_server_version_positive_check",
+          "value": "\"sync_changes\".\"server_version\" >= 1"
+        }
+      },
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "operation": {
+          "name": "operation",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(32)"
+        },
+        "payload": {
+          "name": "payload",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "jsonb"
+        },
+        "payload_schema_version": {
+          "name": "payload_schema_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "integer"
+        },
+        "resource": {
+          "name": "resource",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(32)"
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "text"
+        },
+        "server_version": {
+          "name": "server_version",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "bigint"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {
+        "sync_changes_resource_id_version_idx": {
+          "columns": [
+            {
+              "asc": true,
+              "expression": "resource",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": true,
+              "expression": "resource_id",
+              "isExpression": false,
+              "nulls": "last"
+            },
+            {
+              "asc": false,
+              "expression": "server_version",
+              "isExpression": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "isUnique": false,
+          "method": "btree",
+          "name": "sync_changes_resource_id_version_idx",
+          "with": {}
+        }
+      },
+      "isRLSEnabled": false,
+      "name": "sync_changes",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {}
+    },
+    "public.weekly_plans": {
+      "checkConstraints": {
+        "weekly_plans_server_version_positive_check": {
+          "name": "weekly_plans_server_version_positive_check",
+          "value": "\"weekly_plans\".\"server_version\" >= 1"
+        },
+        "weekly_plans_week_start_monday_check": {
+          "name": "weekly_plans_week_start_monday_check",
+          "value": "extract(isodow from \"weekly_plans\".\"week_start\") = 1"
+        }
+      },
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "name": "created_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "name": "id",
+          "notNull": true,
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "server_version": {
+          "name": "server_version",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "bigint"
+        },
+        "updated_at": {
+          "default": "now()",
+          "name": "updated_at",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "week_start": {
+          "name": "week_start",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "date"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "foreignKeys": {},
+      "indexes": {},
+      "isRLSEnabled": false,
+      "name": "weekly_plans",
+      "policies": {},
+      "schema": "",
+      "uniqueConstraints": {
+        "weekly_plans_server_version_unique": {
+          "columns": ["server_version"],
+          "name": "weekly_plans_server_version_unique",
+          "nullsNotDistinct": false
+        },
+        "weekly_plans_week_start_unique": {
+          "columns": ["week_start"],
+          "name": "weekly_plans_week_start_unique",
+          "nullsNotDistinct": false
+        }
+      }
+    }
+  },
+  "version": "7",
+  "views": {}
+}

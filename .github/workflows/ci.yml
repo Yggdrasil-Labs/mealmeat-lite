@@ -19,6 +19,7 @@ jobs:
   # ============================================================
   server:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: server
@@ -83,6 +84,7 @@ jobs:
   # ============================================================
   app:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: app
@@ -126,6 +128,7 @@ jobs:
   # ============================================================
   compose:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 

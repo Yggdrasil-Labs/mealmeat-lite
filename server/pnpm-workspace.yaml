@@ -6,7 +6,10 @@ overrides:
 
 allowBuilds:
   "@biomejs/biome": true
+  cpu-features: false
   esbuild: true
+  protobufjs: false
+  ssh2: false
 
 minimumReleaseAgeExclude:
   - hono@4.12.32

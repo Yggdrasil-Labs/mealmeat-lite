@@ -1,7 +1,7 @@
 # MealMate Contract v1 Freeze
 
 - Contract version: `v1`
-- Manifest fingerprint: `99bf8389196a148a22e8d50b6dfbe2c85a43e5470a46d0e9f9664ab8b51859fe`
+- Manifest fingerprint: `30066e9a4464a348a8c18291421dc00313acefbe73905daa16348de6dd2e1260`
 - Frozen scope: Stage 1 contract and persistence baseline
 
 This fingerprint covers the normalized authoritative sources under `contracts/v1/source/`.

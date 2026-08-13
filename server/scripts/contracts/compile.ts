@@ -56,7 +56,7 @@ async function main() {
   await generateStandaloneValidators(schemasDir, validatorsOutputPath)
   console.log('  ✓ validators.ts generated')
 
-  await generateTypeScriptCatalog(catalogsOutputPath)
+  await generateTypeScriptCatalog(catalogsOutputPath, manifest)
   console.log('  ✓ catalogs.ts generated')
 
   console.log('\n✓ Contract compilation complete')

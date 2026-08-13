@@ -75,6 +75,26 @@ describe('v0.1 migration', () => {
         'sync_action_receipts.result',
         'sync_changes.payload',
       ])
+      const recoveryColumns = await client<{ column_name: string; table_name: string }[]>`
+        select table_name, column_name from information_schema.columns
+        where table_schema = 'public'
+          and (table_name, column_name) in (
+            ('auth_config', 'family_code_version'),
+            ('auth_config', 'initialized_at'),
+            ('chat_request_receipts', 'request_hash'),
+            ('chat_request_receipts', 'lease_owner'),
+            ('chat_request_receipts', 'heartbeat_at'),
+            ('chat_request_receipts', 'attempt_count'),
+            ('pending_confirmations', 'target_resource_id'),
+            ('pending_confirmations', 'commit_action_id'),
+            ('sync_action_receipts', 'action_type'),
+            ('sync_action_receipts', 'payload_hash'),
+            ('sync_action_receipts', 'server_version'),
+            ('sync_changes', 'resource_id')
+          )
+        order by table_name, column_name
+      `
+      expect(recoveryColumns).toHaveLength(12)
       const constraints = await client<{ conname: string }[]>`
         select conname from pg_constraint
         where connamespace = 'public'::regnamespace and contype in ('c', 'f', 'u')
@@ -82,28 +102,40 @@ describe('v0.1 migration', () => {
       `
       expect(constraints.map((row) => row.conname)).toEqual([
         'auth_attempt_throttles_failure_count_check',
+        'auth_attempt_throttles_scope_check',
         'auth_attempt_throttles_source_key_hash_format_check',
-        'auth_config_bootstrap_secret_hash_format_check',
         'auth_config_family_code_hash_format_check',
+        'auth_config_family_code_version_check',
         'auth_config_singleton_check',
+        'chat_request_receipts_attempt_count_check',
         'chat_request_receipts_device_id_device_tokens_id_fk',
-        'chat_request_receipts_device_request_unique',
-        'chat_request_receipts_generation_check',
         'chat_request_receipts_lease_check',
+        'chat_request_receipts_lease_generation_check',
+        'chat_request_receipts_request_hash_format_check',
+        'chat_request_receipts_status_check',
+        'chat_request_receipts_terminal_state_check',
         'chat_request_receipts_tool_receipts_schema_version_check',
         'chat_request_receipts_tool_receipts_version_pair_check',
         'conversations_device_id_device_tokens_id_fk',
         'conversations_messages_limit_check',
         'conversations_messages_schema_version_check',
+        'device_tokens_device_name_check',
+        'device_tokens_timestamps_check',
         'device_tokens_token_hash_format_check',
         'device_tokens_token_hash_unique',
         'pending_confirmations_chat_receipt_fk',
+        'pending_confirmations_commit_pair_check',
+        'pending_confirmations_commit_request_hash_format_check',
         'pending_confirmations_device_id_device_tokens_id_fk',
         'pending_confirmations_device_request_tool_unique',
         'pending_confirmations_draft_schema_version_check',
         'pending_confirmations_expiry_check',
+        'pending_confirmations_kind_check',
         'pending_confirmations_result_schema_version_check',
         'pending_confirmations_result_version_pair_check',
+        'pending_confirmations_state_check',
+        'pending_confirmations_state_timestamps_check',
+        'pending_confirmations_target_version_pair_check',
         'pending_confirmations_token_hash_format_check',
         'pending_confirmations_token_hash_unique',
         'pending_confirmations_tool_index_check',
@@ -118,10 +150,15 @@ describe('v0.1 migration', () => {
         'settings_server_version_positive_check',
         'settings_server_version_unique',
         'settings_value_schema_version_check',
+        'sync_action_receipts_action_type_check',
         'sync_action_receipts_device_id_device_tokens_id_fk',
+        'sync_action_receipts_payload_hash_format_check',
         'sync_action_receipts_result_schema_version_check',
+        'sync_action_receipts_server_version_check',
         'sync_action_receipts_status_check',
+        'sync_changes_payload_object_check',
         'sync_changes_payload_schema_version_check',
+        'sync_changes_resource_id_check',
         'sync_changes_resource_operation_check',
         'sync_changes_server_version_positive_check',
         'weekly_plans_server_version_positive_check',
@@ -137,7 +174,7 @@ describe('v0.1 migration', () => {
       expect(primaryKeys.map((row) => row.conname)).toEqual([
         'auth_attempt_throttles_scope_source_key_hash_pk',
         'auth_config_pkey',
-        'chat_request_receipts_pkey',
+        'chat_request_receipts_device_id_chat_request_id_pk',
         'conversations_pkey',
         'device_tokens_pkey',
         'pending_confirmations_pkey',
@@ -163,8 +200,13 @@ describe('v0.1 migration', () => {
         order by indexname
       `
       expect(indexes.map((row) => row.indexname)).toEqual([
+        'chat_request_receipts_device_status_lease_idx',
+        'pending_confirmations_device_commit_action_idx',
+        'pending_confirmations_device_kind_created_idx',
         'plan_items_recipe_id_idx',
         'recipes_deleted_at_idx',
+        'sync_action_receipts_created_at_idx',
+        'sync_changes_resource_id_version_idx',
       ])
 
       const acceptedConversationDeviceId = '0f23bcb0-3f6f-47a4-9c5f-e4ece9bf3001'
@@ -204,24 +246,24 @@ describe('v0.1 migration', () => {
 
       const pendingChatRequestId = 'c4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'
       await client`
-        insert into chat_request_receipts (device_id, chat_request_id, lease_expires_at, tool_receipts, tool_receipts_schema_version)
-        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, now() + interval '10 seconds', '{}'::jsonb, 1)
+        insert into chat_request_receipts (device_id, chat_request_id, request_hash, model_id, message, status, lease_owner, lease_expires_at, heartbeat_at, tool_receipts, tool_receipts_schema_version)
+        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, repeat('9', 64), 'test-model', 'test-message', 'running', 'a4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, now() + interval '10 seconds', now(), '[]'::jsonb, 1)
       `
       await client`
-        insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, result, result_schema_version, expires_at)
-        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 0, repeat('f', 64), 'recipe', 'pending', '{}'::jsonb, 1, '{}'::jsonb, 1, now() + interval '5 minutes')
+        insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, expires_at)
+        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 0, repeat('f', 64), 'recipe_batch', 'pending', '{}'::jsonb, 1, now() + interval '5 minutes')
       `
       await client`
         insert into settings (key, value, value_schema_version, server_version)
         values ('familyPreference', '{}'::jsonb, 1, 1)
       `
       await client`
-        insert into sync_action_receipts (device_id, action_id, status, result, result_schema_version)
-        values (${acceptedConversationDeviceId}::uuid, 'd4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'applied', '{}'::jsonb, 1)
+        insert into sync_action_receipts (device_id, action_id, action_type, payload_hash, status, result, result_schema_version, server_version)
+        values (${acceptedConversationDeviceId}::uuid, 'd4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'recipe.patch', repeat('8', 64), 'applied', '{}'::jsonb, 1, 1)
       `
       await client`
-        insert into sync_changes (server_version, resource, operation, payload, payload_schema_version)
-        values (1, 'recipe', 'upsert', '{}'::jsonb, 1)
+        insert into sync_changes (server_version, resource, resource_id, operation, payload, payload_schema_version)
+        values (1, 'recipe', 'd4b3ad2e-ef4c-420d-b67c-474b4f33fa7e', 'upsert', '{}'::jsonb, 1)
       `
 
       const jsonbConstraintCases: ReadonlyArray<{
@@ -240,16 +282,16 @@ describe('v0.1 migration', () => {
         {
           carrier: 'chat_request_receipts.tool_receipts',
           insert: () => client`
-            insert into chat_request_receipts (device_id, chat_request_id, generation, lease_expires_at, tool_receipts, tool_receipts_schema_version)
-            values (${acceptedConversationDeviceId}::uuid, 'e4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 1, now() + interval '10 seconds', '{}'::jsonb, 0)
+            insert into chat_request_receipts (device_id, chat_request_id, request_hash, model_id, message, status, lease_owner, lease_generation, lease_expires_at, heartbeat_at, tool_receipts, tool_receipts_schema_version)
+            values (${acceptedConversationDeviceId}::uuid, 'e4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, repeat('7', 64), 'test-model', 'test-message', 'running', 'b4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 1, now() + interval '10 seconds', now(), '[]'::jsonb, 0)
           `,
           constraint: 'chat_request_receipts_tool_receipts_schema_version_check',
         },
         {
           carrier: 'chat_request_receipts.tool_receipts nullable pair',
           insert: () => client`
-            insert into chat_request_receipts (device_id, chat_request_id, generation, lease_expires_at, tool_receipts_schema_version)
-            values (${acceptedConversationDeviceId}::uuid, '04b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 1, now() + interval '10 seconds', 1)
+            insert into chat_request_receipts (device_id, chat_request_id, request_hash, model_id, message, status, lease_owner, lease_generation, lease_expires_at, heartbeat_at, tool_receipts_schema_version)
+            values (${acceptedConversationDeviceId}::uuid, '04b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, repeat('6', 64), 'test-model', 'test-message', 'running', 'c4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 1, now() + interval '10 seconds', now(), 1)
           `,
           constraint: 'chat_request_receipts_tool_receipts_version_pair_check',
         },
@@ -257,7 +299,7 @@ describe('v0.1 migration', () => {
           carrier: 'pending_confirmations.draft_payload',
           insert: () => client`
             insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, expires_at)
-            values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 1, repeat('0', 64), 'recipe', 'pending', '{}'::jsonb, 0, now() + interval '5 minutes')
+            values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 1, repeat('0', 64), 'recipe_batch', 'pending', '{}'::jsonb, 0, now() + interval '5 minutes')
           `,
           constraint: 'pending_confirmations_draft_schema_version_check',
         },
@@ -265,7 +307,7 @@ describe('v0.1 migration', () => {
           carrier: 'pending_confirmations.result',
           insert: () => client`
             insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, result, expires_at)
-            values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 2, repeat('1', 64), 'recipe', 'pending', '{}'::jsonb, 1, '{}'::jsonb, now() + interval '5 minutes')
+            values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 2, repeat('1', 64), 'recipe_batch', 'pending', '{}'::jsonb, 1, '{}'::jsonb, now() + interval '5 minutes')
           `,
           constraint: 'pending_confirmations_result_version_pair_check',
         },
@@ -280,16 +322,16 @@ describe('v0.1 migration', () => {
         {
           carrier: 'sync_action_receipts.result',
           insert: () => client`
-            insert into sync_action_receipts (device_id, action_id, status, result, result_schema_version)
-            values (${acceptedConversationDeviceId}::uuid, 'f4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'applied', '{}'::jsonb, 0)
+            insert into sync_action_receipts (device_id, action_id, action_type, payload_hash, status, result, result_schema_version, server_version)
+            values (${acceptedConversationDeviceId}::uuid, 'f4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'recipe.patch', repeat('5', 64), 'applied', '{}'::jsonb, 0, 1)
           `,
           constraint: 'sync_action_receipts_result_schema_version_check',
         },
         {
           carrier: 'sync_changes.payload',
           insert: () => client`
-            insert into sync_changes (server_version, resource, operation, payload, payload_schema_version)
-            values (2, 'recipe', 'upsert', '{}'::jsonb, 0)
+            insert into sync_changes (server_version, resource, resource_id, operation, payload, payload_schema_version)
+            values (2, 'recipe', 'f4b3ad2e-ef4c-420d-b67c-474b4f33fa7e', 'upsert', '{}'::jsonb, 0)
           `,
           constraint: 'sync_changes_payload_schema_version_check',
         },
@@ -303,39 +345,36 @@ describe('v0.1 migration', () => {
         values ('1f23bcb0-3f6f-47a4-9c5f-e4ece9bf3001'::uuid, 'plaintext', 'invalid-token')
       `).rejects.toThrow('device_tokens_token_hash_format_check')
       await expect(client`
-        insert into auth_config (bootstrap_secret_hash, family_code_hash)
-        values ('plaintext', 'plaintext')
-      `).rejects.toThrow('auth_config_bootstrap_secret_hash_format_check')
+        insert into auth_config (family_code_hash)
+        values ('plaintext')
+      `).rejects.toThrow('auth_config_family_code_hash_format_check')
       await expect(client`
-        insert into auth_config (bootstrap_secret_hash, family_code_hash)
-        values ('$argon2id$v=19$', '$argon2id$v=19$')
-      `).rejects.toThrow('auth_config_bootstrap_secret_hash_format_check')
+        insert into auth_config (family_code_hash)
+        values ('$argon2id$v=19$')
+      `).rejects.toThrow('auth_config_family_code_hash_format_check')
       await expect(client`
-        insert into auth_config (bootstrap_secret_hash, family_code_hash)
-        values (
-          '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA==$aGFzaA==',
-          '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA==$aGFzaA=='
-        )
+        insert into auth_config (family_code_hash)
+        values ('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA==$aGFzaA==')
       `).resolves.toBeDefined()
       await expect(client`
         insert into auth_attempt_throttles (scope, source_key_hash)
-        values ('migration-test', 'plaintext')
+        values ('bootstrap', 'plaintext')
       `).rejects.toThrow('auth_attempt_throttles_source_key_hash_format_check')
       await expect(client`
-        insert into chat_request_receipts (device_id, chat_request_id, generation, lease_expires_at)
-        values (${acceptedConversationDeviceId}::uuid, '14b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 0, now() + interval '10 seconds')
-      `).rejects.toThrow('chat_request_receipts_generation_check')
+        insert into chat_request_receipts (device_id, chat_request_id, request_hash, model_id, message, status, lease_owner, lease_generation, lease_expires_at, heartbeat_at)
+        values (${acceptedConversationDeviceId}::uuid, '14b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, repeat('4', 64), 'test-model', 'test-message', 'running', 'd4b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 0, now() + interval '10 seconds', now())
+      `).rejects.toThrow('chat_request_receipts_lease_generation_check')
       await expect(client`
         insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, expires_at)
-        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 3, 'plaintext', 'recipe', 'pending', '{}'::jsonb, 1, now() + interval '5 minutes')
+        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 3, 'plaintext', 'recipe_batch', 'pending', '{}'::jsonb, 1, now() + interval '5 minutes')
       `).rejects.toThrow('pending_confirmations_token_hash_format_check')
       await expect(client`
         insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, expires_at, created_at)
-        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 3, repeat('2', 64), 'recipe', 'pending', '{}'::jsonb, 1, '2026-07-26T00:00:00Z', '2026-07-26T00:01:00Z')
+        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 3, repeat('2', 64), 'recipe_batch', 'pending', '{}'::jsonb, 1, '2026-07-26T00:00:00Z', '2026-07-26T00:01:00Z')
       `).rejects.toThrow('pending_confirmations_expiry_check')
       await expect(client`
         insert into pending_confirmations (device_id, chat_request_id, tool_index, token_hash, kind, state, draft_payload, draft_schema_version, expires_at, created_at)
-        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 4, repeat('3', 64), 'recipe', 'pending', '{}'::jsonb, 1, '2026-07-26T00:11:00Z', '2026-07-26T00:00:00Z')
+        values (${acceptedConversationDeviceId}::uuid, ${pendingChatRequestId}::uuid, 4, repeat('3', 64), 'recipe_batch', 'pending', '{}'::jsonb, 1, '2026-07-26T00:11:00Z', '2026-07-26T00:00:00Z')
       `).rejects.toThrow('pending_confirmations_expiry_check')
 
       const validWeeklyPlanId = '24b3ad2e-ef4c-420d-b67c-474b4f33fa7e'
@@ -430,8 +469,8 @@ describe('v0.1 migration', () => {
         values ('familyPreference', '{}'::jsonb, 1, 0)
       `).rejects.toThrow('settings_server_version_positive_check')
       await expect(client`
-        insert into sync_changes (server_version, resource, operation, payload, payload_schema_version)
-        values (0, 'recipe', 'upsert', '{}'::jsonb, 1)
+        insert into sync_changes (server_version, resource, resource_id, operation, payload, payload_schema_version)
+        values (0, 'recipe', 'a4b3ad2e-ef4c-420d-b67c-474b4f33fa7e', 'upsert', '{}'::jsonb, 1)
       `).rejects.toThrow('sync_changes_server_version_positive_check')
     } finally {
       await client.end()

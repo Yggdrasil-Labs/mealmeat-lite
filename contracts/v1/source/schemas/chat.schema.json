@@ -37,6 +37,105 @@
       "required": ["messages"],
       "additionalProperties": false
     },
+    "ToolReceipt": {
+      "$comment": "mealmate:public=false",
+      "type": "object",
+      "properties": {
+        "toolIndex": { "type": "integer", "minimum": 0 },
+        "toolCallId": { "$ref": "common.schema.json#/$defs/UUID" },
+        "toolName": {
+          "type": "string",
+          "enum": [
+            "add_recipe",
+            "update_recipe",
+            "delete_recipe",
+            "restore_recipe",
+            "search_recipes",
+            "batch_generate_recipes",
+            "generate_weekly_plan",
+            "update_plan_item"
+          ]
+        },
+        "arguments": {},
+        "argumentsHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "status": { "type": "string", "enum": ["started", "succeeded", "failed"] },
+        "result": {},
+        "errorCode": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "pendingConfirmationId": { "$ref": "common.schema.json#/$defs/UUID" }
+      },
+      "required": [
+        "toolIndex",
+        "toolCallId",
+        "toolName",
+        "arguments",
+        "argumentsHash",
+        "status"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "toolName": { "const": "add_recipe" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/AddRecipeInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/AddRecipeOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "update_recipe" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/UpdateRecipeInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/UpdateRecipeOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "delete_recipe" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/DeleteRecipeInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/DeleteRecipeOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "restore_recipe" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/RestoreRecipeInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/RestoreRecipeOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "search_recipes" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/SearchRecipesInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/SearchRecipesOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "batch_generate_recipes" },
+            "arguments": { "$ref": "recipe.schema.json#/$defs/BatchGenerateRecipesInput" },
+            "result": { "$ref": "recipe.schema.json#/$defs/BatchGenerateRecipesOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "generate_weekly_plan" },
+            "arguments": { "$ref": "plan.schema.json#/$defs/GenerateWeeklyPlanInput" },
+            "result": { "$ref": "plan.schema.json#/$defs/GenerateWeeklyPlanOutput" }
+          }
+        },
+        {
+          "properties": {
+            "toolName": { "const": "update_plan_item" },
+            "arguments": { "$ref": "plan.schema.json#/$defs/UpdatePlanItemInput" },
+            "result": { "$ref": "plan.schema.json#/$defs/UpdatePlanItemOutput" }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "ToolReceipts": {
+      "$comment": "mealmate:public=false",
+      "type": "array",
+      "items": { "$ref": "#/$defs/ToolReceipt" }
+    },
     "SseStartEvent": {
       "type": "object",
       "properties": {

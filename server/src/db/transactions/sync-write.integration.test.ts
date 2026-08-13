@@ -155,7 +155,7 @@ describe('withSyncWriteTransaction', () => {
           firstCallbackEntered?.()
           await firstMayCommit
           await context.tx.execute(
-            sql`insert into auth_attempt_throttles (scope, source_key_hash) values ('commit-order', repeat('f', 64))`,
+            sql`insert into auth_attempt_throttles (scope, source_key_hash) values ('bootstrap', repeat('f', 64))`,
           )
           return versions
         },
@@ -182,7 +182,7 @@ describe('withSyncWriteTransaction', () => {
           secondCallbackEntered = true
           const committed = await client<{ count: string }[]>`
             select count(*) as count from auth_attempt_throttles
-            where scope = 'commit-order' and source_key_hash = repeat('f', 64)
+            where scope = 'bootstrap' and source_key_hash = repeat('f', 64)
           `
           expect(committed[0]?.count).toBe('1')
           return context.nextServerVersion()
@@ -205,10 +205,10 @@ describe('withSyncWriteTransaction', () => {
             sql`insert into recipes (name, tags, ingredients, steps, server_version) values ('rollback recipe', '{}', '{}', '{}', ${version})`,
           )
           await context.tx.execute(
-            sql`insert into sync_changes (server_version, resource, operation, payload, payload_schema_version) values (${version}, 'recipe', 'upsert', ${JSON.stringify({ id: recipeId, name: 'rollback recipe', tags: [], ingredients: [], steps: [], serverVersion: version.toString(), createdAt: '2026-07-26T00:00:00.000Z', updatedAt: '2026-07-26T00:00:00.000Z' })}::jsonb, 1)`,
+            sql`insert into sync_changes (server_version, resource, resource_id, operation, payload, payload_schema_version) values (${version}, 'recipe', ${recipeId}, 'upsert', ${JSON.stringify({ id: recipeId, name: 'rollback recipe', tags: [], ingredients: [], steps: [], serverVersion: version.toString(), createdAt: '2026-07-26T00:00:00.000Z', updatedAt: '2026-07-26T00:00:00.000Z' })}::jsonb, 1)`,
           )
           await context.tx.execute(
-            sql`insert into sync_action_receipts (device_id, action_id, status, result, result_schema_version) values (${deviceId}::uuid, '43b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'rejected', ${JSON.stringify({ actionId: '43b3ad2e-ef4c-420d-b67c-474b4f33fa7e', status: 'rejected', errCode: 'BAD_REQUEST', errMessage: 'rollback' })}::jsonb, 1)`,
+            sql`insert into sync_action_receipts (device_id, action_id, action_type, payload_hash, status, result, result_schema_version) values (${deviceId}::uuid, '43b3ad2e-ef4c-420d-b67c-474b4f33fa7e'::uuid, 'recipe.patch', repeat('4', 64), 'rejected', ${JSON.stringify({ actionId: '43b3ad2e-ef4c-420d-b67c-474b4f33fa7e', status: 'rejected', errCode: 'BAD_REQUEST', errMessage: 'rollback' })}::jsonb, 1)`,
           )
           throw new Error('rollback')
         }),

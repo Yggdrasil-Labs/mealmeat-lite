@@ -178,7 +178,7 @@ async function verifyGeneratedTrees() {
         firstManifest,
       ),
       generateStandaloneValidators(join(sourceRoot, 'schemas'), join(firstServer, 'validators.ts')),
-      generateTypeScriptCatalog(join(firstServer, 'catalogs.ts')),
+      generateTypeScriptCatalog(join(firstServer, 'catalogs.ts'), firstManifest),
       generateTypeScriptSchemas(
         join(sourceRoot, 'schemas'),
         join(secondServer, 'schemas.ts'),
@@ -188,7 +188,7 @@ async function verifyGeneratedTrees() {
         join(sourceRoot, 'schemas'),
         join(secondServer, 'validators.ts'),
       ),
-      generateTypeScriptCatalog(join(secondServer, 'catalogs.ts')),
+      generateTypeScriptCatalog(join(secondServer, 'catalogs.ts'), secondManifest),
     ])
 
     invariant(

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   check,
   integer,
@@ -22,21 +23,18 @@ export const authConfig = pgTable(
   'auth_config',
   {
     singleton: boolean('singleton').primaryKey().default(true),
-    bootstrapSecretHash: text('bootstrap_secret_hash').notNull(),
     familyCodeHash: text('family_code_hash').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    familyCodeVersion: bigint('family_code_version', { mode: 'bigint' }).default(sql`1`).notNull(),
+    initializedAt: timestamp('initialized_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     check('auth_config_singleton_check', sql`${table.singleton} = true`),
     check(
-      'auth_config_bootstrap_secret_hash_format_check',
-      sql`${table.bootstrapSecretHash} ~ ${argon2idHashPatternSql}`,
-    ),
-    check(
       'auth_config_family_code_hash_format_check',
       sql`${table.familyCodeHash} ~ ${argon2idHashPatternSql}`,
     ),
+    check('auth_config_family_code_version_check', sql`${table.familyCodeVersion} >= 1`),
   ],
 )
 
@@ -55,6 +53,11 @@ export const deviceTokens = pgTable(
       'device_tokens_token_hash_format_check',
       sql`${table.tokenHash} ~ ${sha256HexPatternSql}`,
     ),
+    check('device_tokens_device_name_check', sql`char_length(${table.deviceName}) >= 1`),
+    check(
+      'device_tokens_timestamps_check',
+      sql`${table.lastUsedAt} >= ${table.createdAt} AND (${table.revokedAt} IS NULL OR ${table.revokedAt} >= ${table.createdAt})`,
+    ),
   ],
 )
 
@@ -70,6 +73,7 @@ export const authAttemptThrottles = pgTable(
   (table) => [
     primaryKey({ columns: [table.scope, table.sourceKeyHash] }),
     check('auth_attempt_throttles_failure_count_check', sql`${table.failureCount} >= 0`),
+    check('auth_attempt_throttles_scope_check', sql`${table.scope} in ('bootstrap', 'register')`),
     check(
       'auth_attempt_throttles_source_key_hash_format_check',
       sql`${table.sourceKeyHash} ~ ${sha256HexPatternSql}`,

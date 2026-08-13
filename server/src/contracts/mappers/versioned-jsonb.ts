@@ -31,7 +31,7 @@ const schemaByKind: Readonly<Record<VersionedJsonbKind, PublicSchemaId>> = {
   'pending_confirmation.draft_payload.recipe_batch': 'RecipeBatchPreview',
   'pending_confirmation.draft_payload.weekly_plan_replace': 'WeeklyPlanPreview',
   'pending_confirmation.result': 'ConfirmationCommitResultDto',
-  'chat_request_receipt.tool_receipts': 'SyncActionResultDto',
+  'chat_request_receipt.tool_receipts': 'ToolReceipts',
   'sync_action_receipt.result': 'SyncActionResultDto',
   'sync_change.recipe.upsert': 'RecipeView',
   'sync_change.recipe.delete': 'RecipeTombstone',

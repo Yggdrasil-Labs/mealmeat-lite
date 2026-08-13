@@ -5,11 +5,10 @@
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { functionTools, publicSchemaMap, schemas } from './generated/schemas.js'
 import type { ContractManifest, ContractValidationResult, FunctionToolName } from './types.js'
 import { ContractError } from './types.js'
 import { validateToolInput } from './validation.js'
-
-const DEFAULT_SCHEMAS_DIR = join(import.meta.dirname, '../../../contracts/v1/source/schemas')
 
 export interface ProviderToolDefinition {
   name: FunctionToolName
@@ -32,7 +31,7 @@ export interface ProviderToolDefinition {
 }
 
 export interface BuildProviderToolsOptions {
-  /** 自定义 schemas 目录路径，默认使用 contracts/v1/source/schemas */
+  /** 显式使用权威 JSON Schema 源目录；省略时使用生成文件内嵌的运行时投影。 */
   schemasDir?: string
 }
 
@@ -77,7 +76,7 @@ function schemaFileName(contractFile: string): string {
   return fileName
 }
 
-function collectAllDefs(schemasDir: string, manifest: ContractManifest): DefsMap {
+function collectAllDefs(schemasDir: string, manifest: Pick<ContractManifest, 'schemas'>): DefsMap {
   const allDefs: DefsMap = new Map()
   const schemaFiles = Array.from(
     new Set(manifest.schemas.map((schema) => schemaFileName(schema.file))),
@@ -163,11 +162,12 @@ function expandSchema(
 
 /** 构建 Provider 工具定义 */
 export function buildProviderTools(
-  manifest: ContractManifest,
+  manifest: Pick<ContractManifest, 'schemas' | 'functionTools'> = { schemas, functionTools },
   options?: BuildProviderToolsOptions,
 ): readonly ProviderToolDefinition[] {
-  const schemasDir = options?.schemasDir ?? DEFAULT_SCHEMAS_DIR
-  const allDefs = collectAllDefs(schemasDir, manifest)
+  const allDefs = options?.schemasDir
+    ? collectAllDefs(options.schemasDir, manifest)
+    : new Map<string, DefEntry>()
   const schemaById = new Map(manifest.schemas.map((schema) => [schema.id, schema]))
   const tools: ProviderToolDefinition[] = []
 
@@ -179,8 +179,10 @@ export function buildProviderTools(
         `Tool input schema is not registered: ${fc.name} -> ${fc.inputSchemaId}`,
       )
     }
-    const file = schemaFileName(schemaDescriptor.file)
-    const inputSchema = allDefs.get(`${file}#/$defs/${fc.inputSchemaId}`)?.schema
+    const file = options?.schemasDir ? schemaFileName(schemaDescriptor.file) : '<generated>'
+    const inputSchema = options?.schemasDir
+      ? allDefs.get(`${file}#/$defs/${fc.inputSchemaId}`)?.schema
+      : publicSchemaMap[fc.inputSchemaId as keyof typeof publicSchemaMap]
     if (!inputSchema) {
       throw new ContractError('CONTRACT_UNRESOLVED_REF', `Schema not found: ${fc.inputSchemaId}`)
     }

@@ -21,6 +21,10 @@ type FormatsInstaller = (ajv: ProviderAjv) => unknown
 
 describe('Provider 工具投影', () => {
   describe('buildProviderTools', () => {
+    it('uses the generated runtime contract when no manifest is provided', () => {
+      expect(buildProviderTools()).toHaveLength(8)
+    })
+
     it('生成 8 个 Provider 工具', () => {
       const tools = buildProviderTools(typedManifest)
       expect(tools).toHaveLength(8)

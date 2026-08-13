@@ -271,11 +271,12 @@ async function extractSchemas(sourceRoot: string, openApi: unknown): Promise<Sch
 
         if (defs) {
           for (const defId of Object.keys(defs).sort((left, right) => left.localeCompare(right))) {
+            const definition = defs[defId]
             schemas.push({
               id: defId,
               file: `schemas/${entry.name}`,
               dialect: '2020-12',
-              public: true,
+              public: isPublicSchemaDefinition(definition),
             })
           }
         }
@@ -292,6 +293,10 @@ type RecordValue = Record<string, unknown>
 
 function isRecord(value: unknown): value is RecordValue {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isPublicSchemaDefinition(value: unknown): boolean {
+  return !isRecord(value) || value.$comment !== 'mealmate:public=false'
 }
 
 function requireRecord(value: unknown, context: string): RecordValue {
@@ -1384,7 +1389,11 @@ export async function generateTypeScriptSchemas(
     ' */',
     '',
     "import type { FromSchema } from 'json-schema-to-ts'",
-    "import manifest from '../../../../contracts/v1/generated/manifest.json' with { type: 'json' }",
+    `const manifest = ${JSON.stringify(
+      { schemas: manifest.schemas, functionTools: manifest.functionTools },
+      null,
+      2,
+    )} as const`,
     '',
     '// ============================================================================',
     '// Schema 文件列表',
@@ -1407,9 +1416,8 @@ export async function generateTypeScriptSchemas(
   lines.push('// ============================================================================')
   lines.push('')
   lines.push('export const schemas = manifest.schemas')
-  lines.push(
-    'export const functionToolMap = new Map(manifest.functionTools.map((f) => [f.name, f]))',
-  )
+  lines.push('export const functionTools = manifest.functionTools')
+  lines.push('export const functionToolMap = new Map(functionTools.map((f) => [f.name, f]))')
   lines.push('export const schemaFileMap = new Map(schemas.map((s) => [s.id, s.file]))')
   lines.push('')
 
@@ -1428,6 +1436,13 @@ export async function generateTypeScriptSchemas(
     lines.push(`export const ${schemaId}Schema = ${JSON.stringify(expanded, null, 2)} as const`)
     lines.push('')
   }
+
+  lines.push('export const publicSchemaMap = {')
+  for (const [schemaId] of schemaEntries) {
+    lines.push(`  ${JSON.stringify(schemaId)}: ${schemaId}Schema,`)
+  }
+  lines.push('} as const')
+  lines.push('')
 
   // 生成 schema 位置和工具输入位置映射
   lines.push('// ============================================================================')
@@ -1634,31 +1649,48 @@ export async function generateStandaloneValidators(
   await writeFile(outputPath, `${lines.join('\n')}\n`)
 }
 
-/** Generate the typed Server view over the authoritative protocol catalog. */
-export async function generateTypeScriptCatalog(outputPath: string): Promise<void> {
+/** Generate the self-contained typed Server view over the authoritative protocol catalog. */
+export async function generateTypeScriptCatalog(
+  outputPath: string,
+  manifest: ContractManifest,
+): Promise<void> {
+  const protocolCatalog = {
+    errors: manifest.errors.map((error) => ({
+      errCode: error.errCode,
+      httpStatus: error.httpStatus,
+      retryable: error.retryable,
+      retryAfter: error.retryAfter,
+      channels: error.channels,
+    })),
+    sseEvents: manifest.sseEvents,
+    invariants: manifest.invariants.map((invariant) => ({
+      id: invariant.id,
+      appliesTo: invariant.appliesTo,
+      owners: invariant.owners,
+      vectors: invariant.vectors,
+    })),
+  }
   const lines = [
     '/**',
     ' * 协议目录 - 由 compile.ts 生成，禁止手改',
     ' * @generated',
     ' */',
     '',
-    "import protocolCatalog from '../../../../contracts/v1/generated/protocol-catalog.json' with {",
-    "  type: 'json',",
-    '}',
+    `const protocolCatalog = ${JSON.stringify(protocolCatalog, null, 2)} as const`,
     "import type { InvariantDefinition, PublicErrorDefinition, SseEventDescriptor } from '../types.js'",
     '',
     '/** 错误定义 */',
-    'export const errors = protocolCatalog.errors as readonly PublicErrorDefinition[]',
+    'export const errors = protocolCatalog.errors as unknown as readonly PublicErrorDefinition[]',
     'export type ErrorEntry = PublicErrorDefinition',
     "export type PublicErrorCode = PublicErrorDefinition['errCode']",
     '',
     '/** SSE 事件定义 */',
-    'export const sseEvents = protocolCatalog.sseEvents as readonly SseEventDescriptor[]',
+    'export const sseEvents = protocolCatalog.sseEvents as unknown as readonly SseEventDescriptor[]',
     'export type SseEventEntry = (typeof sseEvents)[number]',
     "export type SseEventName = SseEventEntry['event']",
     '',
     '/** 不变量定义 */',
-    'export const invariants = protocolCatalog.invariants as readonly InvariantDefinition[]',
+    'export const invariants = protocolCatalog.invariants as unknown as readonly InvariantDefinition[]',
     'export type InvariantEntry = (typeof invariants)[number]',
     "export type InvariantId = InvariantEntry['id']",
     '',
@@ -1703,6 +1735,9 @@ async function generateEnhancedOpenApi(
     components.schemas = {}
   }
   const schemasMap = components.schemas as Record<string, unknown>
+  const publicSchemaIds = new Set(
+    schemas.filter((schema) => schema.public).map((schema) => schema.id),
+  )
 
   // 加载所有 schema 文件并提取 $defs
   const schemaFiles = Array.from(
@@ -1718,7 +1753,10 @@ async function generateEnhancedOpenApi(
     const defs = schemaJson.$defs as Record<string, unknown> | undefined
 
     if (defs) {
-      for (const defName of Object.keys(defs).sort((left, right) => left.localeCompare(right))) {
+      const publicDefinitionNames = Object.keys(defs)
+        .filter((defName) => publicSchemaIds.has(defName))
+        .sort((left, right) => left.localeCompare(right))
+      for (const defName of publicDefinitionNames) {
         const defSchema = defs[defName]
         if (!isRecord(defSchema)) {
           throw new ContractError(

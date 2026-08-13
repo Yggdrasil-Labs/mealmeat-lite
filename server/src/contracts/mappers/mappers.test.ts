@@ -39,6 +39,18 @@ const syncResult = {
   requiresFullResync: true,
 }
 
+const toolReceipts = [
+  {
+    toolIndex: 0,
+    toolCallId: id,
+    toolName: 'add_recipe',
+    arguments: { name: '番茄鸡蛋面' },
+    argumentsHash: 'a'.repeat(64),
+    status: 'succeeded',
+    result: { recipe },
+  },
+]
+
 describe('contract mappers', () => {
   it('keeps bigint server versions exact when projecting a recipe row', () => {
     const result = recipeRowToContract({
@@ -109,6 +121,7 @@ describe('contract mappers', () => {
       syncChangeRowToContract({
         serverVersion: 1n,
         resource: 'recipe',
+        resourceId: id,
         operation: 'upsert',
         payload: recipe,
         payloadSchemaVersion: 1,
@@ -132,7 +145,7 @@ describe('contract mappers', () => {
           changes: [{ serverVersion: '1', resource: 'recipe', operation: 'upsert', data: recipe }],
         },
       ],
-      ['chat_request_receipt.tool_receipts', syncResult],
+      ['chat_request_receipt.tool_receipts', toolReceipts],
       ['sync_action_receipt.result', syncResult],
       ['sync_change.weekly_plan.upsert', plan],
     ] as const
@@ -140,6 +153,18 @@ describe('contract mappers', () => {
     for (const [kind, payload] of vectors) {
       expect(validateVersionedJsonb(kind, 1, payload)).toEqual(payload)
     }
+  })
+
+  it('rejects the old sync DTO and tool-name/argument mismatches as tool receipts', () => {
+    expect(() =>
+      validateVersionedJsonb('chat_request_receipt.tool_receipts', 1, syncResult),
+    ).toThrow(/Invalid JSONB payload/)
+
+    expect(() =>
+      validateVersionedJsonb('chat_request_receipt.tool_receipts', 1, [
+        { ...toolReceipts[0], toolName: 'delete_recipe' },
+      ]),
+    ).toThrow(/Invalid JSONB payload/)
   })
 
   it('rejects invalid payload vectors for every JSONB carrier', () => {
@@ -226,6 +251,7 @@ describe('contract mappers', () => {
       syncChangeRowToContract({
         serverVersion: 2n,
         resource: 'weekly_plan',
+        resourceId: id,
         operation: 'upsert',
         payload: plan,
         payloadSchemaVersion: 1,

@@ -10,7 +10,12 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { checkGeneratedContract, compileContractSources } from './source-compiler.js'
+import {
+  checkGeneratedContract,
+  compileContractSources,
+  generateTypeScriptCatalog,
+  generateTypeScriptSchemas,
+} from './source-compiler.js'
 import { compareDirectoryTrees } from './test-utils.js'
 
 // 契约源根目录
@@ -50,6 +55,41 @@ describe('契约源编译器', () => {
   })
 
   describe('覆盖验证', () => {
+    it('Server 运行时生成文件不依赖仓库级 contract JSON', async () => {
+      const manifest = await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
+      const schemasOutput = join(tempDir2, 'schemas.ts')
+      const catalogsOutput = join(tempDir2, 'catalogs.ts')
+
+      await generateTypeScriptSchemas(
+        join(CONTRACT_SOURCE_ROOT, 'schemas'),
+        schemasOutput,
+        manifest,
+      )
+      await generateTypeScriptCatalog(catalogsOutput, manifest)
+
+      const schemasSource = await readFile(schemasOutput, 'utf-8')
+      const catalogsSource = await readFile(catalogsOutput, 'utf-8')
+
+      expect(schemasSource).not.toContain('contracts/v1/generated/manifest.json')
+      expect(catalogsSource).not.toContain('contracts/v1/generated/protocol-catalog.json')
+      expect(schemasSource).toContain('const manifest =')
+      expect(schemasSource).toContain('export const publicSchemaMap = {')
+      expect(catalogsSource).toContain('const protocolCatalog =')
+    })
+
+    it('keeps persistence-only tool receipts out of the Android OpenAPI projection', async () => {
+      const manifest = await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
+      expect(manifest.schemas.find((schema) => schema.id === 'ToolReceipt')).toMatchObject({
+        public: false,
+      })
+      expect(manifest.schemas.find((schema) => schema.id === 'ToolReceipts')).toMatchObject({
+        public: false,
+      })
+
+      const enhancedOpenApi = await readFile(join(tempDir1, 'openapi-with-schemas.yaml'), 'utf-8')
+      expect(enhancedOpenApi).not.toMatch(/^\s{4}ToolReceipts?:/m)
+    })
+
     it('manifest 精确包含 21 个 HTTP operation', async () => {
       const manifest = await compileContractSources(CONTRACT_SOURCE_ROOT, tempDir1)
 

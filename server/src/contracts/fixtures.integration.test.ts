@@ -98,11 +98,13 @@ async function insertSyncChange(
   change: Record<string, unknown>,
   data: Record<string, unknown>,
 ): Promise<void> {
+  const resourceId = change.resource === 'settings' ? asString(data.key) : asString(data.id)
   await client`
-    insert into sync_changes (server_version, resource, operation, payload, payload_schema_version)
+    insert into sync_changes (server_version, resource, resource_id, operation, payload, payload_schema_version)
     values (
       ${asString(change.serverVersion)}::bigint,
       ${asString(change.resource)},
+      ${resourceId},
       ${asString(change.operation)},
       ${JSON.stringify(data)}::jsonb,
       1
@@ -118,13 +120,14 @@ async function expectStoredSyncChange(
     Array<{
       server_version: string | bigint
       resource: string
+      resource_id: string
       operation: string
       payload: unknown
       payload_schema_version: number
       created_at: Date | string
     }>
   >`
-    select server_version, resource, operation, payload, payload_schema_version, created_at
+    select server_version, resource, resource_id, operation, payload, payload_schema_version, created_at
     from sync_changes
   `
   const row = rows[0]
@@ -133,6 +136,7 @@ async function expectStoredSyncChange(
     syncChangeRowToContract({
       serverVersion: BigInt(row.server_version),
       resource: row.resource as 'recipe' | 'weekly_plan' | 'settings',
+      resourceId: row.resource_id,
       operation: row.operation as 'upsert' | 'delete',
       payload: row.payload,
       payloadSchemaVersion: row.payload_schema_version,

@@ -4,7 +4,528 @@
  */
 
 import type { FromSchema } from 'json-schema-to-ts'
-import manifest from '../../../../contracts/v1/generated/manifest.json' with { type: 'json' }
+const manifest = {
+  "schemas": [
+    {
+      "id": "BootstrapRequest",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BootstrapResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceListResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeviceView",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "LogoutResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RegisterRequest",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RegisterResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RevokeDeviceResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RotateFamilyCodeResponse",
+      "file": "schemas/auth.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatHistoryResponse",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatMessage",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ChatRequest",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseConfirmationRequiredEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseDeltaEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseDoneEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseErrorEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseStartEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SseToolStatusEvent",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ToolReceipt",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": false
+    },
+    {
+      "id": "ToolReceipts",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": false
+    },
+    {
+      "id": "ErrorResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "HealthLiveResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "HealthNotReadyResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "HealthReadyResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "IsoDate",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "MealType",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "MondayDate",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "Rfc3339DateTime",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ServerVersion",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SuccessResponse",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UUID",
+      "file": "schemas/common.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "CurrentWeeklyPlanResponse",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "GenerateWeeklyPlanInput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "GenerateWeeklyPlanOutput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "PlanItemView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdatePlanItemInput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdatePlanItemOutput",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanPreview",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanView",
+      "file": "schemas/plan.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AddRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "BatchGenerateRecipesOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ClearPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "DeleteRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeBatchPreview",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeDraft",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeListResponse",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipePatchRequest",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeTombstone",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeView",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RestoreRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RestoreRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SearchRecipesInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SearchRecipesOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SetStringPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SetUriPatch",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdateRecipeInput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "UpdateRecipeOutput",
+      "file": "schemas/recipe.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelListResponse",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ModelView",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsDto",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsResponse",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SettingsUpdateRequest",
+      "file": "schemas/settings.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "AppliedResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationCommitRequest",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationCommitResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "ConfirmationEventDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RecipeUpsertChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "RejectedResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionResultDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsRequest",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncActionsResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "SyncResponse",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    },
+    {
+      "id": "WeeklyPlanUpsertChangeDto",
+      "file": "schemas/sync.schema.json",
+      "dialect": "2020-12",
+      "public": true
+    }
+  ],
+  "functionTools": [
+    {
+      "name": "add_recipe",
+      "description": "添加菜品",
+      "inputSchemaId": "AddRecipeInput",
+      "outputSchemaId": "AddRecipeOutput"
+    },
+    {
+      "name": "update_recipe",
+      "description": "更新菜品",
+      "inputSchemaId": "UpdateRecipeInput",
+      "outputSchemaId": "UpdateRecipeOutput"
+    },
+    {
+      "name": "delete_recipe",
+      "description": "删除菜品",
+      "inputSchemaId": "DeleteRecipeInput",
+      "outputSchemaId": "DeleteRecipeOutput"
+    },
+    {
+      "name": "restore_recipe",
+      "description": "恢复已删除菜品",
+      "inputSchemaId": "RestoreRecipeInput",
+      "outputSchemaId": "RestoreRecipeOutput"
+    },
+    {
+      "name": "search_recipes",
+      "description": "搜索菜品",
+      "inputSchemaId": "SearchRecipesInput",
+      "outputSchemaId": "SearchRecipesOutput"
+    },
+    {
+      "name": "batch_generate_recipes",
+      "description": "批量生成菜品",
+      "inputSchemaId": "BatchGenerateRecipesInput",
+      "outputSchemaId": "BatchGenerateRecipesOutput"
+    },
+    {
+      "name": "generate_weekly_plan",
+      "description": "生成周计划",
+      "inputSchemaId": "GenerateWeeklyPlanInput",
+      "outputSchemaId": "GenerateWeeklyPlanOutput"
+    },
+    {
+      "name": "update_plan_item",
+      "description": "更新餐次",
+      "inputSchemaId": "UpdatePlanItemInput",
+      "outputSchemaId": "UpdatePlanItemOutput"
+    }
+  ]
+} as const
 
 // ============================================================================
 // Schema 文件列表
@@ -27,7 +548,8 @@ export type SchemaFileName = (typeof SCHEMA_FILES)[number]
 // ============================================================================
 
 export const schemas = manifest.schemas
-export const functionToolMap = new Map(manifest.functionTools.map((f) => [f.name, f]))
+export const functionTools = manifest.functionTools
+export const functionToolMap = new Map(functionTools.map((f) => [f.name, f]))
 export const schemaFileMap = new Map(schemas.map((s) => [s.id, s.file]))
 
 // ============================================================================
@@ -5340,6 +5862,2020 @@ export const SyncResponseSchema = {
   "additionalProperties": false
 } as const
 
+export const ToolReceiptSchema = {
+  "$comment": "mealmate:public=false",
+  "type": "object",
+  "properties": {
+    "toolIndex": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "toolCallId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "小写 canonical UUID 格式"
+    },
+    "toolName": {
+      "type": "string",
+      "enum": [
+        "add_recipe",
+        "update_recipe",
+        "delete_recipe",
+        "restore_recipe",
+        "search_recipes",
+        "batch_generate_recipes",
+        "generate_weekly_plan",
+        "update_plan_item"
+      ]
+    },
+    "arguments": {},
+    "argumentsHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "started",
+        "succeeded",
+        "failed"
+      ]
+    },
+    "result": {},
+    "errorCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "pendingConfirmationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "小写 canonical UUID 格式"
+    }
+  },
+  "required": [
+    "toolIndex",
+    "toolCallId",
+    "toolName",
+    "arguments",
+    "argumentsHash",
+    "status"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "toolName": {
+          "const": "add_recipe"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "maxItems": 20
+            },
+            "ingredients": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 100
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 1000
+              },
+              "maxItems": 100
+            },
+            "imageUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 5000
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "recipe": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "notes": {
+                  "type": "string"
+                },
+                "serverVersion": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "tags",
+                "ingredients",
+                "steps",
+                "serverVersion",
+                "createdAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "recipe"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "update_recipe"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "recipeId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            },
+            "patch": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "maxItems": 20
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "maxItems": 100
+                },
+                "imageUrl": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "op": {
+                          "const": "clear"
+                        }
+                      },
+                      "required": [
+                        "op"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "op": {
+                          "const": "set"
+                        },
+                        "value": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "op",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "notes": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "op": {
+                          "const": "clear"
+                        }
+                      },
+                      "required": [
+                        "op"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "op": {
+                          "const": "set"
+                        },
+                        "value": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "op",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "minProperties": 1,
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "recipeId",
+            "patch"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "recipe": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "notes": {
+                  "type": "string"
+                },
+                "serverVersion": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "tags",
+                "ingredients",
+                "steps",
+                "serverVersion",
+                "createdAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "recipe"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "delete_recipe"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "recipeId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            }
+          },
+          "required": [
+            "recipeId"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            },
+            "deletedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+              "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+            },
+            "serverVersion": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+            }
+          },
+          "required": [
+            "id",
+            "deletedAt",
+            "serverVersion"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "restore_recipe"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "recipeId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            }
+          },
+          "required": [
+            "recipeId"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "recipe": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "notes": {
+                  "type": "string"
+                },
+                "serverVersion": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "tags",
+                "ingredients",
+                "steps",
+                "serverVersion",
+                "createdAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "recipe"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "search_recipes"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20
+            },
+            "includeDeleted": {
+              "type": "boolean",
+              "default": false
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "serverVersion": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "tags",
+                  "ingredients",
+                  "steps",
+                  "serverVersion",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "items",
+            "truncated"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "batch_generate_recipes"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "recipes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 30
+                    },
+                    "maxItems": 20
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "maxItems": 100
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "maxItems": 100
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 5000
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "recipes"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "confirmationRequired": {
+              "type": "boolean",
+              "const": true
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "skippedDuplicates": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+              "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+            }
+          },
+          "required": [
+            "confirmationRequired",
+            "count",
+            "skippedDuplicates",
+            "expiresAt"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "generate_weekly_plan"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "weekStart": {
+              "type": "string",
+              "format": "date",
+              "description": "必须是周一的 ISO 日期"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "ISO 日期 YYYY-MM-DD"
+                  },
+                  "mealType": {
+                    "type": "string",
+                    "enum": [
+                      "breakfast",
+                      "lunch",
+                      "dinner"
+                    ],
+                    "description": "餐次类型"
+                  },
+                  "recipeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  }
+                },
+                "required": [
+                  "date",
+                  "mealType",
+                  "recipeId"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 21,
+              "maxItems": 21
+            }
+          },
+          "required": [
+            "weekStart",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "plan": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "weekStart": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "必须是周一的 ISO 日期"
+                },
+                "serverVersion": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                        "description": "小写 canonical UUID 格式"
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "ISO 日期 YYYY-MM-DD"
+                      },
+                      "mealType": {
+                        "type": "string",
+                        "enum": [
+                          "breakfast",
+                          "lunch",
+                          "dinner"
+                        ],
+                        "description": "餐次类型"
+                      },
+                      "recipeId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                        "description": "小写 canonical UUID 格式"
+                      },
+                      "recipeNameSnapshot": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "date",
+                      "mealType",
+                      "recipeId",
+                      "recipeNameSnapshot"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 21,
+                  "maxItems": 21
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                  "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                }
+              },
+              "required": [
+                "id",
+                "weekStart",
+                "serverVersion",
+                "items",
+                "createdAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            },
+            "reusedRecipeIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              }
+            }
+          },
+          "required": [
+            "plan",
+            "reusedRecipeIds"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "toolName": {
+          "const": "update_plan_item"
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "planItemId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            },
+            "recipeId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "小写 canonical UUID 格式"
+            }
+          },
+          "required": [
+            "planItemId",
+            "recipeId"
+          ],
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "item": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "ISO 日期 YYYY-MM-DD"
+                },
+                "mealType": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner"
+                  ],
+                  "description": "餐次类型"
+                },
+                "recipeId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                },
+                "recipeNameSnapshot": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "date",
+                "mealType",
+                "recipeId",
+                "recipeNameSnapshot"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "item"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+} as const
+
+export const ToolReceiptsSchema = {
+  "$comment": "mealmate:public=false",
+  "type": "array",
+  "items": {
+    "$comment": "mealmate:public=false",
+    "type": "object",
+    "properties": {
+      "toolIndex": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "description": "小写 canonical UUID 格式"
+      },
+      "toolName": {
+        "type": "string",
+        "enum": [
+          "add_recipe",
+          "update_recipe",
+          "delete_recipe",
+          "restore_recipe",
+          "search_recipes",
+          "batch_generate_recipes",
+          "generate_weekly_plan",
+          "update_plan_item"
+        ]
+      },
+      "arguments": {},
+      "argumentsHash": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "started",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "result": {},
+      "errorCode": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "pendingConfirmationId": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "description": "小写 canonical UUID 格式"
+      }
+    },
+    "required": [
+      "toolIndex",
+      "toolCallId",
+      "toolName",
+      "arguments",
+      "argumentsHash",
+      "status"
+    ],
+    "oneOf": [
+      {
+        "properties": {
+          "toolName": {
+            "const": "add_recipe"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 30
+                },
+                "maxItems": 20
+              },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "maxItems": 100
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "maxItems": 100
+              },
+              "imageUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "notes": {
+                "type": "string",
+                "maxLength": 5000
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "recipe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "serverVersion": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "tags",
+                  "ingredients",
+                  "steps",
+                  "serverVersion",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "recipe"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "update_recipe"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "recipeId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 30
+                    },
+                    "maxItems": 20
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "maxItems": 100
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "maxItems": 100
+                  },
+                  "imageUrl": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "op": {
+                            "const": "clear"
+                          }
+                        },
+                        "required": [
+                          "op"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "op": {
+                            "const": "set"
+                          },
+                          "value": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "notes": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "op": {
+                            "const": "clear"
+                          }
+                        },
+                        "required": [
+                          "op"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "op": {
+                            "const": "set"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "op",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "minProperties": 1,
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "recipeId",
+              "patch"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "recipe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "serverVersion": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "tags",
+                  "ingredients",
+                  "steps",
+                  "serverVersion",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "recipe"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "delete_recipe"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "recipeId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              }
+            },
+            "required": [
+              "recipeId"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              },
+              "deletedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+              },
+              "serverVersion": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+              }
+            },
+            "required": [
+              "id",
+              "deletedAt",
+              "serverVersion"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "restore_recipe"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "recipeId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              }
+            },
+            "required": [
+              "recipeId"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "recipe": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ingredients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "serverVersion": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "tags",
+                  "ingredients",
+                  "steps",
+                  "serverVersion",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "recipe"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "search_recipes"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "includeDeleted": {
+                "type": "boolean",
+                "default": false
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "default": 20
+              }
+            },
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                      "description": "小写 canonical UUID 格式"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ingredients": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "imageUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "serverVersion": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$",
+                      "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                      "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                      "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "tags",
+                    "ingredients",
+                    "steps",
+                    "serverVersion",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "items",
+              "truncated"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "batch_generate_recipes"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "recipes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 30
+                      },
+                      "maxItems": 20
+                    },
+                    "ingredients": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "maxItems": 100
+                    },
+                    "imageUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "notes": {
+                      "type": "string",
+                      "maxLength": 5000
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            },
+            "required": [
+              "recipes"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "confirmationRequired": {
+                "type": "boolean",
+                "const": true
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "skippedDuplicates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+              }
+            },
+            "required": [
+              "confirmationRequired",
+              "count",
+              "skippedDuplicates",
+              "expiresAt"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "generate_weekly_plan"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "weekStart": {
+                "type": "string",
+                "format": "date",
+                "description": "必须是周一的 ISO 日期"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "ISO 日期 YYYY-MM-DD"
+                    },
+                    "mealType": {
+                      "type": "string",
+                      "enum": [
+                        "breakfast",
+                        "lunch",
+                        "dinner"
+                      ],
+                      "description": "餐次类型"
+                    },
+                    "recipeId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                      "description": "小写 canonical UUID 格式"
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "mealType",
+                    "recipeId"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 21,
+                "maxItems": 21
+              }
+            },
+            "required": [
+              "weekStart",
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "plan": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "weekStart": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "必须是周一的 ISO 日期"
+                  },
+                  "serverVersion": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "服务端版本号，正整数十进制字符串，上限 9223372036854775807"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                          "description": "小写 canonical UUID 格式"
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "ISO 日期 YYYY-MM-DD"
+                        },
+                        "mealType": {
+                          "type": "string",
+                          "enum": [
+                            "breakfast",
+                            "lunch",
+                            "dinner"
+                          ],
+                          "description": "餐次类型"
+                        },
+                        "recipeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                          "description": "小写 canonical UUID 格式"
+                        },
+                        "recipeNameSnapshot": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "date",
+                        "mealType",
+                        "recipeId",
+                        "recipeNameSnapshot"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 21,
+                    "maxItems": 21
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|\\+00:00)$",
+                    "description": "UTC RFC 3339 时间戳，仅接受 Z 或 +00:00 零 offset"
+                  }
+                },
+                "required": [
+                  "id",
+                  "weekStart",
+                  "serverVersion",
+                  "items",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              },
+              "reusedRecipeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "description": "小写 canonical UUID 格式"
+                }
+              }
+            },
+            "required": [
+              "plan",
+              "reusedRecipeIds"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "properties": {
+          "toolName": {
+            "const": "update_plan_item"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {
+              "planItemId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              },
+              "recipeId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "description": "小写 canonical UUID 格式"
+              }
+            },
+            "required": [
+              "planItemId",
+              "recipeId"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "item": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "ISO 日期 YYYY-MM-DD"
+                  },
+                  "mealType": {
+                    "type": "string",
+                    "enum": [
+                      "breakfast",
+                      "lunch",
+                      "dinner"
+                    ],
+                    "description": "餐次类型"
+                  },
+                  "recipeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "小写 canonical UUID 格式"
+                  },
+                  "recipeNameSnapshot": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "date",
+                  "mealType",
+                  "recipeId",
+                  "recipeNameSnapshot"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "item"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "additionalProperties": false
+  }
+} as const
+
 export const UpdatePlanItemInputSchema = {
   "type": "object",
   "properties": {
@@ -5876,6 +8412,87 @@ export const WeeklyPlanViewSchema = {
   "additionalProperties": false
 } as const
 
+export const publicSchemaMap = {
+  "AddRecipeInput": AddRecipeInputSchema,
+  "AddRecipeOutput": AddRecipeOutputSchema,
+  "AppliedResultDto": AppliedResultDtoSchema,
+  "BatchGenerateRecipesInput": BatchGenerateRecipesInputSchema,
+  "BatchGenerateRecipesOutput": BatchGenerateRecipesOutputSchema,
+  "BootstrapRequest": BootstrapRequestSchema,
+  "BootstrapResponse": BootstrapResponseSchema,
+  "ChatHistoryResponse": ChatHistoryResponseSchema,
+  "ChatMessage": ChatMessageSchema,
+  "ChatRequest": ChatRequestSchema,
+  "ClearPatch": ClearPatchSchema,
+  "ConfirmationCommitRequest": ConfirmationCommitRequestSchema,
+  "ConfirmationCommitResultDto": ConfirmationCommitResultDtoSchema,
+  "ConfirmationEventDto": ConfirmationEventDtoSchema,
+  "CurrentWeeklyPlanResponse": CurrentWeeklyPlanResponseSchema,
+  "DeleteRecipeInput": DeleteRecipeInputSchema,
+  "DeleteRecipeOutput": DeleteRecipeOutputSchema,
+  "DeviceListResponse": DeviceListResponseSchema,
+  "DeviceView": DeviceViewSchema,
+  "ErrorResponse": ErrorResponseSchema,
+  "GenerateWeeklyPlanInput": GenerateWeeklyPlanInputSchema,
+  "GenerateWeeklyPlanOutput": GenerateWeeklyPlanOutputSchema,
+  "HealthLiveResponse": HealthLiveResponseSchema,
+  "HealthNotReadyResponse": HealthNotReadyResponseSchema,
+  "HealthReadyResponse": HealthReadyResponseSchema,
+  "IsoDate": IsoDateSchema,
+  "LogoutResponse": LogoutResponseSchema,
+  "MealType": MealTypeSchema,
+  "ModelListResponse": ModelListResponseSchema,
+  "ModelView": ModelViewSchema,
+  "MondayDate": MondayDateSchema,
+  "PlanItemView": PlanItemViewSchema,
+  "RecipeBatchPreview": RecipeBatchPreviewSchema,
+  "RecipeDraft": RecipeDraftSchema,
+  "RecipeListResponse": RecipeListResponseSchema,
+  "RecipePatchRequest": RecipePatchRequestSchema,
+  "RecipeTombstone": RecipeTombstoneSchema,
+  "RecipeUpsertChangeDto": RecipeUpsertChangeDtoSchema,
+  "RecipeView": RecipeViewSchema,
+  "RegisterRequest": RegisterRequestSchema,
+  "RegisterResponse": RegisterResponseSchema,
+  "RejectedResultDto": RejectedResultDtoSchema,
+  "RestoreRecipeInput": RestoreRecipeInputSchema,
+  "RestoreRecipeOutput": RestoreRecipeOutputSchema,
+  "RevokeDeviceResponse": RevokeDeviceResponseSchema,
+  "Rfc3339DateTime": Rfc3339DateTimeSchema,
+  "RotateFamilyCodeResponse": RotateFamilyCodeResponseSchema,
+  "SearchRecipesInput": SearchRecipesInputSchema,
+  "SearchRecipesOutput": SearchRecipesOutputSchema,
+  "ServerVersion": ServerVersionSchema,
+  "SetStringPatch": SetStringPatchSchema,
+  "SettingsDto": SettingsDtoSchema,
+  "SettingsResponse": SettingsResponseSchema,
+  "SettingsUpdateRequest": SettingsUpdateRequestSchema,
+  "SetUriPatch": SetUriPatchSchema,
+  "SseConfirmationRequiredEvent": SseConfirmationRequiredEventSchema,
+  "SseDeltaEvent": SseDeltaEventSchema,
+  "SseDoneEvent": SseDoneEventSchema,
+  "SseErrorEvent": SseErrorEventSchema,
+  "SseStartEvent": SseStartEventSchema,
+  "SseToolStatusEvent": SseToolStatusEventSchema,
+  "SuccessResponse": SuccessResponseSchema,
+  "SyncActionDto": SyncActionDtoSchema,
+  "SyncActionResultDto": SyncActionResultDtoSchema,
+  "SyncActionsRequest": SyncActionsRequestSchema,
+  "SyncActionsResponse": SyncActionsResponseSchema,
+  "SyncChangeDto": SyncChangeDtoSchema,
+  "SyncResponse": SyncResponseSchema,
+  "ToolReceipt": ToolReceiptSchema,
+  "ToolReceipts": ToolReceiptsSchema,
+  "UpdatePlanItemInput": UpdatePlanItemInputSchema,
+  "UpdatePlanItemOutput": UpdatePlanItemOutputSchema,
+  "UpdateRecipeInput": UpdateRecipeInputSchema,
+  "UpdateRecipeOutput": UpdateRecipeOutputSchema,
+  "UUID": UUIDSchema,
+  "WeeklyPlanPreview": WeeklyPlanPreviewSchema,
+  "WeeklyPlanUpsertChangeDto": WeeklyPlanUpsertChangeDtoSchema,
+  "WeeklyPlanView": WeeklyPlanViewSchema,
+} as const
+
 // ============================================================================
 // 运行时 schema 位置映射
 // ============================================================================
@@ -5949,6 +8566,8 @@ export const schemaLocations = {
   "SyncActionsResponse": { file: "sync.schema.json", defPath: "/$defs/SyncActionsResponse" },
   "SyncChangeDto": { file: "sync.schema.json", defPath: "/$defs/SyncChangeDto" },
   "SyncResponse": { file: "sync.schema.json", defPath: "/$defs/SyncResponse" },
+  "ToolReceipt": { file: "chat.schema.json", defPath: "/$defs/ToolReceipt" },
+  "ToolReceipts": { file: "chat.schema.json", defPath: "/$defs/ToolReceipts" },
   "UpdatePlanItemInput": { file: "plan.schema.json", defPath: "/$defs/UpdatePlanItemInput" },
   "UpdatePlanItemOutput": { file: "plan.schema.json", defPath: "/$defs/UpdatePlanItemOutput" },
   "UpdateRecipeInput": { file: "recipe.schema.json", defPath: "/$defs/UpdateRecipeInput" },
@@ -6045,6 +8664,8 @@ export type SyncActionsRequest = FromSchema<typeof SyncActionsRequestSchema>
 export type SyncActionsResponse = FromSchema<typeof SyncActionsResponseSchema>
 export type SyncChangeDto = FromSchema<typeof SyncChangeDtoSchema>
 export type SyncResponse = FromSchema<typeof SyncResponseSchema>
+export type ToolReceipt = FromSchema<typeof ToolReceiptSchema>
+export type ToolReceipts = FromSchema<typeof ToolReceiptsSchema>
 export type UpdatePlanItemInput = FromSchema<typeof UpdatePlanItemInputSchema>
 export type UpdatePlanItemOutput = FromSchema<typeof UpdatePlanItemOutputSchema>
 export type UpdateRecipeInput = FromSchema<typeof UpdateRecipeInputSchema>
@@ -6134,6 +8755,8 @@ export type ContractType<T extends PublicSchemaId> = {
   SyncActionsResponse: SyncActionsResponse
   SyncChangeDto: SyncChangeDto
   SyncResponse: SyncResponse
+  ToolReceipt: ToolReceipt
+  ToolReceipts: ToolReceipts
   UpdatePlanItemInput: UpdatePlanItemInput
   UpdatePlanItemOutput: UpdatePlanItemOutput
   UpdateRecipeInput: UpdateRecipeInput

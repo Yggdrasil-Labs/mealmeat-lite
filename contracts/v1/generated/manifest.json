@@ -1,6 +1,6 @@
 {
   "contractVersion": "v1",
-  "fingerprint": "99bf8389196a148a22e8d50b6dfbe2c85a43e5470a46d0e9f9664ab8b51859fe",
+  "fingerprint": "30066e9a4464a348a8c18291421dc00313acefbe73905daa16348de6dd2e1260",
   "httpOperations": [
     {
       "operationId": "healthLive",
@@ -433,6 +433,18 @@
       "file": "schemas/chat.schema.json",
       "dialect": "2020-12",
       "public": true
+    },
+    {
+      "id": "ToolReceipt",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": false
+    },
+    {
+      "id": "ToolReceipts",
+      "file": "schemas/chat.schema.json",
+      "dialect": "2020-12",
+      "public": false
     },
     {
       "id": "ErrorResponse",
