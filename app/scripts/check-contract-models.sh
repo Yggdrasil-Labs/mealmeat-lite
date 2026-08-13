@@ -80,8 +80,15 @@ if [[ ${#STALE_FILES[@]} -gt 0 ]]; then
   exit 1
 fi
 
+# Git 不保存空目录。OpenAPI Generator 即使跳过 supporting files，也会留下空的
+# infrastructure 目录，因此在临时副本中剔除两边的空目录后再严格比较所有文件。
+COMMITTED_COMPARISON_DIR="$TEMP_DIR/committed"
+mkdir -p "$COMMITTED_COMPARISON_DIR"
+cp -a "$COMMITTED_DIR/." "$COMMITTED_COMPARISON_DIR/"
+find "$GENERATED_SRC" "$COMMITTED_COMPARISON_DIR" -depth -mindepth 1 -type d -empty -delete
+
 # 比较文件内容
-DIFF_OUTPUT=$(diff -rq "$GENERATED_SRC" "$COMMITTED_DIR" 2>&1) || true
+DIFF_OUTPUT=$(diff -rq "$GENERATED_SRC" "$COMMITTED_COMPARISON_DIR" 2>&1) || true
 
 if [[ -n "$DIFF_OUTPUT" ]]; then
   echo "Error: Contract models are out of sync:" >&2

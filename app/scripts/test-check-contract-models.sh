@@ -4,6 +4,7 @@
 # 测试 check-contract-models.sh 能正确检测陈旧文件
 #
 # 验收标准:
+#   - Git 无法保存的生成空目录不影响 freshness 检查
 #   - 注入陈旧 DTO 时 checker 非零退出
 #   - 输出包含该删除路径
 #   - 原 committed source 摘要不变
@@ -84,6 +85,23 @@ echo "✓ Generated Kotlin sources have no trailing whitespace"
 
 # 复制 committed 目录
 cp -r "$COMMITTED_DIR" "$TEST_COMMITTED_DIR"
+
+# Git 不保存空目录。模拟 fresh checkout，确保生成器留下的空目录不会造成误报。
+find "$TEST_COMMITTED_DIR" -depth -type d -empty -delete
+
+echo "=== Test: Empty generated directories are ignored ==="
+
+set +e
+OUTPUT=$("$SCRIPT_DIR/check-contract-models.sh" --committed-dir "$TEST_COMMITTED_DIR" 2>&1)
+EXIT_CODE=$?
+set -e
+
+if [[ $EXIT_CODE -ne 0 ]]; then
+  echo "FAIL: Checker should ignore generated directories that Git cannot store" >&2
+  echo "$OUTPUT" >&2
+  exit 1
+fi
+echo "✓ Checker ignores generated empty directories"
 
 # 计算原始 SHA-256
 ORIGINAL_SHA=$(find "$COMMITTED_DIR" -type f -name "*.kt" -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
