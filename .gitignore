@@ -18,6 +18,7 @@ local.properties
 # === IDE ===
 .idea/
 .vscode/
+.reasonix/
 *.swp
 *.swo
 
