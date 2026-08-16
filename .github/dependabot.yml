@@ -4,6 +4,11 @@ updates:
     directory: /server
     schedule:
       interval: weekly
+    ignore:
+      # 运行时固定 Node 24.18.0（.mise.toml / engines / Dockerfile 三处一致），
+      # types 包必须跟随 24.x 线，不采纳 26+ major。
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: gradle
     directory: /app
@@ -24,6 +29,11 @@ updates:
     directory: /server
     schedule:
       interval: weekly
+    ignore:
+      # Node 运行时固定 24.18.0，与 mise/engines/Dockerfile 保持一致；
+      # major 升级需经版本评审，不由 dependabot 自动提出。
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /caddy
