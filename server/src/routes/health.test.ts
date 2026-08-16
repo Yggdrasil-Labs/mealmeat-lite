@@ -32,7 +32,11 @@ describe('health routes', () => {
       const res = await healthRoutes.request('/ready')
 
       expect(res.status).toBe(503)
-      expect(await res.json()).toMatchObject({ status: 'not ready', code: 'NOT_READY' })
+      const body = (await res.json()) as { status: string; reason?: string }
+      expect(body).toMatchObject({ status: 'not ready' })
+      expect(body.reason).toBeTruthy()
+      // 冻结 HealthNotReadyResponse 不允许 code 等额外字段
+      expect(Object.keys(body).sort()).toEqual(['reason', 'status'])
     })
 
     it('returns 200 when database connectivity and schema readiness succeed', async () => {
