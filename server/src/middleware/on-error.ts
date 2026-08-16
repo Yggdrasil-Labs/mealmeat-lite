@@ -8,19 +8,13 @@
  */
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { PostgresError } from 'postgres'
+import type { PostgresError } from 'postgres'
+import { unwrapPostgresError } from '../db/postgres-error.js'
 import { errorResponse, PublicError } from '../errors.js'
 
 function isBusyPostgresError(err: PostgresError): boolean {
   const code = err.code ?? ''
   return code === '55P03' || code === '57014' || code.startsWith('08')
-}
-
-/** drizzle 会把 postgres-js 的 PostgresError 包成 DrizzleQueryError（cause 保留原错误）。 */
-function unwrapPostgresError(err: unknown): PostgresError | null {
-  if (err instanceof PostgresError) return err
-  const cause = (err as { cause?: unknown } | null)?.cause
-  return cause instanceof PostgresError ? cause : null
 }
 
 export const onError: ErrorHandler = (err, c) => {

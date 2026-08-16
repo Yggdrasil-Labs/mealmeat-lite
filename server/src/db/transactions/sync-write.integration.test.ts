@@ -172,6 +172,9 @@ describe('withSyncWriteTransaction', () => {
                 : 'global',
           ),
       ).toEqual(['global', 'recipe', 'weekly_plan'])
+      // 全局锁 key 必须与冻结契约一致：固定字面量 1296911409
+      expect(observedQueries[0]).toContain('pg_advisory_xact_lock')
+      expect(observedQueries[0]).toContain('1296911409')
 
       let secondCallbackEntered = false
       expectSecondAdvisoryLock = true

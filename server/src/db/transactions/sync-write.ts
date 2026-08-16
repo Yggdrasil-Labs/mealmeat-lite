@@ -5,6 +5,9 @@ export type SyncResourceLock =
   | { resource: 'recipe' | 'weekly_plan'; id: string }
   | { resource: 'settings'; id: 'familyPreference' }
 
+/** 冻结契约固定 key：所有 SyncChange 写事务的全局 advisory 锁（brainstorm §2、tech-stack §400）。 */
+export const SYNC_WRITE_ADVISORY_LOCK_KEY = 1296911409
+
 export interface SyncWriteTransaction {
   execute(query: SQL): Promise<unknown>
 }
@@ -79,7 +82,7 @@ export async function withSyncWriteTransaction<T>(
   work: (context: SyncWriteContext) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('mealmate_sync_write_v1'))`)
+    await tx.execute(sql`select pg_advisory_xact_lock(${SYNC_WRITE_ADVISORY_LOCK_KEY})`)
     for (const lock of sortLocks(resourceLocks)) await lockExistingResource(tx, lock)
 
     return work({
