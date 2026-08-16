@@ -59,6 +59,8 @@ export interface TestAppOptions {
   source?: string
   hasher?: PasswordHasher
   clock?: () => Date
+  /** sync 服务测试屏障：applyAction 读回执前挂起（并发用例用）。 */
+  beforeActionReceiptCheck?: () => Promise<void>
 }
 
 /** 每个测试使用独立来源地址，保证限流桶互不干扰。 */
@@ -69,6 +71,9 @@ export function makeTestApp(pg: TestPostgres, options: TestAppOptions = {}) {
     resolveSource: () => options.source ?? '203.0.113.7',
     ...(options.hasher === undefined ? {} : { hasher: options.hasher }),
     ...(options.clock === undefined ? {} : { clock: options.clock }),
+    ...(options.beforeActionReceiptCheck === undefined
+      ? {}
+      : { beforeActionReceiptCheck: options.beforeActionReceiptCheck }),
   }
   return createApp(deps)
 }

@@ -400,10 +400,52 @@ describe('register 与设备管理（已初始化实例）', () => {
       headers: { Authorization: 'Bearer not-a-real-token' },
     })
     expect(garbage.status).toBe(401)
+    // 43 字符合法 base64url 但未注册：走 SHA-256 查表落空分支
+    const unknown = await app.request('/api/v1/sync', {
+      headers: { Authorization: 'Bearer ' + 'A'.repeat(43) },
+    })
+    expect(unknown.status).toBe(401)
     const wrongScheme = await app.request('/api/v1/sync', {
       headers: { Authorization: 'Basic abc' },
     })
     expect(wrongScheme.status).toBe(401)
+    // RFC 7235：scheme 名大小写不敏感（小写 bearer 同样放行未命中路径）
+    const lowerScheme = await app.request('/api/v1/sync', {
+      headers: { Authorization: 'bearer ' + 'A'.repeat(43) },
+    })
+    expect(lowerScheme.status).toBe(401)
+  })
+
+  it('deviceName 仅空白 → 400 BAD_REQUEST（trim 后为空）', async () => {
+    const res = await registerRequest(app, currentFamilyCode, '   ')
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as EnvelopeBody<unknown>).errCode).toBe('BAD_REQUEST')
+  })
+
+  it('超过 1MB 的请求体 → 400 BAD_REQUEST（content-length 快进路径）', async () => {
+    const res = await app.request('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ familyCode: 'A'.repeat(1_048_600), deviceName: 'big' }),
+    })
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as EnvelopeBody<unknown>).errCode).toBe('BAD_REQUEST')
+  })
+
+  it('家庭码规范化端到端：O→0、空格与连字符均可注册', async () => {
+    // 直接替换 auth_config 的家庭码哈希，保证可确定性构造含 0 的已知码
+    const code = '0123456789AB'
+    const hash = await argon2Hasher.hash(code)
+    await pg.sql.begin(async (tx) => {
+      await tx.unsafe(
+        'update auth_config set family_code_hash = $1, family_code_version = family_code_version + 1, updated_at = now() where singleton = true',
+        [hash],
+      )
+    })
+    const res = await registerRequest(app, 'O123 4567 89AB', 'mapped-device')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { success: boolean; data: { deviceToken: string } }
+    expect(body.data.deviceToken).toMatch(/^[A-Za-z0-9_-]{43}$/)
   })
 
   it('请求 schema 校验失败 → 400 BAD_REQUEST 且带 details', async () => {
@@ -417,5 +459,39 @@ describe('register 与设备管理（已初始化实例）', () => {
     expect(body.errCode).toBe('BAD_REQUEST')
     expect(Array.isArray(body.details)).toBe(true)
     expect((body.details ?? [])[0]?.reason).toBeTruthy()
+  })
+})
+
+describe('并发 bootstrap（AC5 竞争）', () => {
+  let pg: TestPostgres
+
+  beforeAll(async () => {
+    pg = await startTestPostgres()
+  })
+
+  afterAll(async () => {
+    await pg.stop()
+  })
+
+  it('并发 bootstrap 恰有一个成功，其余 409，且只产生一套初始化数据', async () => {
+    const appA = makeTestApp(pg, { source: '203.0.113.60' })
+    const appB = makeTestApp(pg, { source: '203.0.113.61' })
+    const attempt = (app: ReturnType<typeof makeTestApp>) =>
+      app.request('/api/v1/auth/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bootstrapSecret: TEST_BOOTSTRAP_SECRET, deviceName: 'racer' }),
+      })
+    const [resA, resB] = await Promise.all([attempt(appA), attempt(appB)])
+    expect([resA.status, resB.status].sort()).toEqual([200, 409])
+    const loser = resA.status === 409 ? resA : resB
+    expect(((await loser.json()) as EnvelopeBody<unknown>).errCode).toBe('ALREADY_INITIALIZED')
+    const rows = await pg.sql.unsafe(
+      'select (select count(*)::text from auth_config) as configs, ' +
+        '(select count(*)::text from device_tokens) as devices, ' +
+        '(select count(*)::text from settings) as settings_count, ' +
+        '(select count(*)::text from sync_changes) as changes',
+    )
+    expect(rows[0]).toEqual({ configs: '1', devices: '1', settings_count: '1', changes: '1' })
   })
 })
