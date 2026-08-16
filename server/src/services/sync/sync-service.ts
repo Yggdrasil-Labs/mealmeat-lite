@@ -1,5 +1,4 @@
 import { and, eq, type SQL, sql } from 'drizzle-orm'
-import { PostgresError } from 'postgres'
 import type { AppConfig } from '../../config.js'
 import type {
   AppliedResultDto,
@@ -14,9 +13,11 @@ import { syncChangeRowToContract } from '../../contracts/mappers/sync.js'
 import { validateVersionedJsonb } from '../../contracts/mappers/versioned-jsonb.js'
 import { validateContract } from '../../contracts/validation.js'
 import type { Db } from '../../db/pool.js'
+import { unwrapPostgresError } from '../../db/postgres-error.js'
 import { type SyncChangeRow, syncActionReceipts } from '../../db/schema/sync.js'
 import {
   type Database,
+  SYNC_WRITE_ADVISORY_LOCK_KEY,
   type SyncWriteContext,
   type SyncWriteTransaction,
   withSyncWriteTransaction,
@@ -31,11 +32,14 @@ import {
   type SyncSnapshotCursorPayload,
   syncCursorKey,
 } from './cursor.js'
+import { paginateSyncChanges } from './paging.js'
 
 export interface SyncServiceDeps {
   getConfig(): AppConfig
   getDb(): Db
   clock?: () => Date
+  /** 测试注入屏障：applyAction 在读取回执前挂起（生产不设，no-op）。 */
+  beforeActionReceiptCheck?: () => Promise<void>
 }
 
 const PAGE_BYTE_LIMIT = 1_048_576
@@ -116,9 +120,7 @@ export class SyncService {
 
     if (isFirstPage) {
       await this.db.transaction(async (tx) => {
-        await tx.execute(
-          sql`select pg_advisory_xact_lock_shared(hashtext('mealmate_sync_write_v1'))`,
-        )
+        await tx.execute(sql`select pg_advisory_xact_lock_shared(${SYNC_WRITE_ADVISORY_LOCK_KEY})`)
         const watermarkRows = await tx.execute(
           sql`select coalesce(max(server_version), 0) as watermark from sync_changes`,
         )
@@ -228,22 +230,10 @@ export class SyncService {
     changes: SyncChangeDto[]
     truncated: boolean
   } {
-    const changes: SyncChangeDto[] = []
-    let bytes = 0
-    for (const raw of rawRows) {
-      const change = this.rowToChange(raw)
-      const size = JSON.stringify(change).length
-      if (changes.length > 0 && bytes + size > PAGE_BYTE_LIMIT) {
-        return { changes, truncated: true }
-      }
-      if (changes.length === 0 && size > PAGE_BYTE_LIMIT) {
-        throw new PublicError('SYNC_CHANGE_TOO_LARGE')
-      }
-      if (changes.length >= limit) return { changes, truncated: true }
-      changes.push(change)
-      bytes += size
-    }
-    return { changes, truncated: false }
+    const changes = rawRows.map((raw) => this.rowToChange(raw))
+    // 1MB 按 wire 实际 UTF-8 字节度量（冻结契约），见 paging.ts
+    const { page, truncated } = paginateSyncChanges(changes, limit, PAGE_BYTE_LIMIT)
+    return { changes: page, truncated }
   }
 
   private buildResponse(
@@ -285,6 +275,7 @@ export class SyncService {
 
   private async applyAction(deviceId: string, action: SyncActionDto): Promise<SyncActionResultDto> {
     const payloadHash = sha256Hex(canonicalizeRfc8785(action.payload))
+    await this.deps.beforeActionReceiptCheck?.()
     const existing = await this.db
       .select()
       .from(syncActionReceipts)
@@ -306,7 +297,8 @@ export class SyncService {
       return await this.applyRecipeDelete(deviceId, action, payloadHash)
     } catch (err) {
       // 并发重复上传：先写者提交回执后，后写者撞主键 —— 重读回执按幂等键重放
-      if (err instanceof PostgresError && err.code === '23505') {
+      const postgresError = unwrapPostgresError(err)
+      if (postgresError !== null && postgresError.code === '23505') {
         const rows = await this.db
           .select()
           .from(syncActionReceipts)
