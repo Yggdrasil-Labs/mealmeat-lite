@@ -57,26 +57,37 @@ cursor 的签名与 watermark 稳定性。
 server/src/
 ├── config.ts                      # 启动 fail-fast：bootstrap secret 熵校验 + TZ=Asia/Shanghai
 ├── errors.ts                      # PublicError + {success:false,...} envelope + 错误目录映射
-├── db/pool.ts                     # 生产池：max10、connect 2s、statement/lock 5s（GUC startup 参数）
+├── db/
+│   ├── pool.ts                    # 生产池：max10、connect 2s、statement/lock 5s（GUC startup 参数）
+│   ├── postgres-error.ts          # PostgresError 解包（drizzle 包 DrizzleQueryError，按 cause）
+│   ├── transactions/sync-write.ts # [既有] 全局写锁（key=1296911409）+ 资源行锁 + 版本分配
+│   ├── migration-status.ts        # [既有] schema 版本就绪校验
+│   └── migrations/                # [既有] 阶段 1 全量迁移
 ├── security/
 │   ├── crypto.ts                  # HKDF/HMAC/SHA-256、Crockford 家庭码、RFC8785 JCS、签名 cursor
 │   └── passwords.ts               # Argon2id 封装（64MiB, t=3, p=1, 16B salt, 32B out）
 ├── middleware/
 │   ├── request-id.ts              # 每请求 UUID → X-Request-Id + 错误 envelope
-│   ├── body-limit.ts              # /api/v1 JSON ≤ 1 MB
-│   ├── device-auth.ts             # Bearer token → SHA-256 → 未吊销行；401 统一
-│   ├── on-error.ts                # PublicError/HTTPException/PostgresError(55P03,57014,08*)→SERVICE_BUSY（drizzle 包 DrizzleQueryError，按 cause 解包）
+│   ├── body-limit.ts              # /api/v1 JSON ≤ 1 MB（hono/body-limit 流式字节计数，chunked 不可绕过）
+│   ├── device-auth.ts             # Bearer token → SHA-256 → 未吊销行；401 统一（scheme 大小写不敏感）
+│   ├── on-error.ts                # PublicError/HTTPException/PostgresError(55P03,57014,08*)→SERVICE_BUSY
+│   ├── on-not-found.ts            # [既有] 404 兜底（见 §11 文档化偏离）
 │   └── context-variables.ts       # Hono ContextVariableMap 类型
 ├── services/auth/
-│   ├── source-key.ts              # 客户端地址规范化 + 私有网段信任判定
+│   ├── source-key.ts              # 客户端地址规范化 + 私有网段信任判定（判定与规范化同源）
 │   ├── throttle.ts                # (scope,sourceHash) 行锁原子失败计数/锁定/重置
 │   └── auth-service.ts            # bootstrap/register/rotate/logout/devices/revoke
 ├── services/sync/
 │   ├── cursor.ts                  # 封闭联合 payload 校验 + 编码/解码
+│   ├── paging.ts                  # limit + UTF-8 字节双重截断纯函数
 │   └── sync-service.ts            # 快照/增量分页、patch/delete 执行器、回执幂等
 ├── routes/{auth,sync,index}.ts    # 路由 + 严格 Ajv 校验（400 BAD_REQUEST + details）
+├── routes/health.ts               # [既有] live/ready（阶段 2 修正 503 冻结 wire）
+├── utils/{db,validation,dates}.ts # db 连接、Ajv 适配、Asia/Shanghai 周一计算
+├── test-support/pg.ts             # Testcontainers PG16 + 全量 migration + makeTestApp 依赖注入
 ├── app.ts                         # createApp(deps) 依赖注入；默认实例惰性解析 env 依赖
-└── cli.ts                         # auth recovery-reset（阶段 2 已实现，演练留阶段 5）
+├── index.ts / healthcheck.ts      # 启动 fail-fast / 容器健康探针
+└── cli.ts                         # auth recovery-reset（单事务换码+吊销设备+清限流）
 ```
 
 ## 4. 关键流程
@@ -213,5 +224,29 @@ weekly_plans/plan_items（仅 delete 引用检查）。
 - drizzle 的 `sql` 模板会**展开数组参数**为多参数，`coalesce($arr, tags)` 会退化为
   单元素类型冲突；tags 更新走条件 SET + 单参数 `pgTextArrayLiteral(...)::text[]`。
 - drizzle 把 postgres-js 的 `PostgresError` 包成 `DrizzleQueryError`（`cause` 保留原错误）；
-  on-error 按 `cause` 解包再映射 55P03/57014/08* → 503 SERVICE_BUSY。
+  业务代码（bootstrap 的 23505→409、sync 的 23505→duplicate 重放）与 on-error
+  统一经 `db/postgres-error.ts` 解包，不得直接 `instanceof PostgresError`。
+
+## 11. Review 修复记录（2026-07-11）
+
+三域独立审查（auth/安全、sync/事务、接线/契约/文档漂移）后修复：
+
+- 全局同步写锁 key 从 `hashtext('mealmate_sync_write_v1')` 改为冻结字面量
+  `1296911409`（实测 PG16 下 hashtext = -986392774，与契约不符）；barrier 测试断言精确 key。
+- 1MB 页截断改为按 wire 实际 **UTF-8 字节**度量（原 UTF-16 度量中文可超限约 3 倍），
+  抽取纯函数 `paging.ts` 并补截断/超限测试。
+- `isPrivateAddress` 与 `canonicalizeSourceAddress` 同源：私有判定基于规范化结果，
+  修复 `::ffff:x.x.x.x`、`::1`、zone id、IPv4 前导零的判定裂缝（双栈下限流塌缩单桶）。
+- `/health/ready` 503 移除未冻结的 `code` 字段（HealthNotReadyResponse 为 additionalProperties:false）。
+- body 上限改用 hono/body-limit 流式字节计数，chunked 传输不可绕过（原仅查 content-length）。
+- bootstrap 与 sync 的 23505 兜底修复 DrizzleQueryError 解包（并发用例暴露）。
+- recovery-reset 顺带清空 auth_attempt_throttles；Bearer scheme 大小写不敏感。
+
+**文档化偏离**（冻结契约约束下的已知取舍，升级契约版本前保持）：
+
+- 未匹配路由的 404 使用非 envelope 形状：错误目录无通用 404 码，合规 envelope 无法构造；
+  X-Request-Id 头仍由全局中间件附加。补码需新契约版本。
+- 连接池无「获取超时」：postgres-js 原生不支持，`connect_timeout` 仅覆盖建连；
+  饱和请求排队由 statement_timeout(5s) 兜底，阶段 5 容量基线前重评。
+- 根路由 `GET /` 返回 name/version 元数据，不在 allowlist 内（非业务接口，阶段 0 骨架遗留）。
 

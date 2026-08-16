@@ -100,7 +100,7 @@ flowchart LR
 - Depends on: T6
 - Files: test-support/pg.ts、routes/auth.integration.test.ts
 - per-Task AC: 两个容器块覆盖 AUTH-1..5 全部行为（含时钟注入锁过期、hasher 屏障轮换交错）
-- Execution: Status=done；Verify：test:integration 全绿（44/44，含 auth 21 例）
+- Execution: Status=done；Verify：test:integration 全绿（54/54，含 auth 25 例）
 
 ### T8 Sync 集成测试（AC6/AC12）— Status: done
 
@@ -108,7 +108,7 @@ flowchart LR
 - Files: routes/sync.integration.test.ts
 - per-Task AC: 快照多页 + 增量续传 + 篡改 400；双设备 patch 终态/版本单调；duplicate；
   rejected 三分支；批内顺序与部分拒绝；异 payload 409
-- Execution: Status=done；Verify：sync 集成 15 例全绿
+- Execution: Status=done；Verify：sync 集成 18 例全绿
 
 ### T9 全门禁 + 文档更新 — Status: done
 

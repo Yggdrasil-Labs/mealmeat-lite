@@ -3,6 +3,10 @@
  *
  * max 10 连接、statement/lock timeout 5 秒、connect timeout 2 秒；
  * 等待全局同步写锁超时的事务完整回滚，由 on-error 映射为 503 SERVICE_BUSY。
+ *
+ * 文档化偏离：postgres-js 无「池获取（排队等空闲连接）超时」参数，
+ * connect_timeout 只覆盖 TCP/握手建连；连接打满时请求排队，
+ * 上界由忙连接的 statement_timeout(5s) 间接兜底。阶段 5 容量基线前重评。
  */
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'

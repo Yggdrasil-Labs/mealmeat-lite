@@ -15,7 +15,7 @@ status: "in-progress"
 | 需求 | 规模 | 状态 | 说明 |
 |---|---|---|---|
 | [`contracts-persistence`](./contracts-persistence/) | 大 | 阶段 1 已完成，v1 已冻结 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误/SSE、不变量、Drizzle migration、Room entities、跨端 fixtures；fingerprint 见 `../../../contracts/v1/FROZEN.md` |
-| [`auth-sync-foundation`](./auth-sync-foundation/spec.md) | 大 | 阶段 2 已完成（AC5/6/10/12） | bootstrap/register/token、设备管理与家庭码轮换、来源级限流（5 次锁定 15 分钟）、签名 cursor 快照/增量同步、pending_actions 逐项 ACK 与回执幂等；auth 21 例 + sync 15 例 PostgreSQL 集成测试 |
+| [`auth-sync-foundation`](./auth-sync-foundation/spec.md) | 大 | 阶段 2 已完成（AC5/6/10/12） | bootstrap/register/token、设备管理与家庭码轮换、来源级限流（5 次锁定 15 分钟）、签名 cursor 快照/增量同步、pending_actions 逐项 ACK 与回执幂等；auth 25 例 + sync 18 例 PostgreSQL 集成测试 |
 
 ## 独立提交
 
