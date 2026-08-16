@@ -9,8 +9,8 @@ created: 2026-07-11
 
 > Header
 > - Branch: main
-> - Baseline SHA: [待填充]（阶段 2 实现先于本计划落盘——设计先行流程修正；
->   本计划作为对齐/验证/收尾的权威清单，Task 状态如实标注）
+> - Baseline SHA: e60ace7（阶段 2 实现先于本计划落盘——设计先行流程修正；
+>   本计划作为对齐/验证/收尾的权威清单，Task 状态如实标注；提交区间见 release.md 独立提交表）
 > - Worktree Path: server/
 > - Started At: 2026-07-11
 > - Updated At: 2026-07-11

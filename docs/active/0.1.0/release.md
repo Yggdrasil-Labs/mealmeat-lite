@@ -21,7 +21,14 @@ status: "in-progress"
 
 | 提交 | 类型 | 说明 |
 |---|---|---|
-| — | — | 当前无独立提交 |
+| `2f12b9d` | docs | 阶段 2 设计文档（spec/design/plan）与 roadmap/AGENTS/active/release 状态记录 |
+| `39270f5` | feat | security：安全原语、Argon2id、运行时配置与单测 |
+| `d4177d2` | feat | errors：公开错误 envelope 与横切中间件 |
+| `f1df107` | feat | db：生产连接池 |
+| `b69dd1e` | feat | auth：bootstrap/register、设备管理与来源限流 |
+| `2045a52` | feat | sync：签名 cursor 同步与离线动作逐项 ACK |
+| `7d2ccde` | feat | routes：路由接线、启动 fail-fast 与 recovery-reset |
+| `aa41aa2` | test | AC5/6/10/12 PostgreSQL 集成测试 |
 
 ## Changelog
 
