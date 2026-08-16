@@ -3,6 +3,9 @@ engineStrict: true
 
 overrides:
   "@esbuild-kit/core-utils>esbuild": "0.25.12"
+  # 安全告警修复：上游（ajv/vite）最新版仍引用有漏洞的传递依赖，锁定修复版
+  fast-uri: "3.1.5"
+  postcss: "8.5.23"
 
 allowBuilds:
   "@biomejs/biome": true
