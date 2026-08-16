@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { deriveHmacKey, HKDF_CONTEXT_SOURCE_KEY, hmacSha256 } from '../security/crypto.js'
 import { argon2Hasher } from '../security/passwords.js'
 import {
   authedDelete,
@@ -18,6 +19,12 @@ interface AuthResult {
   deviceId: string
   deviceToken: string
   familyCode: string
+}
+
+/** 与服务端一致地重算限流行键，用于直查 auth_attempt_throttles。 */
+function sourceKeyHashFor(scope: 'bootstrap' | 'register', source: string): string {
+  const key = deriveHmacKey(TEST_BOOTSTRAP_SECRET, HKDF_CONTEXT_SOURCE_KEY)
+  return hmacSha256(key, 'v1:' + scope + ':' + source).toString('hex')
 }
 
 function registerRequest(
@@ -192,6 +199,64 @@ describe('register 与设备管理（已初始化实例）', () => {
     const retryAfter = Number(fifth.headers.get('Retry-After'))
     expect(retryAfter).toBeGreaterThanOrEqual(1)
     expect(retryAfter).toBeLessThanOrEqual(900)
+  })
+
+  it('成功凭证在同事务清零计数：清零后重新从第 1 次计起', async () => {
+    const source = '203.0.113.23'
+    const app = makeTestApp(pg, { source })
+    const sourceHash = sourceKeyHashFor('register', source)
+    // 先失败 2 次，再成功 1 次
+    for (let i = 0; i < 2; i++) {
+      expect((await registerRequest(app, '2222-2222-2222', 'x')).status).toBe(401)
+    }
+    const success = await registerRequest(app, currentFamilyCode, 'clear-check-device')
+    expect(success.status).toBe(200)
+    // 成功事务已删除限流行
+    const cleared = await pg.sql.unsafe(
+      'select count(*)::text as count from auth_attempt_throttles where scope = $1 and source_key_hash = $2',
+      ['register', sourceHash],
+    )
+    expect(cleared[0]?.count).toBe('0')
+    // 重新失败：前 4 次 401，第 5 次才 429
+    for (let i = 0; i < 4; i++) {
+      expect((await registerRequest(app, '2222-2222-2222', 'x')).status).toBe(401)
+    }
+    expect((await registerRequest(app, '2222-2222-2222', 'x')).status).toBe(429)
+  })
+
+  it('锁定跨进程实例保留（重启不清零）：新实例仍 429', async () => {
+    const source = '203.0.113.24'
+    const app = makeTestApp(pg, { source })
+    for (let i = 0; i < 5; i++) await registerRequest(app, '2222-2222-2222', 'x')
+    // 新 app 实例 = 新进程语义（服务无内存态，计数在 PostgreSQL）
+    const restarted = makeTestApp(pg, { source })
+    const res = await registerRequest(restarted, currentFamilyCode, 'after-restart')
+    expect(res.status).toBe(429)
+    expect(((await res.json()) as EnvelopeBody<unknown>).errCode).toBe('RATE_LIMITED')
+    const retryAfter = Number(res.headers.get('Retry-After'))
+    expect(retryAfter).toBeGreaterThanOrEqual(1)
+    expect(retryAfter).toBeLessThanOrEqual(900)
+  })
+
+  it('并发失败请求不能绕过第 5 次阈值', async () => {
+    const source = '203.0.113.25'
+    const app = makeTestApp(pg, { source })
+    const sourceHash = sourceKeyHashFor('register', source)
+    // 6 个并发失败请求同时到达：行锁串行化，恰在第 5 次锁定，此后一律 429
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => registerRequest(app, '2222-2222-2222', 'x')),
+    )
+    expect(results.some((res) => res.status === 429)).toBe(true)
+    const row = await pg.sql.unsafe(
+      'select failure_count::text, locked_until is not null as locked from auth_attempt_throttles where scope = $1 and source_key_hash = $2',
+      ['register', sourceHash],
+    )
+    // 并发下计数可略超 5（已在途请求各自递增），关键不变量是锁已生效且不再放行
+    expect(row[0]?.locked).toBe(true)
+    expect(Number(row[0]?.failure_count)).toBeGreaterThanOrEqual(5)
+    // 锁定期内即使正确凭证也不放行
+    const lockedRes = await registerRequest(app, currentFamilyCode, 'concurrent-racer')
+    expect(lockedRes.status).toBe(429)
   })
 
   it('轮换：旧码立即失效、新码可注册；未鉴权轮换 → 401', async () => {

@@ -102,7 +102,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 - [ ] AC7: 断网发送 AI 消息提示失败并保留草稿；联网后只在用户点击“重新发送”时创建新的对话请求
 - [ ] AC8: 新设备自动选择服务端唯一默认模型；两台设备拥有独立对话历史和后续模型选择，一个设备切换模型不影响另一个设备，且只可选择服务端已启用的兼容模型
 - [ ] AC9: 被当前或未来计划引用的菜谱删除被拒绝；显式恢复只匹配已删除菜谱；超出 20 轮的设备对话及回执正文不再保留，旧请求不能重新执行
-- [x] AC10: 设置页可轮换家庭码、列出设备并单独撤销；轮换使旧码失效，旧码验证与轮换并发时不得在轮换提交后签发 token；同一规范化来源/scope 的 bootstrap secret 或家庭码第 5 次连续失败即返回 `429 RATE_LIMITED` 并带最多 15 分钟 `Retry-After`，成功清零、重启保留且并发不能绕过（auth 集成测试：轮换/交错屏障、时钟注入锁过期、Retry-After 范围；设置页 UI 属阶段 4）
+- [x] AC10: 设置页可轮换家庭码、列出设备并单独撤销；轮换使旧码失效，旧码验证与轮换并发时不得在轮换提交后签发 token；同一规范化来源/scope 的 bootstrap secret 或家庭码第 5 次连续失败即返回 `429 RATE_LIMITED` 并带最多 15 分钟 `Retry-After`，成功清零、重启保留且并发不能绕过（auth 集成测试：轮换/交错屏障、时钟注入锁过期、Retry-After 范围、成功清零/跨实例保留/并发不可绕过；设置页 UI 属阶段 4）
 - [ ] AC11: 同一确认令牌只能成功提交一次；目标周计划版本变化时返回 `CONFIRMATION_STALE`；相同 `chatRequestId` 重试不重复执行工具写入
 - [x] AC12: 新设备以分页 cursor 拉取完整同步快照；离线动作被拒绝后，客户端回滚到服务端返回的资源版本并保留失败原因（sync 集成测试：多页快照、分页期间写入经增量续传、cursor 篡改 400、rejected 权威快照/全量重同步；客户端 Room 回滚属阶段 4）
 - [ ] AC13: SSE 严格以 `start` 开始、以 `done|error` 结束，中间只允许 `delta/tool-status/confirmation-required`；断流重试同一 `chatRequestId` 时，App 替换失败的半条回复而不重复文本，已完成请求重放结果及有效确认面板，活动租约返回 `CHAT_IN_PROGRESS`，过期租约由用户重试接管且旧 generation 无法再写入；同设备另一 ID 并发返回 `CHAT_DEVICE_BUSY`，旧请求过期后改发新 ID 会使旧请求不可恢复
@@ -114,7 +114,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 |---|---|---|---|---|
 | 0. 仓库与运行骨架 | 四文档范围稳定 | pnpm/Gradle monorepo、Biome、Android lint、Compose、健康检查、CI 命令 | 本地空实现可构建，DB migration 可重复执行 | 已完成：`main` CI 的 server、app、compose 门禁均通过 |
 | 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误与 SSE 状态机、Drizzle migration、Room entities、契约 fixtures | 21 HTTP/8 FC/6 SSE manifest 完整；后端和 Android 消费同一 fixtures；协议 trace、确定性生成与迁移集成测试通过 | 已完成：v1 契约已冻结，fingerprint 由 `contracts/v1/FROZEN.md` 记录 |
-| 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 已完成：auth/sync 全链路与限流落地，设计文档见 docs/active/0.1.0/auth-sync-foundation/；AC5/6/10/12 由 PostgreSQL 集成测试验证（auth 18 例、sync 15 例） |
+| 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 已完成：auth/sync 全链路与限流落地，设计文档见 docs/active/0.1.0/auth-sync-foundation/；AC5/6/10/12 由 PostgreSQL 集成测试验证（auth 21 例、sync 15 例） |
 | 3. 菜谱与计划领域 | 阶段 2 完成 | Recipe/WeeklyPlan/PlanItem service、8 个 FC executor、确认草稿 | AC1、AC2、AC3、AC9、AC11 通过 | 未开始 |
 | 4. 对话与 Android 闭环 | 阶段 3 完成 | provider adapter、SSE、4 个页面、Room/WorkManager | AC4、AC7、AC8、AC13 通过 | 未开始 |
 | 5. 发布候选 | 阶段 4 完成 | 镜像、Caddy、部署说明、恢复重置命令 | AC14 和全部自动化门禁通过 | 未开始 |
