@@ -23,9 +23,9 @@
     "db:migrations:check": "tsx scripts/db/check-migrations.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "4.0.20",
-    "@hono/node-server": "2.0.11",
-    "ai": "7.0.37",
+    "@ai-sdk/openai": "4.0.36",
+    "@hono/node-server": "2.1.0",
+    "ai": "7.0.58",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "drizzle-orm": "0.45.2",
@@ -34,7 +34,7 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.5",
+    "@biomejs/biome": "2.5.7",
     "@types/node": "24.13.3",
     "drizzle-kit": "0.31.10",
     "json-schema-to-ts": "3.1.1",

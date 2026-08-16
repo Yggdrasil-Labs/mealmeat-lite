@@ -4,11 +4,16 @@ dist/
 .env
 .env.local
 .env.*.local
+.pnpm-store/
+.pnpm-cache/
+.xdg-data/
 
 # === Android / Gradle ===
 .gradle/
 app/build/
 app/app/build/
+app/.gradle-home/
+app/.kotlin/
 app/.idea/
 *.apk
 *.aab
