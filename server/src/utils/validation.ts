@@ -1,30 +1,31 @@
 /**
- * Hono 验证适配器
+ * Hono 验证适配器 — Ajv strict validator → 400 BAD_REQUEST envelope
  *
- * 基于 Ajv 的结构化错误响应，替代原 zValidator
+ * 非法 JSON、缺字段与 strict schema 多余字段统一映射为 BAD_REQUEST，
+ * details 携带 instancePath 与原因；不向生产日志输出请求内容。
  */
-
 import type { ErrorObject } from 'ajv'
 import type { Context, MiddlewareHandler, ValidationTargets } from 'hono'
 import { getValidator } from '../contracts/generated/validators.js'
+import { PublicError } from '../errors.js'
 
 interface ValidationConfig {
   file: string
   defPath: string
 }
 
-/**
- * Ajv 验证中间件 - 返回结构化 JSON 错误响应
- */
 export function ajvValidator<Target extends keyof ValidationTargets>(
   target: Target,
   config: ValidationConfig,
 ): MiddlewareHandler {
   return async (c: Context, next) => {
     let data: unknown
-
     if (target === 'json') {
-      data = await c.req.json()
+      try {
+        data = await c.req.json()
+      } catch {
+        throw new PublicError('BAD_REQUEST', { message: 'Invalid JSON body' })
+      }
     } else if (target === 'query') {
       data = c.req.query()
     } else if (target === 'param') {
@@ -35,25 +36,15 @@ export function ajvValidator<Target extends keyof ValidationTargets>(
 
     const validator = getValidator(config.file, config.defPath)
     if (!validator(data)) {
-      const isProduction = process.env.NODE_ENV === 'production'
-      return c.json(
-        {
-          error: {
-            code: 400,
-            message: 'Validation failed',
-            issues: validator.errors?.map((e: ErrorObject) => ({
-              path: e.instancePath || '/',
-              message: e.message || 'Unknown error',
-              keyword: e.keyword,
-              ...(!isProduction && e.params && { params: e.params }),
-            })),
-          },
-        },
-        400,
-      )
+      throw new PublicError('BAD_REQUEST', {
+        message: 'Request validation failed',
+        details: validator.errors?.map((error: ErrorObject) => ({
+          field: error.instancePath || '/',
+          reason: error.message ?? 'Invalid value',
+        })),
+      })
     }
 
-    // 存储验证后的数据供路由使用
     c.set(target, data)
     return next()
   }
