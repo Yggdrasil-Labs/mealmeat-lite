@@ -54,8 +54,8 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test u
 | 阶段 | 交付物 | 状态 |
 |------|--------|------|
 | 0. 仓库与运行骨架 | Monorepo、构建命令、健康检查 | ✅ 当前 |
-| 1. 契约与持久化 | Drizzle migration、Zod DTO、Room entities | 待开始 |
-| 2. 认证与同步底座 | bootstrap/register/token、SyncChange | 待开始 |
+| 1. 契约与持久化 | Drizzle migration、Zod DTO、Room entities | ✅ 已完成 |
+| 2. 认证与同步底座 | bootstrap/register/token、SyncChange | ✅ 当前（AC5/6/10/12 已过） |
 | 3. 菜谱与计划领域 | Recipe/Plan service、8 个 FC executor | 待开始 |
 | 4. 对话与 Android 闭环 | SSE、4 个页面、WorkManager | 待开始 |
 | 5. 发布候选 | 镜像、Caddy、部署说明 | 待开始 |

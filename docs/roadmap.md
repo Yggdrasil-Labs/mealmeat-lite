@@ -97,14 +97,14 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 - [ ] AC2: 对话"帮我生成 20 个家常川菜"→ App 收到只读固定确认面板且菜谱表零新增；面板不能直接删项或改名，修改必须通过继续对话生成会 supersede 旧草稿的新预览；token 不进入模型/日志/持久化客户端存储，发起设备在 10 分钟内点击确认后才批量创建，相同提交 ID 重试不重复写入；若候选全部与现有菜谱同名，则返回 `NO_NEW_RECIPES`、不创建确认草稿
 - [ ] AC3: 对话"安排下周的菜，少辣"→ 无同周计划时原子生成 7 天 × 3 餐并可调整单餐；已有计划时仅返回覆盖预览，确认前原计划不变；目标周前 7 天外的可用菜谱至少 21 个时不得选近期菜谱，不足时允许复用且回复明确列出复用项
 - [ ] AC4: 设置页切换模型 → 下轮对话生效；修改偏好文字 → System Prompt 更新
-- [ ] AC5: 首台设备仅能通过 bootstrap secret 初始化；后续设备用家庭码注册，注销或被撤销后的 device token 访问受保护 API 返回 `UNAUTHORIZED`，其已启动聊天最迟在下一次心跳或业务提交前中止且不再写入
-- [ ] AC6: 两台设备离线修改同一菜品后同步，最终状态等于全局同步写锁获取顺序最后一个成功动作；低版本事务不可能晚于高版本提交并被 cursor 漏掉，重复上传同一 `actionId` 不重复执行
+- [x] AC5: 首台设备仅能通过 bootstrap secret 初始化；后续设备用家庭码注册，注销或被撤销后的 device token 访问受保护 API 返回 `UNAUTHORIZED`，其已启动聊天最迟在下一次心跳或业务提交前中止且不再写入（阶段 2 完成认证部分；聊天中止属阶段 4）
+- [x] AC6: 两台设备离线修改同一菜品后同步，最终状态等于全局同步写锁获取顺序最后一个成功动作；低版本事务不可能晚于高版本提交并被 cursor 漏掉，重复上传同一 `actionId` 不重复执行（sync 集成测试：双设备 patch 终态、版本单调、duplicate/异 payload 冲突）
 - [ ] AC7: 断网发送 AI 消息提示失败并保留草稿；联网后只在用户点击“重新发送”时创建新的对话请求
 - [ ] AC8: 新设备自动选择服务端唯一默认模型；两台设备拥有独立对话历史和后续模型选择，一个设备切换模型不影响另一个设备，且只可选择服务端已启用的兼容模型
 - [ ] AC9: 被当前或未来计划引用的菜谱删除被拒绝；显式恢复只匹配已删除菜谱；超出 20 轮的设备对话及回执正文不再保留，旧请求不能重新执行
-- [ ] AC10: 设置页可轮换家庭码、列出设备并单独撤销；轮换使旧码失效，旧码验证与轮换并发时不得在轮换提交后签发 token；同一规范化来源/scope 的 bootstrap secret 或家庭码第 5 次连续失败即返回 `429 RATE_LIMITED` 并带最多 15 分钟 `Retry-After`，成功清零、重启保留且并发不能绕过
+- [x] AC10: 设置页可轮换家庭码、列出设备并单独撤销；轮换使旧码失效，旧码验证与轮换并发时不得在轮换提交后签发 token；同一规范化来源/scope 的 bootstrap secret 或家庭码第 5 次连续失败即返回 `429 RATE_LIMITED` 并带最多 15 分钟 `Retry-After`，成功清零、重启保留且并发不能绕过（auth 集成测试：轮换/交错屏障、时钟注入锁过期、Retry-After 范围；设置页 UI 属阶段 4）
 - [ ] AC11: 同一确认令牌只能成功提交一次；目标周计划版本变化时返回 `CONFIRMATION_STALE`；相同 `chatRequestId` 重试不重复执行工具写入
-- [ ] AC12: 新设备以分页 cursor 拉取完整同步快照；离线动作被拒绝后，客户端回滚到服务端返回的资源版本并保留失败原因
+- [x] AC12: 新设备以分页 cursor 拉取完整同步快照；离线动作被拒绝后，客户端回滚到服务端返回的资源版本并保留失败原因（sync 集成测试：多页快照、分页期间写入经增量续传、cursor 篡改 400、rejected 权威快照/全量重同步；客户端 Room 回滚属阶段 4）
 - [ ] AC13: SSE 严格以 `start` 开始、以 `done|error` 结束，中间只允许 `delta/tool-status/confirmation-required`；断流重试同一 `chatRequestId` 时，App 替换失败的半条回复而不重复文本，已完成请求重放结果及有效确认面板，活动租约返回 `CHAT_IN_PROGRESS`，过期租约由用户重试接管且旧 generation 无法再写入；同设备另一 ID 并发返回 `CHAT_DEVICE_BUSY`，旧请求过期后改发新 ID 会使旧请求不可恢复
 - [ ] AC14: 生产 Compose 按 db healthy → migration completed → app ready → caddy 的顺序启动；未迁移或缺必填配置时 readiness 失败且 App 不接收业务流量。本地/CI 叠加 test override 后不访问 DNS/ACME、使用随机宿主端口，并通过同一健康链
 
@@ -114,7 +114,7 @@ v0.3 ─→ v1.0（CV 拍照）           ← 依赖库存（拍照盘库存）
 |---|---|---|---|---|
 | 0. 仓库与运行骨架 | 四文档范围稳定 | pnpm/Gradle monorepo、Biome、Android lint、Compose、健康检查、CI 命令 | 本地空实现可构建，DB migration 可重复执行 | 已完成：`main` CI 的 server、app、compose 门禁均通过 |
 | 1. 契约与持久化 | 数据/API/FC/sync schema 无待确认项 | JSON Schema 唯一事实源、TS/Ajv/Provider/Kotlin 投影、统一错误与 SSE 状态机、Drizzle migration、Room entities、契约 fixtures | 21 HTTP/8 FC/6 SSE manifest 完整；后端和 Android 消费同一 fixtures；协议 trace、确定性生成与迁移集成测试通过 | 已完成：v1 契约已冻结，fingerprint 由 `contracts/v1/FROZEN.md` 记录 |
-| 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 未开始 |
+| 2. 认证与同步底座 | 阶段 1 完成 | bootstrap/register/token、设备管理、SyncChange、pending_actions | AC5、AC6、AC10、AC12 通过 | 已完成：auth/sync 全链路与限流落地，设计文档见 docs/active/0.1.0/auth-sync-foundation/；AC5/6/10/12 由 PostgreSQL 集成测试验证（auth 18 例、sync 15 例） |
 | 3. 菜谱与计划领域 | 阶段 2 完成 | Recipe/WeeklyPlan/PlanItem service、8 个 FC executor、确认草稿 | AC1、AC2、AC3、AC9、AC11 通过 | 未开始 |
 | 4. 对话与 Android 闭环 | 阶段 3 完成 | provider adapter、SSE、4 个页面、Room/WorkManager | AC4、AC7、AC8、AC13 通过 | 未开始 |
 | 5. 发布候选 | 阶段 4 完成 | 镜像、Caddy、部署说明、恢复重置命令 | AC14 和全部自动化门禁通过 | 未开始 |
