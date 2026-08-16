@@ -1,22 +1,99 @@
+/**
+ * Hono 应用组装 — createApp 依赖注入，测试可替换 config/db/hasher/clock/source
+ */
 import { readFileSync } from 'node:fs'
-import { Hono } from 'hono'
+import type { IncomingMessage } from 'node:http'
+import { type Context, Hono } from 'hono'
+import { type AppConfig, loadAppConfig } from './config.js'
+import { createDb, type Db } from './db/pool.js'
+import { createDeviceAuth } from './middleware/device-auth.js'
 import { onError } from './middleware/on-error.js'
 import { onNotFound } from './middleware/on-not-found.js'
+import './middleware/context-variables.js'
+import { requestId } from './middleware/request-id.js'
+import { createAuthRoutes } from './routes/auth.js'
 import { healthRoutes } from './routes/health.js'
+import { createApiV1 } from './routes/index.js'
+import { createSyncRoutes } from './routes/sync.js'
+import type { PasswordHasher } from './security/passwords.js'
+import { AuthService } from './services/auth/auth-service.js'
+import { canonicalizeSourceAddress, isPrivateAddress } from './services/auth/source-key.js'
+import { SyncService } from './services/sync/sync-service.js'
 
-// 构建时 tsc 输出到 dist/，package.json 在上一级目录
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')) as {
   version: string
 }
 
-export const app = new Hono()
+export interface AppDeps {
+  getConfig(): AppConfig
+  getDb(): Db
+  hasher?: PasswordHasher
+  clock?: () => Date
+  resolveSource?(c: Context): string | null
+}
 
-// Health check routes (public, no auth)
-app.route('/health', healthRoutes)
+/** 默认来源解析：直连对端为私有网络地址时才信任 Caddy 覆盖后的 X-Forwarded-For。 */
+export function defaultResolveSource(c: Context): string | null {
+  const env = c.env as { incoming?: IncomingMessage }
+  const direct = env.incoming?.socket?.remoteAddress
+  if (direct === undefined) return null
+  const forwarded = c.req.header('x-forwarded-for')
+  if (isPrivateAddress(direct) && forwarded !== undefined) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first !== undefined && first !== '') {
+      const canonical = canonicalizeSourceAddress(first)
+      if (canonical !== null) return canonical
+    }
+  }
+  return canonicalizeSourceAddress(direct)
+}
 
-// API v1 routes placeholder
-app.get('/', (c) => c.json({ name: 'mealmate-lite', version: pkg.version }))
+export function createApp(deps: AppDeps): Hono {
+  const app = new Hono()
+  app.use('*', requestId())
 
-// Global error handlers — must be registered after all routes
-app.onError(onError)
-app.notFound(onNotFound)
+  const authService = new AuthService(deps)
+  const syncService = new SyncService(deps)
+  const deviceAuth = createDeviceAuth(deps)
+  const resolveSource = deps.resolveSource ?? defaultResolveSource
+
+  app.route('/health', healthRoutes)
+  app.route(
+    '/api/v1',
+    createApiV1({
+      authRoutes: createAuthRoutes({ auth: authService, deviceAuth, resolveSource }),
+      syncRoutes: createSyncRoutes({ sync: syncService, deviceAuth }),
+    }),
+  )
+  app.get('/', (c) => c.json({ name: 'mealmate-lite', version: pkg.version }))
+
+  app.onError(onError)
+  app.notFound(onNotFound)
+  return app
+}
+
+function memoize<T>(factory: () => T): () => T {
+  let cached: T | undefined
+  let initialized = false
+  return () => {
+    if (!initialized) {
+      cached = factory()
+      initialized = true
+    }
+    return cached as T
+  }
+}
+
+const defaultDeps: AppDeps = {
+  getConfig: memoize(() => loadAppConfig(process.env)),
+  getDb: memoize(() => createDb()),
+}
+
+/** 生产/集成默认应用；依赖在首次 /api/v1 请求时惰性解析。 */
+export const app = createApp(defaultDeps)
+
+/** 启动时 fail-fast：无效配置立即退出，不进入业务流量。 */
+export function initializeRuntimeDeps(): void {
+  defaultDeps.getConfig()
+  defaultDeps.getDb()
+}

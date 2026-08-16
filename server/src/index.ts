@@ -1,7 +1,16 @@
 import { serve } from '@hono/node-server'
-import { app } from './app.js'
+import { app, initializeRuntimeDeps } from './app.js'
 
 const port = Number(process.env.PORT ?? '3000')
+
+// 启动即校验必填配置（bootstrap secret / TZ），无效直接退出
+try {
+  initializeRuntimeDeps()
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err)
+  console.error('[fatal] invalid configuration:', message)
+  process.exit(1)
+}
 
 /**
  * Process-level 错误处理 — 确保未捕获异常不会静默失败
@@ -15,7 +24,7 @@ process.on('uncaughtException', (err) => {
 })
 
 const server = serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`Server running on http://localhost:${info.port}`)
+  console.log(`Server running on http://localhost:${String(info.port)}`)
 })
 
 process.on('unhandledRejection', (reason: unknown) => {

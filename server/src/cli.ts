@@ -1,7 +1,10 @@
 import * as path from 'node:path'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { resolveMigrationsFolder } from './db/migration-folder.js'
+import { formatFamilyCode, generateFamilyCode } from './security/crypto.js'
+import { argon2Hasher } from './security/passwords.js'
 import { createSql } from './utils/db.js'
 
 /**
@@ -24,7 +27,7 @@ async function runMigration(): Promise<void> {
   const migrationsFolder = await resolveMigrationsFolder(migrationsPointer)
 
   console.log('[migrate] Running database migrations...')
-  console.log(`[migrate] Migrations release: ${migrationsFolder}`)
+  console.log('[migrate] Migrations release: ' + migrationsFolder)
 
   try {
     await migrate(db, { migrationsFolder })
@@ -44,12 +47,34 @@ async function runModelVerify(): Promise<void> {
 }
 
 /**
- * auth recovery-reset — 生成新家庭码、撤销全部 DeviceToken
+ * auth recovery-reset — 单一事务生成新家庭码、更新 AuthConfig 并撤销全部 DeviceToken。
+ * 不修改 Recipe/WeeklyPlan/Settings；成功后只向当前终端输出一次新家庭码。
  */
-function runRecoveryReset(): void {
-  // TODO: 阶段 2 — 生成新家庭码、撤销全部 DeviceToken
-  console.error('[auth] Recovery reset not yet implemented')
-  process.exit(1)
+async function runRecoveryReset(): Promise<void> {
+  const sqlClient = createSql()
+  const db = drizzle(sqlClient)
+  try {
+    const familyCode = generateFamilyCode()
+    const familyCodeHash = await argon2Hasher.hash(familyCode)
+    await db.transaction(async (tx) => {
+      const rows = await tx.execute(
+        sql`select family_code_version from auth_config where singleton = true for update`,
+      )
+      const row = (rows as unknown as Array<{ family_code_version: string }>)[0]
+      if (row === undefined) {
+        throw new Error(
+          'instance is not initialized; recovery-reset requires a bootstrapped database',
+        )
+      }
+      await tx.execute(
+        sql`update auth_config set family_code_hash = ${familyCodeHash}, family_code_version = family_code_version + 1, updated_at = now() where singleton = true`,
+      )
+      await tx.execute(sql`update device_tokens set revoked_at = now() where revoked_at is null`)
+    })
+    console.log(formatFamilyCode(familyCode))
+  } finally {
+    await sqlClient.end()
+  }
 }
 
 // --- 命令路由 ---
@@ -62,9 +87,9 @@ async function main(): Promise<void> {
   } else if (command === 'models' && subcommand === 'verify') {
     await runModelVerify()
   } else if (command === 'auth' && subcommand === 'recovery-reset') {
-    runRecoveryReset()
+    await runRecoveryReset()
   } else {
-    console.error(`Unknown command: ${command} ${subcommand}`)
+    console.error('Unknown command: ' + String(command) + ' ' + String(subcommand))
     console.error('Usage:')
     console.error('  node dist/cli.js db migrate')
     console.error('  node dist/cli.js models verify')
