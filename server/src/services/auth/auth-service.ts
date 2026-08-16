@@ -10,7 +10,6 @@
  * - 家庭码/device token 明文只在签发响应中返回一次
  */
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { PostgresError } from 'postgres'
 import type { AppConfig } from '../../config.js'
 import type {
   BootstrapRequest,
@@ -20,7 +19,9 @@ import type {
   RegisterResponse,
 } from '../../contracts/generated/schemas.js'
 import type { Db } from '../../db/pool.js'
+import { unwrapPostgresError } from '../../db/postgres-error.js'
 import { authConfig, deviceTokens } from '../../db/schema/auth.js'
+import { SYNC_WRITE_ADVISORY_LOCK_KEY } from '../../db/transactions/sync-write.js'
 import { PublicError } from '../../errors.js'
 import {
   constantTimeEqual,
@@ -123,7 +124,7 @@ export class AuthService {
           sql`insert into auth_config (singleton, family_code_hash, family_code_version, initialized_at, updated_at) values (true, ${familyCodeHash}, 1, now(), now())`,
         )
         // 同步写锁：Settings 是可同步资源，与 sync-write 模块使用同一全局锁与 sequence
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('mealmate_sync_write_v1'))`)
+        await tx.execute(sql`select pg_advisory_xact_lock(${SYNC_WRITE_ADVISORY_LOCK_KEY})`)
         await tx.execute(sql`select key from settings where key = 'familyPreference' for update`)
         const versionRows = await tx.execute(
           sql`select nextval('sync_server_version_seq') as version`,
@@ -143,7 +144,8 @@ export class AuthService {
         return (inserted as unknown as Array<{ id: string }>)[0]?.id ?? ''
       })
     } catch (err) {
-      if (err instanceof PostgresError && err.code === '23505') {
+      const postgresError = unwrapPostgresError(err)
+      if (postgresError !== null && postgresError.code === '23505') {
         throw new PublicError('ALREADY_INITIALIZED')
       }
       throw err

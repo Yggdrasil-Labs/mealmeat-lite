@@ -31,11 +31,11 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const secret = resolveBootstrapSecret(env, problems)
   if (env.TZ !== 'Asia/Shanghai') problems.push('TZ')
   if (problems.length > 0) throw new ConfigError(problems)
-  if (secret === null) throw new ConfigError(['MEALMATE_BOOTSTRAP_SECRET'])
   return { bootstrapSecret: secret }
 }
 
-function resolveBootstrapSecret(env: NodeJS.ProcessEnv, problems: string[]): string | null {
+/** 失败路径只负责收集 problems（调用方统一抛 ConfigError），返回空串占位。 */
+function resolveBootstrapSecret(env: NodeJS.ProcessEnv, problems: string[]): string {
   const file = env.MEALMATE_BOOTSTRAP_SECRET_FILE
   let raw: string | undefined
   if (file) {
@@ -43,7 +43,7 @@ function resolveBootstrapSecret(env: NodeJS.ProcessEnv, problems: string[]): str
       raw = readFileSync(file, 'utf8').trim()
     } catch {
       problems.push('MEALMATE_BOOTSTRAP_SECRET_FILE')
-      return null
+      return ''
     }
   } else {
     raw = env.MEALMATE_BOOTSTRAP_SECRET?.trim()
@@ -51,12 +51,12 @@ function resolveBootstrapSecret(env: NodeJS.ProcessEnv, problems: string[]): str
 
   if (!raw || PLACEHOLDER_PATTERN.test(raw) || isRepeatedSingleChar(raw)) {
     problems.push('MEALMATE_BOOTSTRAP_SECRET')
-    return null
+    return ''
   }
   const decoded = decodeEntropy(raw)
   if (!decoded || decoded.length < 32) {
     problems.push('MEALMATE_BOOTSTRAP_SECRET')
-    return null
+    return ''
   }
   return raw
 }

@@ -70,6 +70,8 @@ async function runRecoveryReset(): Promise<void> {
         sql`update auth_config set family_code_hash = ${familyCodeHash}, family_code_version = family_code_version + 1, updated_at = now() where singleton = true`,
       )
       await tx.execute(sql`update device_tokens set revoked_at = now() where revoked_at is null`)
+      // 家庭码已换，旧来源的限流计数不再有意义，一并清空（不属业务数据）
+      await tx.execute(sql`delete from auth_attempt_throttles`)
     })
     console.log(formatFamilyCode(familyCode))
   } finally {

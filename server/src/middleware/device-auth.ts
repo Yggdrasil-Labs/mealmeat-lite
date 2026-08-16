@@ -27,7 +27,8 @@ export function getDevice(c: { get(key: 'device'): AuthenticatedDevice }): Authe
 export function createDeviceAuth(deps: DeviceAuthDeps): MiddlewareHandler {
   return async (c, next) => {
     const header = c.req.header('authorization')
-    if (header === undefined || !header.startsWith('Bearer ')) {
+    // RFC 7235：认证 scheme 名大小写不敏感
+    if (header === undefined || header.slice(0, 'Bearer '.length).toLowerCase() !== 'bearer ') {
       throw new PublicError('UNAUTHORIZED')
     }
     const token = header.slice('Bearer '.length).trim()
