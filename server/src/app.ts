@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs'
 import type { IncomingMessage } from 'node:http'
 import { type Context, Hono } from 'hono'
-import { type AppConfig, loadAppConfig } from './config.js'
+import { type AppConfig, ConfigError, loadAppConfig } from './config.js'
 import { createDb, type Db } from './db/pool.js'
 import { createDeviceAuth } from './middleware/device-auth.js'
 import { onError } from './middleware/on-error.js'
@@ -14,6 +14,7 @@ import { requestId } from './middleware/request-id.js'
 import { createAuthRoutes } from './routes/auth.js'
 import { healthRoutes } from './routes/health.js'
 import { createApiV1 } from './routes/index.js'
+import { createModelsRoutes } from './routes/models.js'
 import { createSyncRoutes } from './routes/sync.js'
 import type { PasswordHasher } from './security/passwords.js'
 import { AuthService } from './services/auth/auth-service.js'
@@ -56,6 +57,11 @@ export function createApp(deps: AppDeps): Hono {
   const syncService = new SyncService(deps)
   const deviceAuth = createDeviceAuth(deps)
   const resolveSource = deps.resolveSource ?? defaultResolveSource
+  const modelCatalog = () => {
+    const catalog = deps.getConfig().modelCatalog
+    if (catalog === undefined) throw new ConfigError(['MEALMATE_MODELS_FILE'])
+    return catalog
+  }
 
   app.route('/health', healthRoutes)
   app.route(
@@ -63,6 +69,7 @@ export function createApp(deps: AppDeps): Hono {
     createApiV1({
       authRoutes: createAuthRoutes({ auth: authService, deviceAuth, resolveSource }),
       syncRoutes: createSyncRoutes({ sync: syncService, deviceAuth }),
+      modelsRoutes: createModelsRoutes({ getModelCatalog: modelCatalog }),
     }),
   )
   app.get('/', (c) => c.json({ name: 'mealmate-lite', version: pkg.version }))

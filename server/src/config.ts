@@ -6,6 +6,7 @@
  * 初始化后必须保持不变（恢复重置不轮换它）。
  */
 import { readFileSync } from 'node:fs'
+import { ModelCatalog, ModelCatalogError } from './services/models/model-catalog.js'
 
 export interface AppConfig {
   /**
@@ -13,6 +14,8 @@ export interface AppConfig {
    * 保留原文形态：wire 端按同一字符串做常量时间比较，HKDF 派生按 UTF-8 字节执行。
    */
   bootstrapSecret: string
+  /** 生产配置在启动期生成；保留 optional 以兼容不挂载 models route 的既有测试依赖。 */
+  modelCatalog?: ModelCatalog
 }
 
 export class ConfigError extends Error {
@@ -26,12 +29,26 @@ export class ConfigError extends Error {
 
 const PLACEHOLDER_PATTERN = /example|changeme|placeholder|your[-_]?secret/i
 
-export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+export function loadAppConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  readModelsFile: () => string = () => readFileSync('/run/config/models.json', 'utf8'),
+): AppConfig {
   const problems: string[] = []
   const secret = resolveBootstrapSecret(env, problems)
   if (env.TZ !== 'Asia/Shanghai') problems.push('TZ')
+  let modelCatalog: ModelCatalog | undefined
+  if (env.MEALMATE_MODELS_FILE !== '/run/config/models.json') {
+    problems.push('MEALMATE_MODELS_FILE')
+  } else {
+    try {
+      modelCatalog = ModelCatalog.load({ readFile: readModelsFile, env })
+    } catch (error) {
+      if (!(error instanceof ModelCatalogError)) throw error
+      problems.push('MEALMATE_MODELS_FILE')
+    }
+  }
   if (problems.length > 0) throw new ConfigError(problems)
-  return { bootstrapSecret: secret }
+  return { bootstrapSecret: secret, modelCatalog }
 }
 
 /** 失败路径只负责收集 problems（调用方统一抛 ConfigError），返回空串占位。 */

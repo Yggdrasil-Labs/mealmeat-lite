@@ -1,10 +1,13 @@
 import * as path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { loadAppConfig } from './config.js'
 import { resolveMigrationsFolder } from './db/migration-folder.js'
 import { formatFamilyCode, generateFamilyCode } from './security/crypto.js'
 import { argon2Hasher } from './security/passwords.js'
+import type { ConfiguredModel, ModelCatalog } from './services/models/model-catalog.js'
 import { createSql } from './utils/db.js'
 
 /**
@@ -40,10 +43,172 @@ async function runMigration(): Promise<void> {
 /**
  * models verify — 验证已启用的 AI 模型配置
  */
-async function runModelVerify(): Promise<void> {
-  console.log('[models] Model verification starting...')
-  // TODO: 阶段 4 — 对每个 enabled 模型发起流式 no-op tool 探测
-  console.log('[models] No models configured yet')
+export interface ModelVerifyProbeResult {
+  delta: string
+  toolCall: { name: string; input: unknown }
+}
+
+export interface ModelVerifyOptions {
+  catalog?: ModelCatalog
+  probe?: (model: ConfiguredModel) => Promise<ModelVerifyProbeResult>
+  output?: (line: string) => void
+  /** 测试可缩短；生产调用始终采用 30 秒。 */
+  timeoutMs?: number
+}
+
+export function createOpenAICompatibleProbe(
+  fetcher: typeof fetch = fetch,
+): (model: ConfiguredModel) => Promise<ModelVerifyProbeResult> {
+  return async (model) => await probeOpenAICompatibleModel(model, fetcher)
+}
+
+/**
+ * 发布前的流式工具调用探测。失败输出只包含 model id 与枚举错误类别，绝不记录 URL、密钥或 provider body。
+ */
+export async function runModelVerify(options: ModelVerifyOptions = {}): Promise<void> {
+  const catalog = options.catalog ?? loadAppConfig().modelCatalog
+  if (catalog === undefined) throw new Error('MODEL_VERIFY_FAILED')
+  const probe = options.probe ?? createOpenAICompatibleProbe()
+  const output = options.output ?? console.log
+  let failed = false
+
+  for (const model of catalog.listEnabled()) {
+    try {
+      if (model.apiKey === '') throw new ModelVerifyFailure('MISSING_API_KEY')
+      const result = await withTimeout(probe(model), options.timeoutMs ?? 30_000)
+      if (result.delta.trim() === '' || !isNoOpToolCall(result.toolCall)) {
+        throw new ModelVerifyFailure('INVALID_PROBE')
+      }
+      output(`[models] ${model.id} pass`)
+    } catch (error) {
+      failed = true
+      output(`[models] ${model.id} fail ${toVerifyCategory(error)}`)
+    }
+  }
+  if (failed) throw new Error('MODEL_VERIFY_FAILED')
+}
+
+class ModelVerifyFailure extends Error {
+  constructor(readonly category: string) {
+    super(category)
+  }
+}
+
+function isNoOpToolCall(value: { name: string; input: unknown }): boolean {
+  return value.name === 'no_op' && isEmptyPlainObject(value.input)
+}
+
+function isEmptyPlainObject(value: unknown): value is Record<string, never> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  if (Object.getPrototypeOf(value) !== Object.prototype) return false
+  return Object.keys(value).length === 0
+}
+
+function toVerifyCategory(error: unknown): string {
+  if (error instanceof ModelVerifyFailure) return error.category
+  if (error instanceof DOMException && error.name === 'TimeoutError') return 'TIMEOUT'
+  return 'PROVIDER_ERROR'
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new ModelVerifyFailure('TIMEOUT')), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/** OpenAI-compatible streaming probe; callers never receive raw provider data. */
+async function probeOpenAICompatibleModel(
+  model: ConfiguredModel,
+  fetcher: typeof fetch,
+): Promise<ModelVerifyProbeResult> {
+  const response = await fetcher(new URL('chat/completions', ensureTrailingSlash(model.baseURL)), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${model.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: model.model,
+      stream: true,
+      messages: [{ role: 'user', content: 'Reply with ok and call the no_op tool once.' }],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'no_op',
+            description: 'Verification no-op.',
+            parameters: { type: 'object', properties: {}, additionalProperties: false },
+          },
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+  if (!response.ok || response.body === null) throw new ModelVerifyFailure('PROVIDER_ERROR')
+
+  const state = await readProbeStream(response.body)
+  let input: unknown
+  try {
+    input = JSON.parse(state.toolArguments)
+  } catch {
+    throw new ModelVerifyFailure('INVALID_PROBE')
+  }
+  return { delta: state.delta, toolCall: { name: state.toolName, input } }
+}
+
+interface ProbeStreamState {
+  delta: string
+  toolName: string
+  toolArguments: string
+}
+
+async function readProbeStream(stream: ReadableStream<Uint8Array>): Promise<ProbeStreamState> {
+  const state: ProbeStreamState = { delta: '', toolName: '', toolArguments: '' }
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  let pending = ''
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      pending += decoder.decode(chunk.value, { stream: true })
+      const lines = pending.split('\n')
+      pending = lines.pop() ?? ''
+      for (const line of lines) addProbeLine(line, state)
+    }
+    if (pending !== '') addProbeLine(pending, state)
+    return state
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function addProbeLine(line: string, state: ProbeStreamState): void {
+  if (!line.startsWith('data: ')) return
+  const payload = line.slice('data: '.length).trim()
+  if (payload === '[DONE]') return
+  let delta: Record<string, unknown> | undefined
+  try {
+    delta = (JSON.parse(payload) as { choices?: Array<{ delta?: Record<string, unknown> }> })
+      .choices?.[0]?.delta
+  } catch {
+    throw new ModelVerifyFailure('PROVIDER_ERROR')
+  }
+  if (typeof delta?.content === 'string') state.delta += delta.content
+  const toolCall = Array.isArray(delta?.tool_calls) ? delta.tool_calls[0] : undefined
+  if (typeof toolCall !== 'object' || toolCall === null) return
+  const fn = (toolCall as { function?: Record<string, unknown> }).function
+  if (typeof fn?.name === 'string') state.toolName = fn.name
+  if (typeof fn?.arguments === 'string') state.toolArguments += fn.arguments
+}
+
+function ensureTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : `${value}/`
 }
 
 /**
@@ -100,7 +265,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error('[fatal] CLI command failed:', err instanceof Error ? err.message : String(err))
-  process.exit(1)
-})
+if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch((err) => {
+    console.error('[fatal] CLI command failed:', err instanceof Error ? err.message : String(err))
+    process.exit(1)
+  })
+}
