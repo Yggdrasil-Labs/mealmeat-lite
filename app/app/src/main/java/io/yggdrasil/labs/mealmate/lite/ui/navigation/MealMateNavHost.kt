@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -22,6 +23,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthUiState
+import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthViewModel
+import io.yggdrasil.labs.mealmate.lite.ui.auth.FamilyCodeScreen
+import io.yggdrasil.labs.mealmate.lite.ui.auth.JoinRecoveryScreen
+import io.yggdrasil.labs.mealmate.lite.ui.auth.ProvisioningScreen
 import io.yggdrasil.labs.mealmate.lite.ui.chat.ChatScreen
 import io.yggdrasil.labs.mealmate.lite.ui.plans.PlansScreen
 import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipesScreen
@@ -45,7 +51,42 @@ enum class TopLevelRoute(
  * 应用主导航宿主，包含 Bottom Navigation 和页面路由
  */
 @Composable
-fun MealMateNavHost() {
+fun MealMateRoot(
+    authState: AuthUiState,
+    authViewModel: AuthViewModel,
+    settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel,
+) {
+    MaterialTheme {
+        when (val state = authState) {
+            AuthUiState.Checking -> {
+                CircularProgressIndicator()
+            }
+
+            is AuthUiState.Join -> {
+                JoinRecoveryScreen(
+                    state = state,
+                    onBootstrap = authViewModel::bootstrap,
+                    onRegister = authViewModel::register,
+                )
+            }
+
+            is AuthUiState.Provisioning -> {
+                ProvisioningScreen(state, authViewModel::retryProvisioning)
+            }
+
+            is AuthUiState.AwaitingFamilyCode -> {
+                FamilyCodeScreen(state.familyCode, authViewModel::confirmFamilyCode)
+            }
+
+            AuthUiState.Authenticated -> {
+                MealMateNavHost(settingsViewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun MealMateNavHost(settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel) {
     val navController = rememberNavController()
 
     MaterialTheme {
@@ -82,7 +123,7 @@ fun MealMateNavHost() {
                 composable(TopLevelRoute.Chat.route) { ChatScreen() }
                 composable(TopLevelRoute.Recipes.route) { RecipesScreen() }
                 composable(TopLevelRoute.Plans.route) { PlansScreen() }
-                composable(TopLevelRoute.Settings.route) { SettingsScreen() }
+                composable(TopLevelRoute.Settings.route) { SettingsScreen(settingsViewModel) }
             }
         }
     }
