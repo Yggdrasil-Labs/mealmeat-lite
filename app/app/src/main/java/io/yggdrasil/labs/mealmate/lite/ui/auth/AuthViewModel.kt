@@ -10,6 +10,9 @@ import io.yggdrasil.labs.mealmate.lite.data.auth.SessionPhase
 import io.yggdrasil.labs.mealmate.lite.data.models.ModelSelectionRepository
 import io.yggdrasil.labs.mealmate.lite.data.models.ModelSelectionResult
 import io.yggdrasil.labs.mealmate.lite.data.remote.ApiCallException
+import io.yggdrasil.labs.mealmate.lite.data.sync.SyncCoordinator
+import io.yggdrasil.labs.mealmate.lite.data.sync.SyncReason
+import io.yggdrasil.labs.mealmate.lite.data.sync.SyncRunResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +48,7 @@ class AuthViewModel(
     private val authRepository: AuthRepository,
     private val sessionManager: SessionManager,
     private val modelSelectionRepository: ModelSelectionRepository,
+    private val syncCoordinator: SyncCoordinator,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<AuthUiState>(AuthUiState.Checking)
     val state: StateFlow<AuthUiState> = mutableState.asStateFlow()
@@ -60,10 +64,18 @@ class AuthViewModel(
         viewModelScope.launch {
             authRepository.restore()
             val session = sessionManager.state.value
-            if (session.phase == SessionPhase.Unauthenticated || session.generation == null) {
-                mutableState.value = AuthUiState.Join(JoinMode.Bootstrap)
-            } else {
-                resume(session.generation)
+            when {
+                session.phase == SessionPhase.Unauthenticated || session.generation == null -> {
+                    mutableState.value = AuthUiState.Join(JoinMode.Bootstrap)
+                }
+
+                session.phase == SessionPhase.Active -> {
+                    mutableState.value = AuthUiState.Authenticated
+                }
+
+                else -> {
+                    resume(session.generation)
+                }
             }
         }
     }
@@ -114,11 +126,8 @@ class AuthViewModel(
         if (mutableState.value !is AuthUiState.AwaitingFamilyCode) return
         val generation = sessionManager.state.value.generation ?: return
         viewModelScope.launch {
-            if (sessionManager.activate(generation, sessionManager.state.value.selectedModelId ?: return@launch)) {
-                mutableState.value = AuthUiState.Authenticated
-            } else {
-                mutableState.value = AuthUiState.Join(JoinMode.Recovery, "会话已过期，请重新加入")
-            }
+            mutableState.value = AuthUiState.Provisioning()
+            completeInitialSync(generation, familyCode = null)
         }
     }
 
@@ -140,10 +149,8 @@ class AuthViewModel(
             is ModelSelectionResult.Selected -> {
                 if (familyCode != null) {
                     mutableState.value = AuthUiState.AwaitingFamilyCode(familyCode)
-                } else if (sessionManager.activate(generation, result.modelId)) {
-                    mutableState.value = AuthUiState.Authenticated
                 } else {
-                    mutableState.value = AuthUiState.Join(JoinMode.Recovery, "会话已过期，请重新加入")
+                    completeInitialSync(generation, familyCode = null)
                 }
             }
 
@@ -162,6 +169,31 @@ class AuthViewModel(
                     } else {
                         AuthUiState.Provisioning(familyCode, errorMessage(result.cause))
                     }
+            }
+        }
+    }
+
+    private suspend fun completeInitialSync(
+        generation: Long,
+        familyCode: String?,
+    ) {
+        when (val result = syncCoordinator.sync(SyncReason.InitialProvisioning)) {
+            is SyncRunResult.Success -> {
+                if (sessionManager.state.value.phase == SessionPhase.Active &&
+                    sessionManager.state.value.generation == generation
+                ) {
+                    mutableState.value = AuthUiState.Authenticated
+                } else {
+                    mutableState.value = AuthUiState.Join(JoinMode.Recovery, "会话已过期，请重新加入")
+                }
+            }
+
+            SyncRunResult.SessionChanged -> {
+                mutableState.value = AuthUiState.Join(JoinMode.Recovery, "会话已过期，请重新加入")
+            }
+
+            is SyncRunResult.Failed -> {
+                mutableState.value = AuthUiState.Provisioning(familyCode, result.message)
             }
         }
     }

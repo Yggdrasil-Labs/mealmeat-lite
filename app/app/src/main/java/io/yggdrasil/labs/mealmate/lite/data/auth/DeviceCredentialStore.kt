@@ -31,7 +31,14 @@ data class DeviceCredential(
     val token: String,
     val sessionId: String,
     val sessionGeneration: Long,
+    val state: CredentialState = CredentialState.ACTIVE,
 )
+
+@Serializable
+enum class CredentialState {
+    SWITCHING,
+    ACTIVE,
+}
 
 interface DeviceCredentialStore {
     suspend fun read(): DeviceCredential?

@@ -11,6 +11,7 @@ import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RegisterRequest
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RegisterResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RevokeDeviceResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RotateFamilyCodeResponse
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncResponse
 import kotlinx.serialization.Serializable
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -21,9 +22,11 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.Response as RetrofitResponse
 
 @Serializable
@@ -33,6 +36,13 @@ data class SuccessEnvelope<T>(
 )
 
 interface MealMateApi {
+    @GET("api/v1/sync")
+    suspend fun sync(
+        @Query("cursor") cursor: String?,
+        @Query("limit") limit: Int = 100,
+        @Header("Authorization") authorization: String? = null,
+    ): RetrofitResponse<SuccessEnvelope<SyncResponse>>
+
     @GET("api/v1/models")
     suspend fun listModels(): RetrofitResponse<ModelListResponse>
 
@@ -136,7 +146,9 @@ private class BearerTokenInterceptor(
                 .request()
                 .newBuilder()
                 .apply {
-                    if (!token.isNullOrBlank()) header("Authorization", "Bearer $token")
+                    if (chain.request().header("Authorization") == null && !token.isNullOrBlank()) {
+                        header("Authorization", "Bearer $token")
+                    }
                 }.build()
         return chain.proceed(request)
     }

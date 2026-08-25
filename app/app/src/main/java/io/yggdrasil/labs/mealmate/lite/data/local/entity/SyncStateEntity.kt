@@ -7,6 +7,10 @@ import androidx.room.PrimaryKey
 data class SyncStateEntity(
     @PrimaryKey val singletonId: Int = SINGLETON_ID,
     val cursor: String?,
+    val phase: SyncCursorPhase? = null,
+    val lastResource: String? = null,
+    val lastResourceId: String? = null,
+    val lastServerVersion: String? = null,
 ) {
     init {
         require(singletonId == SINGLETON_ID) { "sync_state must use the singleton id" }
@@ -15,4 +19,9 @@ data class SyncStateEntity(
     companion object {
         const val SINGLETON_ID = 0
     }
+}
+
+enum class SyncCursorPhase {
+    SNAPSHOT,
+    INCREMENTAL,
 }

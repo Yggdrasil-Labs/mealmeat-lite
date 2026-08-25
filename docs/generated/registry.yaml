@@ -1,0 +1,5 @@
+types:
+  - type: db-schema
+    source: app/app/
+    strategy: ast-scan+schema-parse
+    stale_after_days: 30

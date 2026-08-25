@@ -5,11 +5,15 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionState
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ConversationMessageEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.PlanItemEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.RecipeEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.ReplicaVersionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SettingsCacheEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncDiagnosticEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncFailureEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncStateEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.WeeklyPlanEntity
@@ -78,6 +82,87 @@ abstract class ContractCacheDao {
     @Query("SELECT * FROM sync_state WHERE singletonId = 0")
     abstract suspend fun getSyncState(): SyncStateEntity?
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertClientSession(entity: ClientSessionEntity)
+
+    @Query("SELECT * FROM client_session WHERE singletonId = 0")
+    abstract suspend fun getClientSession(): ClientSessionEntity?
+
+    @Query(
+        "UPDATE client_session SET selectedModelId = :modelId " +
+            "WHERE singletonId = 0 AND sessionId = :sessionId AND sessionGeneration = :generation " +
+            "AND state = 'provisioning'",
+    )
+    abstract suspend fun selectModel(
+        sessionId: String,
+        generation: Long,
+        modelId: String,
+    ): Int
+
+    @Query(
+        "UPDATE client_session SET state = 'active' " +
+            "WHERE singletonId = 0 AND sessionId = :sessionId AND sessionGeneration = :generation " +
+            "AND state = 'provisioning' AND selectedModelId IS NOT NULL AND length(selectedModelId) > 0",
+    )
+    abstract suspend fun promoteClientSession(
+        sessionId: String,
+        generation: Long,
+    ): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertReplicaVersion(entity: ReplicaVersionEntity)
+
+    @Query("SELECT * FROM replica_versions WHERE resource = :resource AND resourceId = :resourceId")
+    abstract suspend fun getReplicaVersion(
+        resource: String,
+        resourceId: String,
+    ): ReplicaVersionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    abstract suspend fun insertSyncDiagnostic(entity: SyncDiagnosticEntity)
+
+    @Query("DELETE FROM sync_diagnostics WHERE sessionId = :sessionId AND sessionGeneration = :generation")
+    abstract suspend fun clearSyncDiagnostics(
+        sessionId: String,
+        generation: Long,
+    )
+
+    @Query("DELETE FROM plan_items")
+    internal abstract suspend fun clearPlanItems()
+
+    @Query("DELETE FROM weekly_plans")
+    internal abstract suspend fun clearWeeklyPlans()
+
+    @Query("DELETE FROM recipes")
+    internal abstract suspend fun clearRecipes()
+
+    @Query("DELETE FROM settings_cache")
+    internal abstract suspend fun clearSettings()
+
+    @Query("DELETE FROM conversation_messages")
+    internal abstract suspend fun clearConversationMessages()
+
+    @Query("DELETE FROM pending_actions")
+    internal abstract suspend fun clearPendingActions()
+
+    @Query("DELETE FROM sync_failures")
+    internal abstract suspend fun clearSyncFailures()
+
+    @Query("DELETE FROM sync_state")
+    internal abstract suspend fun clearSyncState()
+
+    @Query("DELETE FROM chat_draft")
+    internal abstract suspend fun clearChatDraft()
+
+    @Query("DELETE FROM replica_versions")
+    internal abstract suspend fun clearReplicaVersions()
+
+    @Query("DELETE FROM sync_diagnostics")
+    internal abstract suspend fun clearSyncDiagnostics()
+
+    @Query("DELETE FROM client_session")
+    internal abstract suspend fun clearClientSession()
+
     suspend fun insertPendingAction(entity: PendingActionEntity) {
         requireCanonicalPendingActionEntity(entity)
         insertPendingActionUnchecked(entity)
@@ -86,6 +171,42 @@ abstract class ContractCacheDao {
     suspend fun upsertSyncFailure(entity: SyncFailureEntity) {
         requireValidSyncFailureEntity(entity)
         upsertSyncFailureUnchecked(entity)
+    }
+
+    @Transaction
+    open suspend fun replaceSession(entity: ClientSessionEntity) {
+        require(entity.state != ClientSessionState.ACTIVE) {
+            "replacement session cannot begin active"
+        }
+        clearPlanItems()
+        clearWeeklyPlans()
+        clearRecipes()
+        clearSettings()
+        clearConversationMessages()
+        clearPendingActions()
+        clearSyncFailures()
+        clearSyncState()
+        clearChatDraft()
+        clearReplicaVersions()
+        clearSyncDiagnostics()
+        clearClientSession()
+        upsertClientSession(entity)
+    }
+
+    @Transaction
+    open suspend fun clearSessionData() {
+        clearPlanItems()
+        clearWeeklyPlans()
+        clearRecipes()
+        clearSettings()
+        clearConversationMessages()
+        clearPendingActions()
+        clearSyncFailures()
+        clearSyncState()
+        clearChatDraft()
+        clearReplicaVersions()
+        clearSyncDiagnostics()
+        clearClientSession()
     }
 
     @Transaction

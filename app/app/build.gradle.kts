@@ -49,6 +49,7 @@ android {
     sourceSets {
         getByName("androidTest") {
             assets.srcDir(rootProject.file("../contracts/v1/fixtures"))
+            assets.srcDir(project.file("schemas"))
         }
     }
 
@@ -130,8 +131,14 @@ dependencies {
 
     // Instrumented Testing
     androidTestImplementation(libs.androidx.test.ext)
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
+}
+
+ksp {
+    arg("room.schemaLocation", project.file("schemas").absolutePath)
 }
 
 ktlint {

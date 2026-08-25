@@ -61,4 +61,29 @@ class MealMateApiTest {
             assertEquals(UUID.fromString("11111111-1111-4111-8111-111111111111"), response.body()?.data?.deviceId)
             assertEquals("Bearer token-a", server.takeRequest().getHeader("Authorization"))
         }
+
+    @Test
+    fun `sync omits a null cursor instead of sending an empty cursor`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"success":true,"data":{"changes":[],"hasMore":false}}"""),
+            )
+            val api = createMealMateApi(server.url("/").toString()) { "new-session-token" }
+
+            assertEquals(
+                false,
+                api
+                    .sync(cursor = null, authorization = "Bearer captured-run-token")
+                    .body()
+                    ?.data
+                    ?.hasMore,
+            )
+
+            val request = server.takeRequest()
+            assertEquals("Bearer captured-run-token", request.getHeader("Authorization"))
+            assertEquals(null, request.requestUrl?.queryParameter("cursor"))
+            assertEquals("100", request.requestUrl?.queryParameter("limit"))
+        }
 }
