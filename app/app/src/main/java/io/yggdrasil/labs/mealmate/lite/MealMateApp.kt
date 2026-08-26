@@ -11,14 +11,21 @@ import io.yggdrasil.labs.mealmate.lite.data.local.MealMateDatabase
 import io.yggdrasil.labs.mealmate.lite.data.local.RoomSessionLocalStore
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncPageApplier
 import io.yggdrasil.labs.mealmate.lite.data.models.ModelSelectionRepository
+import io.yggdrasil.labs.mealmate.lite.data.recipes.RoomOfflineRecipeRepository
 import io.yggdrasil.labs.mealmate.lite.data.remote.RetrofitModelCatalogClient
 import io.yggdrasil.labs.mealmate.lite.data.remote.createMealMateApi
 import io.yggdrasil.labs.mealmate.lite.data.settings.SettingsRepository
 import io.yggdrasil.labs.mealmate.lite.data.sync.InitialSyncCoordinator
+import io.yggdrasil.labs.mealmate.lite.data.sync.MealMateSyncWorker
+import io.yggdrasil.labs.mealmate.lite.data.sync.RetrofitSyncActionClient
 import io.yggdrasil.labs.mealmate.lite.data.sync.RetrofitSyncPageClient
+import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncActionStore
+import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncFailureRepository
 import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncPageStore
 import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthViewModel
+import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipeEditorViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel
+import io.yggdrasil.labs.mealmate.lite.ui.sync.SyncFailureViewModel
 
 @HiltAndroidApp
 class MealMateApp : Application() {
@@ -48,11 +55,13 @@ class AppContainer(
     private val modelSelectionRepository =
         ModelSelectionRepository(sessionManager, RetrofitModelCatalogClient(api))
     private val pageApplier = SyncPageApplier(database)
-    private val syncCoordinator =
+    val syncCoordinator =
         InitialSyncCoordinator(
             sessionManager,
             RetrofitSyncPageClient(api),
             RoomSyncPageStore(database, pageApplier),
+            RetrofitSyncActionClient(api),
+            RoomSyncActionStore(database),
         )
     val authViewModel =
         AuthViewModel(
@@ -62,4 +71,13 @@ class AppContainer(
             syncCoordinator,
         )
     val settingsViewModel = SettingsViewModel(SettingsRepository(api, sessionManager), sessionManager)
+    val recipeEditorViewModel =
+        RecipeEditorViewModel(RoomOfflineRecipeRepository(database)) {
+            MealMateSyncWorker.enqueueNow(application)
+        }
+    val syncFailureViewModel = SyncFailureViewModel(RoomSyncFailureRepository(database, sessionManager))
+
+    init {
+        MealMateSyncWorker.schedulePeriodic(application)
+    }
 }

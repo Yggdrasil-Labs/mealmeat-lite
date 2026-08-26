@@ -17,12 +17,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import io.yggdrasil.labs.mealmate.lite.MealMateApp
 import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthUiState
 import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.auth.FamilyCodeScreen
@@ -30,8 +32,10 @@ import io.yggdrasil.labs.mealmate.lite.ui.auth.JoinRecoveryScreen
 import io.yggdrasil.labs.mealmate.lite.ui.auth.ProvisioningScreen
 import io.yggdrasil.labs.mealmate.lite.ui.chat.ChatScreen
 import io.yggdrasil.labs.mealmate.lite.ui.plans.PlansScreen
+import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipeEditorViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipesScreen
 import io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsScreen
+import io.yggdrasil.labs.mealmate.lite.ui.sync.SyncFailureViewModel
 
 /**
  * 底部导航项定义
@@ -79,14 +83,19 @@ fun MealMateRoot(
             }
 
             AuthUiState.Authenticated -> {
-                MealMateNavHost(settingsViewModel)
+                val container = (LocalContext.current.applicationContext as MealMateApp).container
+                MealMateNavHost(settingsViewModel, container.recipeEditorViewModel, container.syncFailureViewModel)
             }
         }
     }
 }
 
 @Composable
-fun MealMateNavHost(settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel) {
+fun MealMateNavHost(
+    settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel,
+    recipeEditorViewModel: RecipeEditorViewModel,
+    syncFailureViewModel: SyncFailureViewModel,
+) {
     val navController = rememberNavController()
 
     MaterialTheme {
@@ -121,7 +130,7 @@ fun MealMateNavHost(settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settin
                 modifier = Modifier.padding(innerPadding),
             ) {
                 composable(TopLevelRoute.Chat.route) { ChatScreen() }
-                composable(TopLevelRoute.Recipes.route) { RecipesScreen() }
+                composable(TopLevelRoute.Recipes.route) { RecipesScreen(recipeEditorViewModel, syncFailureViewModel) }
                 composable(TopLevelRoute.Plans.route) { PlansScreen() }
                 composable(TopLevelRoute.Settings.route) { SettingsScreen(settingsViewModel) }
             }
