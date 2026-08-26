@@ -462,6 +462,40 @@ describe('register 与设备管理（已初始化实例）', () => {
   })
 })
 
+describe('设备认证时间源', () => {
+  let pg: TestPostgres
+
+  beforeAll(async () => {
+    pg = await startTestPostgres()
+  })
+
+  afterAll(async () => {
+    await pg.stop()
+  })
+
+  it('数据库时钟领先时，受保护请求不会回退最后使用时间', async () => {
+    const app = makeTestApp(pg, { source: '203.0.113.26' })
+    const device = await bootstrapDevice(app, 'clock-skew-device')
+    await pg.sql.unsafe(
+      "update device_tokens set created_at = now() + interval '1 minute', last_used_at = now() + interval '1 minute' where id = $1",
+      [device.deviceId],
+    )
+
+    const res = await authedGet(app, '/api/v1/auth/devices', device.deviceToken)
+
+    expect(res.status).toBe(200)
+    const rows = await pg.sql.unsafe<Array<{ created_at: string; last_used_at: string }>>(
+      'select created_at, last_used_at from device_tokens where id = $1',
+      [device.deviceId],
+    )
+    const row = rows[0]
+    expect(row).toBeDefined()
+    expect(new Date(row?.last_used_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+      new Date(row?.created_at ?? 0).getTime(),
+    )
+  })
+})
+
 describe('并发 bootstrap（AC5 竞争）', () => {
   let pg: TestPostgres
 

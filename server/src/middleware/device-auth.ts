@@ -4,7 +4,7 @@
  * 失败统一 401 UNAUTHORIZED，不泄露令牌状态。
  * 成功后在 Context 写入 device 并刷新 last_used_at。
  */
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { MiddlewareHandler } from 'hono'
 import type { Db } from '../db/pool.js'
 import { deviceTokens } from '../db/schema/auth.js'
@@ -52,7 +52,7 @@ export function createDeviceAuth(deps: DeviceAuthDeps): MiddlewareHandler {
     await deps
       .getDb()
       .update(deviceTokens)
-      .set({ lastUsedAt: new Date() })
+      .set({ lastUsedAt: sql`greatest(${deviceTokens.lastUsedAt}, now())` })
       .where(eq(deviceTokens.id, row.id))
 
     await next()
