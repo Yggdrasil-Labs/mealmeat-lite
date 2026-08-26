@@ -11,6 +11,8 @@ import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RegisterRequest
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RegisterResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RevokeDeviceResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.RotateFamilyCodeResponse
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsRequest
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncResponse
 import kotlinx.serialization.Serializable
 import okhttp3.Interceptor
@@ -42,6 +44,13 @@ interface MealMateApi {
         @Query("limit") limit: Int = 100,
         @Header("Authorization") authorization: String? = null,
     ): RetrofitResponse<SuccessEnvelope<SyncResponse>>
+
+    @POST("api/v1/sync/actions")
+    @Headers("Content-Type: application/json")
+    suspend fun syncActions(
+        @Body request: SyncActionsRequest,
+        @Header("Authorization") authorization: String? = null,
+    ): RetrofitResponse<SyncActionsResponse>
 
     @GET("api/v1/models")
     suspend fun listModels(): RetrofitResponse<ModelListResponse>

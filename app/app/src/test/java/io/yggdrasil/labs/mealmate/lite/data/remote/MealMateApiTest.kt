@@ -1,6 +1,7 @@
 package io.yggdrasil.labs.mealmate.lite.data.remote
 
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.BootstrapResponse
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsRequest
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -85,5 +86,26 @@ class MealMateApiTest {
             assertEquals("Bearer captured-run-token", request.getHeader("Authorization"))
             assertEquals(null, request.requestUrl?.queryParameter("cursor"))
             assertEquals("100", request.requestUrl?.queryParameter("limit"))
+        }
+
+    @Test
+    fun `offline actions use the frozen actions endpoint`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"results":[]}"""),
+            )
+            val api = createMealMateApi(server.url("/").toString()) { "newer-token" }
+
+            assertEquals(
+                emptyList<Any>(),
+                api.syncActions(SyncActionsRequest(emptyList()), "Bearer captured-action-token").body()?.results,
+            )
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/sync/actions", request.requestUrl?.encodedPath)
+            assertEquals("Bearer captured-action-token", request.getHeader("Authorization"))
         }
 }

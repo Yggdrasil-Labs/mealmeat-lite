@@ -1,6 +1,14 @@
+@file:Suppress("MaxLineLength")
+
 package io.yggdrasil.labs.mealmate.lite.data.sync
 
 import androidx.room.withTransaction
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionDto
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDto
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionResultDtoOneOf3Original
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsRequest
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncResponse
 import io.yggdrasil.labs.mealmate.lite.data.auth.SessionManager
 import io.yggdrasil.labs.mealmate.lite.data.auth.SessionPhase
@@ -8,7 +16,10 @@ import io.yggdrasil.labs.mealmate.lite.data.local.MealMateDatabase
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncApplyResult
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncPageApplier
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncSessionFence
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncDiagnosticKind
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncFailureEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.mapper.decodePendingActionPayload
 import io.yggdrasil.labs.mealmate.lite.data.remote.ApiCallException
 import io.yggdrasil.labs.mealmate.lite.data.remote.MealMateApi
 import io.yggdrasil.labs.mealmate.lite.data.remote.requireSuccessData
@@ -16,6 +27,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 enum class SyncReason {
     InitialProvisioning,
@@ -72,6 +86,52 @@ interface SyncPageStore {
         errorCode: String,
         message: String,
     )
+
+    suspend fun clearDiagnostics(sessionFence: SyncSessionFence)
+}
+
+interface SyncActionClient {
+    suspend fun submit(
+        actions: List<SyncActionDto>,
+        token: String,
+    ): SyncActionsResponse
+}
+
+interface SyncActionStore {
+    suspend fun recoverStaleClaims(staleBefore: String): Int
+
+    suspend fun claim(
+        attemptId: String,
+        claimedAt: String,
+        limit: Int,
+    ): List<PendingActionEntity>
+
+    suspend fun acknowledge(
+        actionId: String,
+        attemptId: String,
+        resource: AppliedResultDtoResource? = null,
+        serverVersion: String? = null,
+    ): Boolean
+
+    suspend fun reject(
+        actionId: String,
+        attemptId: String,
+        failure: SyncFailureEntity,
+    ): Boolean
+
+    suspend fun release(
+        actionIds: List<String>,
+        attemptId: String,
+    )
+
+    suspend fun resetForFullResync()
+}
+
+object SyncActionAcknowledgements {
+    fun hasExactlyClaimedIds(
+        claimed: Set<String>,
+        received: Set<String>,
+    ): Boolean = claimed == received
 }
 
 private sealed interface PageFetchOutcome {
@@ -84,11 +144,19 @@ private sealed interface PageFetchOutcome {
     ) : PageFetchOutcome
 }
 
+private enum class ActionResultApply {
+    Applied,
+    ClaimLost,
+    RequiresFullResync,
+}
+
 /** Single application-scoped entry point for initial and later sync runs. */
 class InitialSyncCoordinator(
     private val sessionManager: SessionManager,
     private val client: SyncPageClient,
     private val store: SyncPageStore,
+    private val actionClient: SyncActionClient? = null,
+    private val actionStore: SyncActionStore? = null,
     private val mutationMutex: Mutex = StateMutationMutex.instance,
 ) : SyncCoordinator {
     override suspend fun sync(reason: SyncReason): SyncRunResult {
@@ -166,11 +234,241 @@ class InitialSyncCoordinator(
 
             if (terminal) {
                 if (promote && !sessionManager.refreshAfterSync(generation)) return SyncRunResult.SessionChanged
+                val drainResult = drainActions(credential.token, fence, generation, reason)
+                if (drainResult != null) return drainResult
+                if (!sessionManager.isCurrent(generation)) return SyncRunResult.SessionChanged
+                try {
+                    store.clearDiagnostics(fence)
+                } catch (error: Exception) {
+                    return failure(
+                        fence,
+                        SyncFailureKind.PROTOCOL,
+                        SyncDiagnosticKind.PROTOCOL,
+                        "DIAGNOSTIC_CLEAR_FAILED",
+                        error.message ?: "Unable to clear completed-sync diagnostics",
+                    )
+                }
                 return SyncRunResult.Success(pages, appliedChanges)
             }
             cursor = requireNotNull(page.nextCursor)
         }
     }
+
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
+    private suspend fun drainActions(
+        token: String,
+        fence: SyncSessionFence,
+        generation: Long,
+        reason: SyncReason,
+    ): SyncRunResult? {
+        val client = actionClient ?: return null
+        val actions = actionStore ?: return null
+        actions.recoverStaleClaims(Instant.now().minus(STALE_CLAIM_MINUTES, ChronoUnit.MINUTES).toString())
+        while (true) {
+            if (!sessionManager.isCurrent(generation)) return SyncRunResult.SessionChanged
+            val attemptId = UUID.randomUUID().toString()
+            val claimed = actions.claim(attemptId, Instant.now().toString(), MAX_ACTIONS_PER_BATCH)
+            if (claimed.isEmpty()) return null
+            val payloads =
+                try {
+                    claimed.map { decodePendingActionPayload(it.payloadSchemaVersion, it.payloadJson) }
+                } catch (error: Exception) {
+                    actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    return failure(fence, SyncFailureKind.PROTOCOL, SyncDiagnosticKind.PROTOCOL, "ACTION_PAYLOAD_REJECTED", error.message)
+                }
+            val response =
+                try {
+                    client.submit(payloads, token)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: IOException) {
+                    actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    return transportFailure("ACTION_NETWORK_ERROR", error.message)
+                } catch (error: Exception) {
+                    actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    return failure(fence, SyncFailureKind.PROTOCOL, SyncDiagnosticKind.PROTOCOL, "ACTION_RESPONSE_REJECTED", error.message)
+                }
+            val ids = response.results.map(::actionResultId)
+            if (!SyncActionAcknowledgements.hasExactlyClaimedIds(claimed.map(PendingActionEntity::actionId).toSet(), ids.toSet()) ||
+                ids.size != ids.toSet().size
+            ) {
+                actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                return failure(
+                    fence,
+                    SyncFailureKind.PROTOCOL,
+                    SyncDiagnosticKind.PROTOCOL,
+                    "ACTION_ACK_INVALID",
+                    "Action ACK ids do not match claimed batch",
+                )
+            }
+            val actionOutcomes = response.results.map { result -> applyActionResult(result, attemptId, actions) }
+            if (actionOutcomes.any { it == ActionResultApply.ClaimLost }) {
+                actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                return failure(
+                    fence,
+                    SyncFailureKind.PROTOCOL,
+                    SyncDiagnosticKind.PROTOCOL,
+                    "ACTION_CLAIM_LOST",
+                    "A claimed action was no longer owned while applying the server acknowledgement",
+                )
+            }
+            if (actionOutcomes.any { it == ActionResultApply.RequiresFullResync }) {
+                actions.resetForFullResync()
+                return syncLocked(reason, generation)
+            }
+        }
+    }
+
+    @Suppress("LongMethod", "ReturnCount") // Frozen result union needs an explicit per-variant CAS outcome.
+    private suspend fun applyActionResult(
+        result: SyncActionResultDto,
+        attemptId: String,
+        actions: SyncActionStore,
+    ): ActionResultApply {
+        when (result) {
+            is SyncActionResultDto.SyncActionResultDtoOneOfValue -> {
+                return if (actions.acknowledge(
+                        result.value.actionId.toString(),
+                        attemptId,
+                        result.value.resource,
+                        result.value.serverVersion,
+                    )
+                ) {
+                    ActionResultApply.Applied
+                } else {
+                    ActionResultApply.ClaimLost
+                }
+            }
+
+            is SyncActionResultDto.SyncActionResultDtoOneOf1Value -> {
+                val value = result.value
+                return if (actions.reject(
+                        value.actionId.toString(),
+                        attemptId,
+                        SyncFailureEntity(
+                            value.actionId.toString(),
+                            value.errCode,
+                            value.errMessage,
+                            1,
+                            io.yggdrasil.labs.mealmate.lite.contract.contractJson.encodeToString(
+                                io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
+                                    .serializer(),
+                                value.authoritative,
+                            ),
+                            value.serverVersion,
+                            false,
+                            Instant.now().toString(),
+                        ),
+                    )
+                ) {
+                    ActionResultApply.Applied
+                } else {
+                    ActionResultApply.ClaimLost
+                }
+            }
+
+            is SyncActionResultDto.SyncActionResultDtoOneOf2Value -> {
+                val value = result.value
+                return if (actions.reject(
+                        value.actionId.toString(),
+                        attemptId,
+                        SyncFailureEntity(
+                            value.actionId.toString(),
+                            value.errCode,
+                            value.errMessage,
+                            null,
+                            null,
+                            null,
+                            true,
+                            Instant.now().toString(),
+                        ),
+                    )
+                ) {
+                    ActionResultApply.RequiresFullResync
+                } else {
+                    ActionResultApply.ClaimLost
+                }
+            }
+
+            is SyncActionResultDto.SyncActionResultDtoOneOf3Value -> {
+                when (val original = result.value.original) {
+                    is SyncActionResultDtoOneOf3Original.AppliedResultDtoValue -> {
+                        return if (actions.acknowledge(
+                                result.value.actionId.toString(),
+                                attemptId,
+                                original.value.resource,
+                                original.value.serverVersion,
+                            )
+                        ) {
+                            ActionResultApply.Applied
+                        } else {
+                            ActionResultApply.ClaimLost
+                        }
+                    }
+
+                    is SyncActionResultDtoOneOf3Original.RejectedResultDtoValue -> {
+                        when (val rejected = original.value) {
+                            is io.yggdrasil.labs.mealmate.lite.contract.generated.models.RejectedResultDto.RejectedResultDtoOneOfValue -> {
+                                return if (actions.reject(
+                                        result.value.actionId.toString(),
+                                        attemptId,
+                                        SyncFailureEntity(
+                                            result.value.actionId.toString(),
+                                            rejected.value.errCode,
+                                            rejected.value.errMessage,
+                                            1,
+                                            io.yggdrasil.labs.mealmate.lite.contract.contractJson.encodeToString(
+                                                io.yggdrasil.labs.mealmate.lite.contract.generated.models.AppliedResultDtoResource
+                                                    .serializer(),
+                                                rejected.value.authoritative,
+                                            ),
+                                            rejected.value.serverVersion,
+                                            false,
+                                            Instant.now().toString(),
+                                        ),
+                                    )
+                                ) {
+                                    ActionResultApply.Applied
+                                } else {
+                                    ActionResultApply.ClaimLost
+                                }
+                            }
+
+                            is io.yggdrasil.labs.mealmate.lite.contract.generated.models.RejectedResultDto.RejectedResultDtoOneOf1Value -> {
+                                return if (actions.reject(
+                                        result.value.actionId.toString(),
+                                        attemptId,
+                                        SyncFailureEntity(
+                                            result.value.actionId.toString(),
+                                            rejected.value.errCode,
+                                            rejected.value.errMessage,
+                                            null,
+                                            null,
+                                            null,
+                                            true,
+                                            Instant.now().toString(),
+                                        ),
+                                    )
+                                ) {
+                                    ActionResultApply.RequiresFullResync
+                                } else {
+                                    ActionResultApply.ClaimLost
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun actionResultId(result: SyncActionResultDto): String =
+        when (result) {
+            is SyncActionResultDto.SyncActionResultDtoOneOfValue -> result.value.actionId.toString()
+            is SyncActionResultDto.SyncActionResultDtoOneOf1Value -> result.value.actionId.toString()
+            is SyncActionResultDto.SyncActionResultDtoOneOf2Value -> result.value.actionId.toString()
+            is SyncActionResultDto.SyncActionResultDtoOneOf3Value -> result.value.actionId.toString()
+        }
 
     @Suppress("TooGenericExceptionCaught") // Non-I/O failures are malformed decoded responses.
     private suspend fun fetchPage(
@@ -276,6 +574,8 @@ class InitialSyncCoordinator(
         const val INVALID_CURSOR_CODE = "INVALID_CURSOR"
         val CLIENT_ERROR_STATUS_RANGE = 400..499
         val TRANSIENT_CLIENT_STATUS_CODES = setOf(408, 429)
+        const val MAX_ACTIONS_PER_BATCH = 100
+        const val STALE_CLAIM_MINUTES = 5L
     }
 }
 
@@ -289,6 +589,19 @@ class RetrofitSyncPageClient(
         api
             .sync(cursor = cursor, authorization = "Bearer $token")
             .requireSuccessData()
+}
+
+class RetrofitSyncActionClient(
+    private val api: MealMateApi,
+) : SyncActionClient {
+    override suspend fun submit(
+        actions: List<SyncActionDto>,
+        token: String,
+    ): SyncActionsResponse {
+        val response = api.syncActions(SyncActionsRequest(actions), authorization = "Bearer $token")
+        if (!response.isSuccessful) throw ApiCallException(response.code(), message = "MealMate action sync failed: ${response.code()}")
+        return requireNotNull(response.body()) { "MealMate action sync returned an empty body" }
+    }
 }
 
 class RoomSyncPageStore(
@@ -319,6 +632,108 @@ class RoomSyncPageStore(
         errorCode: String,
         message: String,
     ) = applier.recordDiagnostic(sessionFence, kind, errorCode, message)
+
+    override suspend fun clearDiagnostics(sessionFence: SyncSessionFence) {
+        database.withTransaction {
+            val session = database.contractCacheDao().getClientSession()
+            require(
+                session?.sessionId == sessionFence.sessionId &&
+                    session.sessionGeneration == sessionFence.sessionGeneration,
+            ) { "Client session changed before clearing sync diagnostics" }
+            database.contractCacheDao().clearSyncDiagnostics(sessionFence.sessionId, sessionFence.sessionGeneration)
+        }
+    }
+}
+
+class RoomSyncActionStore(
+    private val database: MealMateDatabase,
+) : SyncActionStore {
+    private val dao get() = database.contractCacheDao()
+
+    override suspend fun recoverStaleClaims(staleBefore: String): Int = dao.recoverStaleClaims(staleBefore)
+
+    override suspend fun claim(
+        attemptId: String,
+        claimedAt: String,
+        limit: Int,
+    ): List<PendingActionEntity> = dao.claimPendingActions(attemptId, claimedAt, limit)
+
+    override suspend fun acknowledge(
+        actionId: String,
+        attemptId: String,
+        resource: AppliedResultDtoResource?,
+        serverVersion: String?,
+    ): Boolean =
+        database.withTransaction {
+            if (!dao.acknowledgeAction(actionId, attemptId)) {
+                false
+            } else {
+                if (resource != null && serverVersion != null) applyAuthoritative(resource, serverVersion)
+                true
+            }
+        }
+
+    override suspend fun reject(
+        actionId: String,
+        attemptId: String,
+        failure: SyncFailureEntity,
+    ): Boolean = dao.rejectAction(actionId, attemptId, failure)
+
+    override suspend fun release(
+        actionIds: List<String>,
+        attemptId: String,
+    ) = dao.releaseAttempt(actionIds, attemptId)
+
+    override suspend fun resetForFullResync() = dao.resetForFullResync()
+
+    private suspend fun applyAuthoritative(
+        resource: AppliedResultDtoResource,
+        serverVersion: String,
+    ) {
+        when (resource) {
+            is AppliedResultDtoResource.RecipeViewValue -> {
+                val recipe = resource.value
+                dao.upsertRecipe(
+                    io.yggdrasil.labs.mealmate.lite.data.local.mapper.RecipeRoomMapper
+                        .toEntity(recipe),
+                )
+                dao.upsertReplicaVersion(
+                    io.yggdrasil.labs.mealmate.lite.data.local.entity.ReplicaVersionEntity(
+                        "recipe",
+                        recipe.id.toString(),
+                        serverVersion,
+                    ),
+                )
+            }
+
+            is AppliedResultDtoResource.RecipeTombstoneValue -> {
+                val tombstone = resource.value
+                val time = tombstone.deletedAt.toInstant().toString()
+                dao.upsertRecipe(
+                    io.yggdrasil.labs.mealmate.lite.data.local.entity.RecipeEntity(
+                        tombstone.id.toString(),
+                        "",
+                        "[]",
+                        "[]",
+                        "[]",
+                        serverVersion,
+                        time,
+                        time,
+                        null,
+                        null,
+                        time,
+                    ),
+                )
+                dao.upsertReplicaVersion(
+                    io.yggdrasil.labs.mealmate.lite.data.local.entity.ReplicaVersionEntity(
+                        "recipe",
+                        tombstone.id.toString(),
+                        serverVersion,
+                    ),
+                )
+            }
+        }
+    }
 }
 
 object StateMutationMutex {

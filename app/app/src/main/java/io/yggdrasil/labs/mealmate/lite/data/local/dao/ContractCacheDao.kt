@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "MaxLineLength")
+
 package io.yggdrasil.labs.mealmate.lite.data.local.dao
 
 import androidx.room.Dao
@@ -9,6 +11,7 @@ import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionState
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ConversationMessageEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionState
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.PlanItemEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.RecipeEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ReplicaVersionEntity
@@ -19,6 +22,7 @@ import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncStateEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.WeeklyPlanEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.mapper.requireCanonicalPendingActionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.mapper.requireValidSyncFailureEntity
+import kotlinx.coroutines.flow.Flow
 
 /**
  * The sole write boundary for contract-backed cache data.
@@ -32,6 +36,9 @@ abstract class ContractCacheDao {
 
     @Query("SELECT * FROM recipes WHERE id = :id")
     abstract suspend fun getRecipe(id: String): RecipeEntity?
+
+    @Query("SELECT * FROM recipes WHERE deletedAt IS NULL ORDER BY updatedAt DESC, id ASC")
+    abstract fun observeRecipes(): Flow<List<RecipeEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertWeeklyPlan(entity: WeeklyPlanEntity)
@@ -73,8 +80,68 @@ abstract class ContractCacheDao {
     @Query("SELECT * FROM pending_actions WHERE actionId = :actionId")
     abstract suspend fun getPendingAction(actionId: String): PendingActionEntity?
 
+    @Query("SELECT * FROM pending_actions WHERE state IN ('PENDING', 'SENDING') ORDER BY createdAt ASC, actionId ASC")
+    abstract suspend fun getOutstandingActions(): List<PendingActionEntity>
+
+    @Query("SELECT * FROM pending_actions WHERE state = 'PENDING' ORDER BY createdAt ASC, actionId ASC LIMIT :limit")
+    internal abstract suspend fun pendingActionsForClaim(limit: Int): List<PendingActionEntity>
+
+    @Query(
+        "UPDATE pending_actions SET state = 'SENDING', attemptId = :attemptId, claimedAt = :claimedAt WHERE actionId = :actionId AND state = 'PENDING'",
+    )
+    internal abstract suspend fun claimPendingAction(
+        actionId: String,
+        attemptId: String,
+        claimedAt: String,
+    ): Int
+
+    @Query(
+        "UPDATE pending_actions SET state = 'PENDING', attemptId = NULL, claimedAt = NULL WHERE state = 'SENDING' AND claimedAt < :staleBefore",
+    )
+    abstract suspend fun recoverStaleClaims(staleBefore: String): Int
+
+    @Query("DELETE FROM pending_actions WHERE actionId = :actionId AND state = 'SENDING' AND attemptId = :attemptId")
+    internal abstract suspend fun deleteAcknowledgedAction(
+        actionId: String,
+        attemptId: String,
+    ): Int
+
+    @Query(
+        "UPDATE pending_actions SET state = 'FAILED', attemptId = NULL, claimedAt = NULL WHERE actionId = :actionId AND state = 'SENDING' AND attemptId = :attemptId",
+    )
+    internal abstract suspend fun failClaimedAction(
+        actionId: String,
+        attemptId: String,
+    ): Int
+
+    @Query(
+        "UPDATE pending_actions SET state = 'PENDING', attemptId = NULL, claimedAt = NULL WHERE actionId = :actionId AND state = 'SENDING' AND attemptId = :attemptId",
+    )
+    internal abstract suspend fun releaseClaimedAction(
+        actionId: String,
+        attemptId: String,
+    ): Int
+
+    @Query("DELETE FROM pending_actions WHERE actionId = :actionId AND state = 'FAILED'")
+    internal abstract suspend fun deleteFailedAction(actionId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     internal abstract suspend fun upsertSyncFailureUnchecked(entity: SyncFailureEntity)
+
+    @Query("SELECT * FROM sync_failures ORDER BY createdAt ASC, actionId ASC")
+    abstract fun observeSyncFailures(): Flow<List<SyncFailureEntity>>
+
+    @Query("SELECT * FROM sync_failures WHERE actionId = :actionId")
+    abstract suspend fun getSyncFailure(actionId: String): SyncFailureEntity?
+
+    @Query("DELETE FROM sync_failures WHERE actionId = :actionId")
+    internal abstract suspend fun deleteSyncFailure(actionId: String): Int
+
+    @Query("SELECT * FROM sync_diagnostics ORDER BY createdAt ASC, diagnosticId ASC")
+    abstract fun observeSyncDiagnostics(): Flow<List<SyncDiagnosticEntity>>
+
+    @Query("DELETE FROM sync_diagnostics WHERE diagnosticId = :diagnosticId")
+    internal abstract suspend fun deleteSyncDiagnostic(diagnosticId: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertSyncState(entity: SyncStateEntity)
@@ -172,6 +239,69 @@ abstract class ContractCacheDao {
         requireValidSyncFailureEntity(entity)
         upsertSyncFailureUnchecked(entity)
     }
+
+    @Transaction
+    open suspend fun claimPendingActions(
+        attemptId: String,
+        claimedAt: String,
+        limit: Int,
+    ): List<PendingActionEntity> {
+        require(limit in 1..100) { "sync action claim limit must be 1..100" }
+        return pendingActionsForClaim(limit).mapNotNull { action ->
+            if (claimPendingAction(action.actionId, attemptId, claimedAt) == 1) {
+                action.copy(state = PendingActionState.SENDING, attemptId = attemptId, claimedAt = claimedAt)
+            } else {
+                null
+            }
+        }
+    }
+
+    @Transaction
+    open suspend fun acknowledgeAction(
+        actionId: String,
+        attemptId: String,
+    ): Boolean = deleteAcknowledgedAction(actionId, attemptId) == 1
+
+    @Transaction
+    open suspend fun rejectAction(
+        actionId: String,
+        attemptId: String,
+        failure: SyncFailureEntity,
+    ): Boolean {
+        require(failure.actionId == actionId) { "failure must belong to rejected action" }
+        if (failClaimedAction(actionId, attemptId) != 1) return false
+        upsertSyncFailure(failure)
+        return true
+    }
+
+    @Transaction
+    open suspend fun releaseAttempt(
+        actionIds: List<String>,
+        attemptId: String,
+    ) {
+        actionIds.forEach { actionId -> releaseClaimedAction(actionId, attemptId) }
+    }
+
+    @Transaction
+    open suspend fun resetForFullResync() {
+        clearPlanItems()
+        clearWeeklyPlans()
+        clearRecipes()
+        clearSettings()
+        clearConversationMessages()
+        clearSyncState()
+        clearReplicaVersions()
+    }
+
+    @Transaction
+    open suspend fun discardActionFailure(actionId: String): Boolean {
+        if (getSyncFailure(actionId) == null) return false
+        if (deleteFailedAction(actionId) != 1) return false
+        return deleteSyncFailure(actionId) == 1
+    }
+
+    @Transaction
+    open suspend fun dismissDiagnostic(diagnosticId: String): Boolean = deleteSyncDiagnostic(diagnosticId) == 1
 
     @Transaction
     open suspend fun replaceSession(entity: ClientSessionEntity) {
