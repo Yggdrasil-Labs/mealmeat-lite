@@ -2,39 +2,50 @@
 id: mealmate-0.1.0-stage2-original-goal-remediation-plan
 version: "0.1.0"
 feature: stage2-original-goal-remediation
-status: not-started
+status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-08-16
-updated: 2026-08-16
+updated: 2026-08-26
 ---
 
 # 阶段 2 原始目标端到端补全 — Implementation Plan
 
-**Branch:** [待填充]
-**Baseline SHA:** [待填充]
-**Worktree Path:** [待填充]
-**Started At:** [待填充]
-**Updated At:** [待填充]
+**Branch:** main
+**Baseline SHA:** b02c4d0
+**Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
+**Started At:** 2026-08-26T23:10:25+08:00
+**Updated At:** 2026-08-27T00:18:52+08:00
 
 **Goal:** 以真实 Android 用户路径完成 AC5、AC6、AC10、AC12，且不改冻结 v1 wire。
 **Architecture:** 服务端先提供模型目录与 chat runtime；Android 以 Keystore root gate、Room 和单一 Coordinator 实现加入、同步、设置和离线编辑。action failure 与 cursor/protocol diagnostic 分离持久化与 UI 操作。
 **Tech Stack:** Node 24、TypeScript、Hono、PostgreSQL 16、Kotlin、Compose、Room、WorkManager、Retrofit、OkHttp。
 **Commit Mode:** per-task
-**Effective Execution Mode:** [待填充]
+**Effective Execution Mode:** serial
+**Execution Mode Reason:** 用户明确授权直接在本地 main 执行，未创建隔离 worktree；所有后续任务串行执行。
 **Ledger Mode:** controller-commits
 
 **Plan Verdict:**
-- **Status:** pending
-- **Verified At:** null
-- **Evidence:** null
+- **Status:** in-progress
+- **Verified At:** 2026-08-27T00:18:52+08:00
+- **Evidence:** 后端 typecheck、189 个单元测试、56 个集成测试通过；Android ktlintCheck、detekt、lintDebug 与 testDebugUnitTest 通过（Gradle 使用只读依赖缓存和临时可写缓存）。
 - **Blocked Tasks:** none
-- **Concerns:** none
+- **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。
 
 **Accepted Risks:**
 
 | Risk ID | Risk | Accepted By | Accepted At | Source |
 |---|---|---|---|---|
 | none | none | none | none | none |
+
+## B0：既有实现基线（T1–T3）
+
+2026-08-26，用户明确授权以 `b02c4d0` 为后续整改基线，并将既有 T1–T3 实现接纳为依赖前提：
+
+- T1 模型目录与发布验证：`cb98a1b`
+- T2 安全会话、加入恢复与设置：`9b064da`
+- T3 Room migration 与首次快照：`780fbb0`
+
+这些提交保留为可追溯的历史实现，但不追溯性声明其满足本计划的 Red/Verify/Task-ID 协议。它们不再作为剩余任务的执行门禁；T4、T5、T6 直接依赖 B0 的现有接口与行为。
 
 ## Global Constraints
 
@@ -52,11 +63,9 @@ updated: 2026-08-16
 
 ```mermaid
 flowchart LR
-  T1["T1 Models"] --> T2["T2 Session/Auth"]
-  T2 --> T3["T3 Initial sync"]
-  T3 --> T4["T4 Offline/Failures"]
-  T1 --> T5["T5 Server chat"]
-  T2 --> T6["T6 Android chat"]
+  B0["B0 Existing T1–T3"] --> T4["T4 Offline/Failures"]
+  B0 --> T5["T5 Server chat"]
+  B0 --> T6["T6 Android chat"]
   T4 --> T6
   T5 --> T6
   T4 --> T7["T7 Acceptance"]
@@ -65,12 +74,10 @@ flowchart LR
 
 | Task | 依赖 | 可并行组 |
 |---|---|---|
-| T1 | 无 | A |
-| T2 | T1 | B |
-| T3 | T2 | C |
-| T4 | T3 | D |
-| T5 | T1 | B |
-| T6 | T2、T4、T5 | E |
+| B0 | 既有实现基线 | — |
+| T4 | B0 | D |
+| T5 | B0 | B |
+| T6 | B0、T4、T5 | E |
 | T7 | T4、T6 | F |
 
 ---
@@ -94,16 +101,16 @@ flowchart LR
 - [ ] default/key/URL/verify 超时错误可机械验证且不泄露 URL、key 或正文。
 
 **Execution:**
-- **Status:** pending
-- **Commit SHAs:** []
+- **Status:** skipped
+- **Commit SHAs:** ["cb98a1b"]
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
 - **Attempts:** 0
-- **Blocked Reason:** null
+- **Blocked Reason:** B0 历史基线接纳；旧提交缺少本计划所需的完整执行账本，按用户授权不追溯重做。
 - **Red Result:** null
 - **Verify Result:** null
 - **AC Result:** null
-- **Concerns:** none
+- **Concerns:** 历史实现仅作依赖基线，不作为本计划 Task Completion Gate 的合规证据。
 
 **Task Completion Gate:**
 - [ ] Expected failing Red evidence exists
@@ -155,16 +162,16 @@ Expected: **PASS**
 - [ ] Settings 仅在 rotate 成功后展示一次家庭码，只允许撤销 `isCurrent=false` 的设备，并且 logout 成功后才清除本机凭证。
 
 **Execution:**
-- **Status:** pending
-- **Commit SHAs:** []
+- **Status:** skipped
+- **Commit SHAs:** ["9b064da"]
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
 - **Attempts:** 0
-- **Blocked Reason:** null
+- **Blocked Reason:** B0 历史基线接纳；旧提交缺少本计划所需的完整执行账本，按用户授权不追溯重做。
 - **Red Result:** null
 - **Verify Result:** null
 - **AC Result:** null
-- **Concerns:** none
+- **Concerns:** 历史实现仅作依赖基线，不作为本计划 Task Completion Gate 的合规证据。
 
 **Task Completion Gate:**
 - [ ] Expected failing Red evidence exists
@@ -215,16 +222,16 @@ Expected: **PASS**
 - [ ] v1→v2 磁盘 migration 与 provisioning 崩溃恢复均可验证，成功初始同步后才进主导航。
 
 **Execution:**
-- **Status:** pending
-- **Commit SHAs:** []
+- **Status:** skipped
+- **Commit SHAs:** ["780fbb0"]
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
 - **Attempts:** 0
-- **Blocked Reason:** null
+- **Blocked Reason:** B0 历史基线接纳；旧提交虽含 Task-ID，但未保留完整计划账本，按用户授权不追溯重做。
 - **Red Result:** null
 - **Verify Result:** null
 - **AC Result:** null
-- **Concerns:** none
+- **Concerns:** 历史实现仅作依赖基线，不作为本计划 Task Completion Gate 的合规证据。
 
 **Task Completion Gate:**
 - [ ] Expected failing Red evidence exists
@@ -256,15 +263,17 @@ Expected: **PASS**
 
 ### T4: 离线动作、失败展示与 Worker
 
-**Depends on:** T3
+**Depends on:** B0
 
 **Files:**
 - Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/local/dao/ContractCacheDao.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncCoordinator.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipesScreen.kt`
+- Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/remote/MealMateApi.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/MealMateApp.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/navigation/MealMateNavHost.kt`
+- Authorized fallback Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/MainActivity.kt`（经调用关系复核，当前实现不需要改动它）
 - Create: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepository.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncFailureRepository.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorker.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipeEditorViewModel.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModel.kt`
-- Test: `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepositoryTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncCoordinatorTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorkerTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipesScreenTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModelTest.kt`
+- Test: `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepositoryTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncCoordinatorTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorkerTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/remote/MealMateApiTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipesScreenTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModelTest.kt`
 
 **Interfaces:**
-- Consumes: `SyncCoordinator.sync(reason: SyncReason): SyncRunResult` from T3.
+- Consumes: B0 的 `SyncCoordinator.sync(reason: SyncReason): SyncRunResult` 与冻结的 `POST /api/v1/sync/actions` wire。
 - Produces: `OfflineRecipeRepository.patch(recipeId: String, patch: RecipePatchCommand): LocalMutationResult`, `OfflineRecipeRepository.replaceFailed(failedActionId: String, recipeId: String, patch: RecipePatchCommand): LocalMutationResult`, `SyncFailureRepository.observe(): Flow<List<SyncIssueView>>`.
 
 **Behavior:** 从 RecipeEditor 生成 canonical actions 和 effective projection；扩展 Coordinator drain/ACK，呈现 action failure 与 diagnostic，前后台复用 Worker。
@@ -274,16 +283,18 @@ Expected: **PASS**
 - [ ] action failure 只 discard/re-edit；diagnostic 无 actionId，只 dismiss/完整 sync 清除，均不自动重传。
 
 **Execution:**
-- **Status:** pending
+- **Status:** in_progress
 - **Commit SHAs:** []
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
-- **Attempts:** 0
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
-- **Concerns:** none
+- **Red Result:** PASS — `InitialSyncCoordinatorTest` 先后证明 lost-claim ACK 被错误报告为成功、完整成功后未清理诊断；`MealMateApiTest` 证明 action API 未接收本轮捕获的 Authorization。均已先红后绿。
+- **Verify Result:** PARTIAL — 2026-08-27 完成 `git diff --check`、`ktlintCheck`、`detekt`、`lintDebug`、`checkContractModels`、完整 `testDebugUnitTest` 和 `compileDebugAndroidTestKotlin`；JVM XML 无 failure/error。`pixel2Api27DebugAndroidTest` 已构建 APK 但未能启动模拟器。
+- **AC Result:** BLOCKED — AC1 尚无 PostgreSQL/两客户端的最终收敛与 409 isolation 端到端证据；AC2 的 JVM/编译证据存在，但 Compose device tests 被本机受管设备门槛阻断。
+- **Concerns:** 三轮子代理均未完成 T4；当前由 controller 接管，保留现有未提交实现。已补 authoritative ACK/claim CAS、canonical overlay、failure/diagnostic UI 分离和独立静态/JVM 验证。设备端运行被环境阻断：默认 `~/.android` 只读；改用 `/tmp` AVD 后仍因 x86_64 emulator 无硬件加速而无法启动。不得提交为完成。
+- **Needs Context Attempts:** 1
+- **Last Needs Context:** 2026-08-26 用户已确认范围扩展，继续按更新后的 Files 清单执行。
 
 **Task Completion Gate:**
 - [ ] Expected failing Red evidence exists
@@ -315,7 +326,7 @@ Expected: **PASS**
 
 ### T5: 服务端 chat runtime 与撤销 fencing
 
-**Depends on:** T1
+**Depends on:** B0
 
 **Files:**
 - Modify: `server/src/app.ts`, `server/src/routes/index.ts`, `server/src/db/schema/chat.ts`
@@ -373,7 +384,7 @@ Expected: **PASS**
 
 ### T6: Android SSE chat 与 session probe
 
-**Depends on:** T2、T4、T5
+**Depends on:** B0、T4、T5
 
 **Files:**
 - Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/chat/ChatScreen.kt`
