@@ -4,6 +4,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.secrets/
 .pnpm-store/
 .pnpm-cache/
 .xdg-data/

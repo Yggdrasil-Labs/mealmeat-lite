@@ -8,8 +8,7 @@
  */
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import type { PostgresError } from 'postgres'
-import { unwrapPostgresError } from '../db/postgres-error.js'
+import { type PostgresError, unwrapPostgresError } from '../db/postgres-error.js'
 import { errorResponse, PublicError } from '../errors.js'
 
 function isBusyPostgresError(err: PostgresError): boolean {

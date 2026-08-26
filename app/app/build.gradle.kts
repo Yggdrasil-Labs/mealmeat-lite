@@ -11,6 +11,8 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+val mealMateBaseUrl = providers.gradleProperty("mealmate.baseUrl").orElse("http://10.0.2.2:3000/")
+
 android {
     namespace = "io.yggdrasil.labs.mealmate.lite"
     compileSdk = 37
@@ -21,7 +23,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "MEALMATE_BASE_URL", "\"http://10.0.2.2:3000/\"")
+        buildConfigField("String", "MEALMATE_BASE_URL", "\"${mealMateBaseUrl.get()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
