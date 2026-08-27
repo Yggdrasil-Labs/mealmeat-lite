@@ -186,7 +186,22 @@ class InitialSyncCoordinatorTest {
             val failed = assertInstanceOf(SyncRunResult.Failed::class.java, result)
             assertEquals(SyncFailureKind.PROTOCOL, failed.kind)
             assertEquals("ACTION_CLAIM_LOST", failed.errorCode)
-            assertEquals(listOf("33333333-3333-4333-8333-333333333333"), fixture.actionStore.releasedActionIds)
+            assertEquals(listOf("33333333-3333-4333-8333-333333333333"), fixture.actionStore.quarantinedActionIds)
+        }
+
+    @Test
+    fun `invalid action acknowledgement records a diagnostic without returning the action to the queue`() =
+        runBlocking {
+            val fixture = actionFixture(responseActionId = "44444444-4444-4444-8444-444444444444")
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+
+            val result = fixture.coordinator.sync(SyncReason.InitialProvisioning)
+
+            val failed = assertInstanceOf(SyncRunResult.Failed::class.java, result)
+            assertEquals(SyncFailureKind.PROTOCOL, failed.kind)
+            assertEquals("ACTION_ACK_INVALID", failed.errorCode)
+            assertEquals(emptyList<String>(), fixture.actionStore.releasedActionIds)
+            assertEquals(listOf("33333333-3333-4333-8333-333333333333"), fixture.actionStore.quarantinedActionIds)
         }
 
     private suspend fun fixture(): Fixture {
@@ -206,7 +221,10 @@ class InitialSyncCoordinatorTest {
         return Fixture(manager, client, store, InitialSyncCoordinator(manager, client, store))
     }
 
-    private suspend fun actionFixture(acknowledgeResult: Boolean): ActionFixture {
+    private suspend fun actionFixture(
+        acknowledgeResult: Boolean = true,
+        responseActionId: String = "33333333-3333-4333-8333-333333333333",
+    ): ActionFixture {
         val credentialStore = FakeCredentialStore()
         val localStore = FakeSessionLocalStore()
         val manager =
@@ -221,7 +239,7 @@ class InitialSyncCoordinatorTest {
         val client = FakeSyncPageClient()
         val store = FakeSyncPageStore(localStore, credentialStore)
         val actionStore = FakeSyncActionStore(acknowledgeResult)
-        val actionClient = FakeSyncActionClient()
+        val actionClient = FakeSyncActionClient(responseActionId)
         return ActionFixture(
             client,
             actionStore,
@@ -243,7 +261,9 @@ class InitialSyncCoordinatorTest {
     )
 }
 
-private class FakeSyncActionClient : SyncActionClient {
+private class FakeSyncActionClient(
+    private val responseActionId: String = "33333333-3333-4333-8333-333333333333",
+) : SyncActionClient {
     override suspend fun submit(
         actions: List<SyncActionDto>,
         token: String,
@@ -257,7 +277,7 @@ private class FakeSyncActionClient : SyncActionClient {
             },
         )
         return contractJson.decodeFromString(
-            """{"results":[{"actionId":"33333333-3333-4333-8333-333333333333","status":"applied","serverVersion":"1","resource":{"id":"11111111-1111-4111-8111-111111111111","name":"权威菜品","tags":[],"ingredients":[],"steps":[],"serverVersion":"1","createdAt":"2026-08-03T00:00:00Z","updatedAt":"2026-08-03T00:00:00Z"}}]}""",
+            """{"results":[{"actionId":"$responseActionId","status":"applied","serverVersion":"1","resource":{"id":"11111111-1111-4111-8111-111111111111","name":"权威菜品","tags":[],"ingredients":[],"steps":[],"serverVersion":"1","createdAt":"2026-08-03T00:00:00Z","updatedAt":"2026-08-03T00:00:00Z"}}]}""",
         )
     }
 }
@@ -273,6 +293,7 @@ private class FakeSyncActionStore(
         )
     var claimed = false
     val releasedActionIds = mutableListOf<String>()
+    val quarantinedActionIds = mutableListOf<String>()
 
     override suspend fun recoverStaleClaims(staleBefore: String): Int = 0
 
@@ -306,6 +327,13 @@ private class FakeSyncActionStore(
         attemptId: String,
     ) {
         releasedActionIds += actionIds
+    }
+
+    override suspend fun quarantine(
+        actionIds: List<String>,
+        attemptId: String,
+    ) {
+        quarantinedActionIds += actionIds
     }
 
     override suspend fun resetForFullResync() = Unit

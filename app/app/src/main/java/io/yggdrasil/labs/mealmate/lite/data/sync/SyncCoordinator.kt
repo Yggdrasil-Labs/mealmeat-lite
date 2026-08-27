@@ -124,6 +124,11 @@ interface SyncActionStore {
         attemptId: String,
     )
 
+    suspend fun quarantine(
+        actionIds: List<String>,
+        attemptId: String,
+    )
+
     suspend fun resetForFullResync()
 }
 
@@ -273,7 +278,7 @@ class InitialSyncCoordinator(
                 try {
                     claimed.map { decodePendingActionPayload(it.payloadSchemaVersion, it.payloadJson) }
                 } catch (error: Exception) {
-                    actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
                     return failure(fence, SyncFailureKind.PROTOCOL, SyncDiagnosticKind.PROTOCOL, "ACTION_PAYLOAD_REJECTED", error.message)
                 }
             val response =
@@ -285,14 +290,14 @@ class InitialSyncCoordinator(
                     actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
                     return transportFailure("ACTION_NETWORK_ERROR", error.message)
                 } catch (error: Exception) {
-                    actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
                     return failure(fence, SyncFailureKind.PROTOCOL, SyncDiagnosticKind.PROTOCOL, "ACTION_RESPONSE_REJECTED", error.message)
                 }
             val ids = response.results.map(::actionResultId)
             if (!SyncActionAcknowledgements.hasExactlyClaimedIds(claimed.map(PendingActionEntity::actionId).toSet(), ids.toSet()) ||
                 ids.size != ids.toSet().size
             ) {
-                actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
                 return failure(
                     fence,
                     SyncFailureKind.PROTOCOL,
@@ -303,7 +308,7 @@ class InitialSyncCoordinator(
             }
             val actionOutcomes = response.results.map { result -> applyActionResult(result, attemptId, actions) }
             if (actionOutcomes.any { it == ActionResultApply.ClaimLost }) {
-                actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
                 return failure(
                     fence,
                     SyncFailureKind.PROTOCOL,
@@ -683,6 +688,11 @@ class RoomSyncActionStore(
         actionIds: List<String>,
         attemptId: String,
     ) = dao.releaseAttempt(actionIds, attemptId)
+
+    override suspend fun quarantine(
+        actionIds: List<String>,
+        attemptId: String,
+    ) = dao.quarantineAttempt(actionIds, attemptId)
 
     override suspend fun resetForFullResync() = dao.resetForFullResync()
 

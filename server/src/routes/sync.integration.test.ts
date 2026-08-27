@@ -366,6 +366,92 @@ describe('sync 离线动作（AC6）', () => {
     expect(versionRows.map((c) => c.operation)).toEqual(['upsert', 'upsert', 'upsert'])
   })
 
+  it('两个离线客户端在幂等重放和 409 冲突后经同步读到同一 canonical 菜谱', async () => {
+    const id = recipeId(55)
+    await seedRecipeSeq(pg.sql, id, 'original')
+    const actionA = {
+      actionId: actionId(11),
+      type: 'recipe.patch',
+      createdAt: CREATED_AT,
+      payload: { recipeId: id, patch: { name: 'patched-by-a' } },
+    }
+    const actionB = {
+      actionId: actionId(12),
+      type: 'recipe.patch',
+      createdAt: CREATED_AT,
+      payload: { recipeId: id, patch: { tags: ['family'] } },
+    }
+
+    const firstApply = await postActions(app, deviceA.deviceToken, [actionA])
+    expect(firstApply.status).toBe(200)
+    const firstBody = (await firstApply.json()) as {
+      data: { results: Array<{ actionId: string; status: string }> }
+    }
+    expect(firstBody.data.results[0]).toMatchObject({
+      actionId: actionA.actionId,
+      status: 'applied',
+    })
+
+    const secondApply = await postActions(app, deviceB.deviceToken, [actionB])
+    expect(secondApply.status).toBe(200)
+    const secondBody = (await secondApply.json()) as {
+      data: { results: Array<{ actionId: string; status: string; serverVersion: string }> }
+    }
+    const secondResult = secondBody.data.results[0]
+    expect(secondResult).toMatchObject({ actionId: actionB.actionId, status: 'applied' })
+
+    const replay = await postActions(app, deviceB.deviceToken, [actionB])
+    expect(replay.status).toBe(200)
+    const replayBody = (await replay.json()) as {
+      data: { results: Array<{ actionId: string; status: string; original: unknown }> }
+    }
+    expect(replayBody.data.results[0]).toMatchObject({
+      actionId: actionB.actionId,
+      status: 'duplicate',
+      original: { status: 'applied', serverVersion: secondResult?.serverVersion },
+    })
+
+    const conflictingReuse = await postActions(app, deviceA.deviceToken, [
+      { ...actionA, payload: { recipeId: id, patch: { name: 'must-not-persist' } } },
+    ])
+    expect(conflictingReuse.status).toBe(409)
+    expect(((await conflictingReuse.json()) as EnvelopeBody<unknown>).errCode).toBe(
+      'IDEMPOTENCY_KEY_REUSED',
+    )
+
+    const [syncA, syncB] = await Promise.all([
+      authedGet(app, '/api/v1/sync', deviceA.deviceToken),
+      authedGet(app, '/api/v1/sync', deviceB.deviceToken),
+    ])
+    expect(syncA.status).toBe(200)
+    expect(syncB.status).toBe(200)
+    const [snapshotA, snapshotB] = (await Promise.all([syncA.json(), syncB.json()])) as [
+      SyncBody,
+      SyncBody,
+    ]
+    const canonicalRecipe = {
+      id,
+      name: 'patched-by-a',
+      tags: ['family'],
+      serverVersion: secondResult?.serverVersion,
+    }
+    for (const snapshot of [snapshotA, snapshotB]) {
+      expect(snapshot.success).toBe(true)
+      expect(snapshot.data.hasMore).toBe(false)
+      expect(snapshot.data.changes).toContainEqual(
+        expect.objectContaining({
+          resource: 'recipe',
+          data: expect.objectContaining(canonicalRecipe),
+        }),
+      )
+    }
+    const changes = await pg.sql.unsafe(
+      'select count(*)::text as count from sync_changes where resource_id = $1',
+      [id],
+    )
+    expect(changes[0]?.count).toBe('3')
+  })
+
   it('重复上传同一 actionId → duplicate 重放原结果且不重复执行', async () => {
     const patchB = {
       actionId: actionId(2),
@@ -384,8 +470,11 @@ describe('sync 离线动作（AC6）', () => {
       status: 'duplicate',
       original: { status: 'applied', serverVersion: patchVersionB },
     })
-    const counts = await pg.sql.unsafe('select count(*)::text as count from sync_changes')
-    expect(counts[0]?.count).toBe('4')
+    const counts = await pg.sql.unsafe(
+      'select count(*)::text as count from sync_changes where resource_id = $1',
+      [recipeId(50)],
+    )
+    expect(counts[0]?.count).toBe('3')
   })
 
   it('同 actionId 不同 payload → 409 IDEMPOTENCY_KEY_REUSED 且指出 actionId', async () => {

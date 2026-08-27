@@ -283,6 +283,14 @@ abstract class ContractCacheDao {
     }
 
     @Transaction
+    open suspend fun quarantineAttempt(
+        actionIds: List<String>,
+        attemptId: String,
+    ) {
+        actionIds.forEach { actionId -> failClaimedAction(actionId, attemptId) }
+    }
+
+    @Transaction
     open suspend fun resetForFullResync() {
         clearPlanItems()
         clearWeeklyPlans()
