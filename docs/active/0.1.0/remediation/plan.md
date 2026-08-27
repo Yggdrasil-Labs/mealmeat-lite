@@ -5,7 +5,7 @@ feature: stage2-original-goal-remediation
 status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-08-16
-updated: 2026-08-26
+updated: 2026-08-27
 ---
 
 # 阶段 2 原始目标端到端补全 — Implementation Plan
@@ -14,7 +14,7 @@ updated: 2026-08-26
 **Baseline SHA:** b02c4d0
 **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 **Started At:** 2026-08-26T23:10:25+08:00
-**Updated At:** 2026-08-27T00:18:52+08:00
+**Updated At:** 2026-08-27T23:01:45+08:00
 
 **Goal:** 以真实 Android 用户路径完成 AC5、AC6、AC10、AC12，且不改冻结 v1 wire。
 **Architecture:** 服务端先提供模型目录与 chat runtime；Android 以 Keystore root gate、Room 和单一 Coordinator 实现加入、同步、设置和离线编辑。action failure 与 cursor/protocol diagnostic 分离持久化与 UI 操作。
@@ -26,10 +26,10 @@ updated: 2026-08-26
 
 **Plan Verdict:**
 - **Status:** in-progress
-- **Verified At:** 2026-08-27T00:18:52+08:00
-- **Evidence:** 后端 typecheck、189 个单元测试、56 个集成测试通过；Android ktlintCheck、detekt、lintDebug 与 testDebugUnitTest 通过（Gradle 使用只读依赖缓存和临时可写缓存）。
-- **Blocked Tasks:** none
-- **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。
+- **Verified At:** 2026-08-27T23:01:45+08:00
+- **Evidence:** 后端 typecheck、189 个单元测试、57 个 PostgreSQL 16 集成测试通过，Biome 为 0 error/29 info；Android ktlintCheck、detekt、lintDebug、checkContractModels、强制重跑的 testDebugUnitTest（66 tests、0 failure、0 error）与 androidTest Kotlin 编译通过。
+- **Blocked Tasks:** T4（AC2 的 Managed Device 执行）
+- **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。当前 WSL2 宿主无 `/dev/kvm`，无已连接 adb 设备，因此无法运行 x86_64 Managed Device。
 
 **Accepted Risks:**
 
@@ -270,7 +270,8 @@ Expected: **PASS**
 - Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/remote/MealMateApi.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/MealMateApp.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/navigation/MealMateNavHost.kt`
 - Authorized fallback Modify: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/MainActivity.kt`（经调用关系复核，当前实现不需要改动它）
 - Create: `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepository.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncFailureRepository.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorker.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipeEditorViewModel.kt`, `app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModel.kt`
-- Test: `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepositoryTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncCoordinatorTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorkerTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/remote/MealMateApiTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipesScreenTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModelTest.kt`
+- Test: `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/recipes/OfflineRecipeRepositoryTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/SyncCoordinatorTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/InitialSyncCoordinatorTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/sync/MealMateSyncWorkerTest.kt`, `app/app/src/test/java/io/yggdrasil/labs/mealmate/lite/data/remote/MealMateApiTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/recipes/RecipesScreenTest.kt`, `app/app/src/androidTest/java/io/yggdrasil/labs/mealmate/lite/ui/sync/SyncFailureViewModelTest.kt`
+- Test (server acceptance evidence): `server/src/routes/sync.integration.test.ts`
 
 **Interfaces:**
 - Consumes: B0 的 `SyncCoordinator.sync(reason: SyncReason): SyncRunResult` 与冻结的 `POST /api/v1/sync/actions` wire。
@@ -279,20 +280,20 @@ Expected: **PASS**
 **Behavior:** 从 RecipeEditor 生成 canonical actions 和 effective projection；扩展 Coordinator drain/ACK，呈现 action failure 与 diagnostic，前后台复用 Worker。
 
 **Acceptance Criteria:**
-- [ ] 两客户端离线编辑最终收敛，原 actionId 至多执行一次，页面不直写 pending 表。
+- [x] 两客户端离线编辑最终收敛，原 actionId 至多执行一次，页面不直写 pending 表。
 - [ ] action failure 只 discard/re-edit；diagnostic 无 actionId，只 dismiss/完整 sync 清除，均不自动重传。
 
 **Execution:**
-- **Status:** in_progress
-- **Commit SHAs:** []
+- **Status:** blocked
+- **Commit SHAs:** ["324e06c", "b9ac51f"]
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
-- **Attempts:** 1
-- **Blocked Reason:** null
-- **Red Result:** PASS — `InitialSyncCoordinatorTest` 先后证明 lost-claim ACK 被错误报告为成功、完整成功后未清理诊断；`MealMateApiTest` 证明 action API 未接收本轮捕获的 Authorization。均已先红后绿。
-- **Verify Result:** PARTIAL — 2026-08-27 完成 `git diff --check`、`ktlintCheck`、`detekt`、`lintDebug`、`checkContractModels`、完整 `testDebugUnitTest` 和 `compileDebugAndroidTestKotlin`；JVM XML 无 failure/error。`pixel2Api27DebugAndroidTest` 已构建 APK 但未能启动模拟器。
-- **AC Result:** BLOCKED — AC1 尚无 PostgreSQL/两客户端的最终收敛与 409 isolation 端到端证据；AC2 的 JVM/编译证据存在，但 Compose device tests 被本机受管设备门槛阻断。
-- **Concerns:** 三轮子代理均未完成 T4；当前由 controller 接管，保留现有未提交实现。已补 authoritative ACK/claim CAS、canonical overlay、failure/diagnostic UI 分离和独立静态/JVM 验证。设备端运行被环境阻断：默认 `~/.android` 只读；改用 `/tmp` AVD 后仍因 x86_64 emulator 无硬件加速而无法启动。不得提交为完成。
+- **Attempts:** 3
+- **Blocked Reason:** 已发现 Android 11 真机 Redmi K20 Pro 并可通过 mDNS adb shell 通信，debug APK 与 test APK 均已安装。直接 adb instrumentation 的 `SyncFailureViewModelTest` 通过；`RecipesScreenTest` 启动 `androidx.activity.ComponentActivity` 后超过 90 秒无进度，logcat 无崩溃或断言失败，期间出现 MIUI SurfaceFlinger slow warnings。须处理该 MIUI 真机 Compose activity 渲染门禁或改用另一台设备后重跑。
+- **Red Result:** PASS — `InitialSyncCoordinatorTest` 先后证明 lost-claim ACK 被错误报告为成功、完整成功后未清理诊断，以及异常 ACK 会把已 claim action 错误放回可重传队列；`MealMateApiTest` 证明 action API 未接收本轮捕获的 Authorization。均已先红后绿。
+- **Verify Result:** PARTIAL — 2026-08-27 完成 `git diff --check`、后端 189/189 单元与 57/57 PostgreSQL 16 集成测试、Biome 0 error/29 info、typecheck、Android `ktlintCheck`、`detekt`、`lintDebug`、`checkContractModels`、强制重跑的完整 `testDebugUnitTest`（66 tests、0 failure、0 error）及 `compileDebugAndroidTestKotlin`。协议诊断路径现 quarantine 已 claim action，只有网络 I/O 失败会 release 以供重试；`pixel2Api27DebugAndroidTest` 已构建测试 APK 但未能启动模拟器。Redmi K20 Pro 已成功 `adb install -r` debug APK，Gradle 亦安装 test APK；直接 instrumentation 中 `SyncFailureViewModelTest` 通过（1 test），`RecipesScreenTest` 在 `ComponentActivity` 启动后 90 秒超时，未产生失败断言。关闭三类系统动画、延长熄屏时间及一次 v2 `createComposeRule` 对照迁移均未改善另一个 Compose 用例的 90 秒超时，已恢复原设置与 import。随后直接 instrumentation 的非 Compose 设备回归通过 6/6（`RoomMigrationTest` 1、`InitialSyncIntegrationTest` 1、`SyncPageApplierTest` 4）。
+- **AC Result:** BLOCKED — AC1 PASS：真实 PostgreSQL 16 双客户端用例证明两 token 经 `/sync` 收敛到同一 canonical 菜谱、原 actionId 重放只得到 duplicate、不同 payload 的相同 actionId 返回 409 且不产生额外 SyncChange。AC2 的 diagnostic/action-resolution 非 Compose 用例已在真实 Android 11 通过；Compose `RecipesScreenTest` 仍受设备渲染门禁阻断，尚无完整 device-test 证据。
+- **Concerns:** 已补 authoritative ACK/claim CAS、canonical overlay、failure/diagnostic UI 分离和独立静态/JVM 验证；本轮新增服务端双客户端收敛/幂等/409 隔离回归，并修复协议诊断把 action 放回 `PENDING` 而被 Worker 自动重传的问题。Managed Device 仍因缺少 `/dev/kvm` 不可用；真机 mDNS adb、debug/test APK 安装及一个仪器用例均通过，但 MIUI 真机的 Compose activity 渲染无进度。已证伪的低风险设备设置与 v2 rule 迁移均已回滚，不得提交为完成。
 - **Needs Context Attempts:** 1
 - **Last Needs Context:** 2026-08-26 用户已确认范围扩展，继续按更新后的 Files 清单执行。
 
@@ -316,8 +317,8 @@ Run: `mise exec -- ./gradlew -p app :app:testDebugUnitTest --tests '*OfflineReci
 Expected: **PASS**
 
 **AC Verification:**
-- [ ] AC1: two-client fixture asserts convergence/idempotency/409 isolation → PASS.
-- [ ] AC2: Room/Compose tests assert failure split, new replacement actionId and Worker single-flight → PASS.
+- [x] AC1: PostgreSQL 16 two-client fixture asserts convergence, idempotency, 409 isolation, and no extra SyncChange → PASS.
+- [ ] AC2: Room/Compose tests assert failure split, new replacement actionId and Worker single-flight → BLOCKED: x86_64 Managed Device requires unavailable KVM; no physical adb device is connected.
 
 **Step 4: Commit**
 `feat(app-sync): 接入离线菜品与失败展示` with `Task-ID: T4`.
