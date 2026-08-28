@@ -44,7 +44,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class RoomContractTest {
     @Test
-    fun schema_has_exactly_the_nine_business_tables_and_unknown_versions_are_rejected() {
+    fun schema_has_nine_business_and_three_coordination_tables_and_unknown_versions_are_rejected() {
         val database =
             Room
                 .inMemoryDatabaseBuilder(
@@ -76,6 +76,9 @@ class RoomContractTest {
                     "sync_failures",
                     "sync_state",
                     "chat_draft",
+                    "client_session",
+                    "replica_versions",
+                    "sync_diagnostics",
                 ),
                 tables,
             )
@@ -101,6 +104,9 @@ class RoomContractTest {
             assertEquals(listOf("actionId"), database.primaryKeyColumns("sync_failures"))
             assertEquals(listOf("singletonId"), database.primaryKeyColumns("sync_state"))
             assertEquals(listOf("singletonId"), database.primaryKeyColumns("chat_draft"))
+            assertEquals(listOf("singletonId"), database.primaryKeyColumns("client_session"))
+            assertEquals(listOf("resource", "resourceId"), database.primaryKeyColumns("replica_versions"))
+            assertEquals(listOf("diagnosticId"), database.primaryKeyColumns("sync_diagnostics"))
             assertTrue(database.uniqueIndexes("weekly_plans").contains(listOf("weekStart")))
             assertTrue(database.uniqueIndexes("plan_items").contains(listOf("weeklyPlanId", "date", "mealType")))
             assertTrue(database.foreignKeys("plan_items").contains(Triple("weekly_plans", "weeklyPlanId", "id")))

@@ -5,7 +5,7 @@ feature: stage2-original-goal-remediation
 status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-08-16
-updated: 2026-08-27
+updated: 2026-08-28
 ---
 
 # 阶段 2 原始目标端到端补全 — Implementation Plan
@@ -14,7 +14,7 @@ updated: 2026-08-27
 **Baseline SHA:** b02c4d0
 **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 **Started At:** 2026-08-26T23:10:25+08:00
-**Updated At:** 2026-08-27T23:01:45+08:00
+**Updated At:** 2026-08-28T22:40:55+08:00
 
 **Goal:** 以真实 Android 用户路径完成 AC5、AC6、AC10、AC12，且不改冻结 v1 wire。
 **Architecture:** 服务端先提供模型目录与 chat runtime；Android 以 Keystore root gate、Room 和单一 Coordinator 实现加入、同步、设置和离线编辑。action failure 与 cursor/protocol diagnostic 分离持久化与 UI 操作。
@@ -26,8 +26,8 @@ updated: 2026-08-27
 
 **Plan Verdict:**
 - **Status:** in-progress
-- **Verified At:** 2026-08-27T23:01:45+08:00
-- **Evidence:** 后端 typecheck、189 个单元测试、57 个 PostgreSQL 16 集成测试通过，Biome 为 0 error/29 info；Android ktlintCheck、detekt、lintDebug、checkContractModels、强制重跑的 testDebugUnitTest（66 tests、0 failure、0 error）与 androidTest Kotlin 编译通过。
+- **Verified At:** 2026-08-28T22:40:55+08:00
+- **Evidence:** 后端 typecheck、189 个单元测试、80 个 PostgreSQL 16 集成测试通过，Biome 为 0 error/29 info；Android ktlintCheck、detekt、lintDebug、checkContractModels、testDebugUnitTest 与 androidTest Kotlin 编译通过。
 - **Blocked Tasks:** T4（AC2 的 Managed Device 执行）
 - **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。当前 WSL2 宿主无 `/dev/kvm`，无已连接 adb 设备，因此无法运行 x86_64 Managed Device。
 
@@ -340,27 +340,31 @@ Expected: **PASS**
 **Behavior:** 持久化文本 stream lease/receipt，在每个持久化写入锁 token 行；撤销后关闭已开始流而非伪造 UNAUTHORIZED SSE。
 
 **Acceptance Criteria:**
-- [ ] revoke/logout 竞争后不再写 conversation/tool/chat-triggered sync，已开始流仅关闭。
-- [ ] replay、expired 410、superseded 409 与合法 SSE timeout/provider error 都由集成测试断言。
+- [x] revoke/logout 竞争后不再写 conversation/tool/chat-triggered sync，已开始流仅关闭。
+- [x] replay、expired 410、superseded 409 与合法 SSE timeout/provider error 都由集成测试断言。
 
 **Execution:**
-- **Status:** pending
+- **Status:** in_progress
 - **Commit SHAs:** []
-- **Dispatch Base SHA:** null
-- **Dispatch Ref:** null
-- **Attempts:** 0
+- **Dispatch Base SHA:** ac3c8db2e544
+- **Dispatch Ref:** main
+- **Attempts:** 1
 - **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
-- **Concerns:** none
+- **Red Result:** {"commands":[{"cmd":"mise exec -- corepack pnpm --dir server test:integration -- chat-runtime.integration.test.ts -t \"rolls back a conversation write when its lease expires during completion\"","confirmed":true,"evidence":"初始实现会在完成事务跨过 lease expiry 后仍发送 event: done；修复后由 receipt CAS 行数校验触发回滚。"},{"cmd":"mise exec -- corepack pnpm --dir server test:integration -- chat-runtime.integration.test.ts -t \"closes a pending provider iterator after an idle timeout\"","confirmed":true,"evidence":"初始实现未调用 iterator.return，closeCalls 为 0；修复后 timeout 路径执行 best-effort close。"}]}
+- **Verify Result:** {"commands":[{"cmd":"export TMPDIR=/tmp TMP=/tmp TEMP=/tmp; mise exec -- corepack pnpm --dir server test:integration -- chat-runtime.integration.test.ts","status":"pass","evidence":"9 files, 80 PostgreSQL-backed tests passed after the lease-takeover fix"},{"cmd":"export TMPDIR=/tmp TMP=/tmp TEMP=/tmp; mise exec -- corepack pnpm --dir server test:unit","status":"pass","evidence":"19 files, 189 tests passed after the fix"},{"cmd":"export TMPDIR=/tmp TMP=/tmp TEMP=/tmp; mise exec -- corepack pnpm --dir server lint","status":"pass","evidence":"Biome exit 0; 29 existing informational style diagnostics, no errors"},{"cmd":"export TMPDIR=/tmp TMP=/tmp TEMP=/tmp; mise exec -- corepack pnpm --dir server typecheck","status":"pass","evidence":"Both TypeScript no-emit checks passed after the fix"},{"cmd":"export TMPDIR=/tmp TMP=/tmp TEMP=/tmp; mise exec -- corepack pnpm --dir server contract:check","status":"pass","evidence":"Generated contracts are up to date"},{"cmd":"git diff --check","status":"pass","evidence":"No whitespace errors"}]}
+- **AC Result:** {"pass":2,"total":2,"deferred":[]}
+- **Concerns:** 本地代码与 AC 证据已就绪；工作树仍未提交，且用户未授权 Task commit/push，因此保持 in_progress。mise 仅报告只读 cache warning，不影响验证结果。
+
+**CI Failure Remediation (2026-08-28):** [run 33126105988](https://github.com/Yggdrasil-Labs/mealmeat-lite/actions/runs/33126105988) 的服务端失败来自 integration project 并行启动多个独立 PostgreSQL Testcontainers，`auth`/`sync` 的 `beforeAll` 超时；已将该 project 设为 `fileParallelism: false` 并把 `hookTimeout` 提高到 60 秒。Android 失败的三项断言分别是 Room v2 新增的三个协调表未纳入 schema 断言、删除 fixture 与前置 upsert 复用同一资源版本导致按契约幂等跳过、以及标题和按钮同文案造成 Compose matcher 歧义；已同步更新 fixture/测试断言并按 click action 定位按钮。
+
+本地复核：服务端 integration 9 files/80 tests、unit 19 files/189 tests、typecheck、contract:check、Biome 均通过；Android `compileDebugAndroidTestKotlin`、`testDebugUnitTest`、ktlint、detekt、lint、`checkContractModels` 均通过。宿主无 `/dev/kvm`，managed-device 未执行；当前工作树未提交，需后续明确 Git 发布动作后由新 commit 触发 fresh CI。
 
 **Task Completion Gate:**
-- [ ] Expected failing Red evidence exists
-- [ ] Verify Result exists and passed
-- [ ] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
+- [x] Expected failing Red evidence exists
+- [x] Verify Result exists and passed
+- [x] AC Result: null (task AC declares no per-task AC) OR (total > 0 AND pass + deferred.length == total, non-deferred AC all verified)
 - [ ] Every Commit SHA in the ordered task chain belongs to this task only
-- [ ] Per-task AC checkbox synced
+- [x] Per-task AC checkbox synced
 
 **Step 1: Red**
 First add the listed PostgreSQL integration assertions, then run:
@@ -375,8 +379,8 @@ Run: `mise exec -- pnpm --dir server run test:integration -- chat-runtime.integr
 Expected: **PASS**
 
 **AC Verification:**
-- [ ] AC1: provider barrier verifies fencing and safe-close behavior → PASS.
-- [ ] AC2: receipt/status/trace tests verify frozen error semantics → PASS.
+- [x] AC1: provider barrier verifies fencing and safe-close behavior → PASS.
+- [x] AC2: receipt/status/trace tests verify frozen error semantics → PASS.
 
 **Step 4: Commit**
 `feat(chat): 实现租约聊天与撤销隔离` with `Task-ID: T5`.

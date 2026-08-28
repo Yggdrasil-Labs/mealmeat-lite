@@ -30,6 +30,10 @@ export default defineConfig({
           include: ['src/**/*.integration.test.ts'],
           exclude: ['src/db/.migrations-releases/**'],
           testTimeout: 30_000,
+          // Each integration file owns a PostgreSQL Testcontainer. Starting them
+          // in parallel exhausts CI resources and makes beforeAll flaky.
+          fileParallelism: false,
+          hookTimeout: 60_000,
         },
       },
     ],

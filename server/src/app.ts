@@ -12,6 +12,7 @@ import { onNotFound } from './middleware/on-not-found.js'
 import './middleware/context-variables.js'
 import { requestId } from './middleware/request-id.js'
 import { createAuthRoutes } from './routes/auth.js'
+import { createChatRoutes } from './routes/chat.js'
 import { healthRoutes } from './routes/health.js'
 import { createApiV1 } from './routes/index.js'
 import { createModelsRoutes } from './routes/models.js'
@@ -19,6 +20,8 @@ import { createSyncRoutes } from './routes/sync.js'
 import type { PasswordHasher } from './security/passwords.js'
 import { AuthService } from './services/auth/auth-service.js'
 import { canonicalizeSourceAddress, isPrivateAddress } from './services/auth/source-key.js'
+import { ChatRuntime, type ChatRuntimeTiming } from './services/chat/chat-runtime.js'
+import { type ChatProvider, OpenAiCompatibleProvider } from './services/chat/provider-adapter.js'
 import { SyncService } from './services/sync/sync-service.js'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')) as {
@@ -31,6 +34,8 @@ export interface AppDeps {
   hasher?: PasswordHasher
   clock?: () => Date
   resolveSource?(c: Context): string | null
+  chatProvider?: ChatProvider
+  chatTiming?: Partial<ChatRuntimeTiming>
 }
 
 /** 默认来源解析：直连对端为私有网络地址时才信任 Caddy 覆盖后的 X-Forwarded-For。 */
@@ -62,6 +67,12 @@ export function createApp(deps: AppDeps): Hono {
     if (catalog === undefined) throw new ConfigError(['MEALMATE_MODELS_FILE'])
     return catalog
   }
+  const chatRuntime = new ChatRuntime({
+    getDb: deps.getDb,
+    getModelCatalog: modelCatalog,
+    provider: deps.chatProvider ?? new OpenAiCompatibleProvider(),
+    timing: deps.chatTiming,
+  })
 
   app.route('/health', healthRoutes)
   app.route(
@@ -70,6 +81,7 @@ export function createApp(deps: AppDeps): Hono {
       authRoutes: createAuthRoutes({ auth: authService, deviceAuth, resolveSource }),
       syncRoutes: createSyncRoutes({ sync: syncService, deviceAuth }),
       modelsRoutes: createModelsRoutes({ getModelCatalog: modelCatalog }),
+      chatRoutes: createChatRoutes({ chat: chatRuntime, deviceAuth }),
     }),
   )
   app.get('/', (c) => c.json({ name: 'mealmate-lite', version: pkg.version }))

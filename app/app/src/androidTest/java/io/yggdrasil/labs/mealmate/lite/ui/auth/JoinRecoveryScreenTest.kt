@@ -1,6 +1,8 @@
 package io.yggdrasil.labs.mealmate.lite.ui.auth
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -23,10 +25,11 @@ class JoinRecoveryScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("加入家庭").assertIsDisplayed()
+        val joinButton = composeRule.onNode(hasText("加入家庭") and hasClickAction())
+        joinButton.assertIsDisplayed()
         composeRule.onNodeWithText("家庭码").assertIsDisplayed().performTextInput("ABCD-EFGH")
         composeRule.onNodeWithText("设备名称").performTextInput("Pixel")
-        composeRule.onNodeWithText("加入家庭").performClick()
+        joinButton.performClick()
         composeRule.runOnIdle { check(submitted) }
     }
 }

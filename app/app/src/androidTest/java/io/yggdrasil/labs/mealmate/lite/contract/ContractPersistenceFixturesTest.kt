@@ -110,7 +110,7 @@ class ContractPersistenceFixturesTest {
                 val tombstone = requireNotNull(dao.getRecipe(recipe.id.toString()))
                 assertEquals("", tombstone.name)
                 assertEquals("2026-08-03T00:00:00Z", tombstone.deletedAt)
-                assertEquals("9007199254740993", tombstone.serverVersion)
+                assertEquals("9007199254740994", tombstone.serverVersion)
                 assertEquals("fixture-cursor-delete", dao.getSyncState()?.cursor)
 
                 rejectedFixtures.forEach { fixture ->
