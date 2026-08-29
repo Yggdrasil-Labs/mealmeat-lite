@@ -133,6 +133,8 @@ dependencies {
 
     // Instrumented Testing
     androidTestImplementation(libs.androidx.test.ext)
+    // Espresso 3.7.0 uses the public InputManager service API required by API 37.
+    androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.compose.ui.test.junit4)
