@@ -5,7 +5,7 @@ feature: stage2-original-goal-remediation
 status: in-progress
 owner: Yggdrasil-Labs
 created: 2026-08-16
-updated: 2026-08-28
+updated: 2026-08-29
 ---
 
 # 阶段 2 原始目标端到端补全 — Implementation Plan
@@ -14,7 +14,7 @@ updated: 2026-08-28
 **Baseline SHA:** b02c4d0
 **Worktree Path:** /home/yangyang/workspace/codes/Yggdrasil-Labs/mealmate-project/mealmate-lite
 **Started At:** 2026-08-26T23:10:25+08:00
-**Updated At:** 2026-08-28T22:40:55+08:00
+**Updated At:** 2026-08-29T22:27:35+08:00
 
 **Goal:** 以真实 Android 用户路径完成 AC5、AC6、AC10、AC12，且不改冻结 v1 wire。
 **Architecture:** 服务端先提供模型目录与 chat runtime；Android 以 Keystore root gate、Room 和单一 Coordinator 实现加入、同步、设置和离线编辑。action failure 与 cursor/protocol diagnostic 分离持久化与 UI 操作。
@@ -26,10 +26,10 @@ updated: 2026-08-28
 
 **Plan Verdict:**
 - **Status:** in-progress
-- **Verified At:** 2026-08-28T22:40:55+08:00
-- **Evidence:** 后端 typecheck、189 个单元测试、80 个 PostgreSQL 16 集成测试通过，Biome 为 0 error/29 info；Android ktlintCheck、detekt、lintDebug、checkContractModels、testDebugUnitTest 与 androidTest Kotlin 编译通过。
-- **Blocked Tasks:** T4（AC2 的 Managed Device 执行）
-- **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。当前 WSL2 宿主无 `/dev/kvm`，无已连接 adb 设备，因此无法运行 x86_64 Managed Device。
+- **Verified At:** 2026-08-29T22:27:35+08:00
+- **Evidence:** 服务端 unit 189/189、PostgreSQL 16 integration 80/80、typecheck、Biome lint 与 contract:check 通过；Android `testDebugUnitTest`、Kotlin 编译与 ktlint 在当前可写缓存中分别被缺失 AAR/KSP/ktlint artifact 阻断，尚未执行测试断言。
+- **Blocked Tasks:** T4（AC2 的 Managed Device 执行）、T6（Android Gradle 依赖门禁）、T7（依赖 T4/T6）
+- **Concerns:** T1–T3 的历史提交未完整满足本计划后来引入的 Task-ID/执行账本协议，按用户授权作为 B0 既有实现基线接纳，不回填或伪造历史 Red/Verify 证据。当前宿主 `adb devices` 无设备且 `/dev/kvm` 不可用；Docker daemon 可用但尚未启动本计划的验收 harness。
 
 **Accepted Risks:**
 
@@ -472,7 +472,7 @@ Expected: **PASS**
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
 - **Attempts:** 0
-- **Blocked Reason:** null
+- **Blocked Reason:** 依赖 T4 的 Managed Device 证据与 T6 的 Android Gradle/设备门禁；在项目级 Android 基线全绿前不启动 T7。
 - **Red Result:** null
 - **Verify Result:** null
 - **AC Result:** null
