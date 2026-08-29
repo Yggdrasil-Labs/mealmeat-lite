@@ -83,7 +83,9 @@ jobs:
   # App — Android Kotlin + Compose
   # ============================================================
   app:
-    runs-on: ubuntu-latest
+    # Keep the Android runner family stable; the SDK provisioning below is
+    # still the source of truth for the managed-device toolchain.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     defaults:
       run:
@@ -96,6 +98,9 @@ jobs:
 
       - name: Provision Android SDK
         run: mise exec -- bash ./scripts/provision-android-sdk.sh
+
+      - name: Provisioning script regression test
+        run: bash ./scripts/test-provision-android-sdk.sh
 
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
@@ -121,7 +126,12 @@ jobs:
         run: sudo chmod 666 /dev/kvm
 
       - name: Room managed device tests
-        run: mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
+        # AGP provisions missing system images during each device task. Keep
+        # those SDK writes serialized to avoid corrupting shared installations
+        # when two local devices are requested in the same Gradle invocation.
+        run: |
+          mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel2Api27DebugAndroidTest
+          mise exec -- bash ./scripts/run-managed-device-tests.sh ./gradlew --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel6Api37DebugAndroidTest
 
   # ============================================================
   # Docker Compose — 编排语法验证 + 镜像构建

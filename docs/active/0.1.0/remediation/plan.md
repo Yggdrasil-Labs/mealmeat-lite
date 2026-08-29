@@ -357,7 +357,9 @@ Expected: **PASS**
 
 **CI Failure Remediation (2026-08-28):** [run 33126105988](https://github.com/Yggdrasil-Labs/mealmeat-lite/actions/runs/33126105988) 的服务端失败来自 integration project 并行启动多个独立 PostgreSQL Testcontainers，`auth`/`sync` 的 `beforeAll` 超时；已将该 project 设为 `fileParallelism: false` 并把 `hookTimeout` 提高到 60 秒。Android 失败的三项断言分别是 Room v2 新增的三个协调表未纳入 schema 断言、删除 fixture 与前置 upsert 复用同一资源版本导致按契约幂等跳过、以及标题和按钮同文案造成 Compose matcher 歧义；已同步更新 fixture/测试断言并按 click action 定位按钮。
 
-本地复核：服务端 integration 9 files/80 tests、unit 19 files/189 tests、typecheck、contract:check、Biome 均通过；Android `compileDebugAndroidTestKotlin`、`testDebugUnitTest`、ktlint、detekt、lint、`checkContractModels` 均通过。宿主无 `/dev/kvm`，managed-device 未执行；当前工作树未提交，需后续明确 Git 发布动作后由新 commit 触发 fresh CI。
+**CI Failure Remediation (2026-08-29):** [run 33183948938](https://github.com/Yggdrasil-Labs/mealmeat-lite/actions/runs/33183948938) 的 Android managed-device 失败发生在 `pixel2Api27Setup` 与 `pixel6Api37Setup` 并行写入共享 SDK 时：并发安装日志显示任务报告完成后仍缺少 `devices.xml`、`hardware-properties.ini` 与 API 37 system image。`devices.xml` 并非所有合法 API 27 system-image 包都会提供，因此 provisioning 以锁定 revision 的 `package.xml`/`source.properties`、非空 system-image payload 及 emulator 元数据作为完整性门槛。CI 现仅对 app job 固定 `ubuntu-24.04`，并按设备拆分为两个串行 Gradle 调用、使用 `swiftshader_indirect`，避免损坏安装进入测试阶段。
+
+本地复核：服务端 integration 9 files/80 tests、unit 19 files/189 tests、typecheck、contract:check、Biome 均通过；Android `compileDebugAndroidTestKotlin`、`testDebugUnitTest`、ktlint、detekt、lint、`checkContractModels` 均通过；新增 provisioning 回归脚本通过。宿主无 `/dev/kvm`，managed-device 未执行；当前工作树未提交，需后续明确 Git 发布动作后由新 commit 触发 fresh CI。
 
 **Task Completion Gate:**
 - [x] Expected failing Red evidence exists

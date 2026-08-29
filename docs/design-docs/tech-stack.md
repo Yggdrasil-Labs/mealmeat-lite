@@ -316,8 +316,10 @@ mise exec -- corepack pnpm --dir server typecheck
 mise exec -- corepack pnpm --dir server test:unit
 mise exec -- corepack pnpm --dir server test:integration
 mise exec -- bash ./app/scripts/provision-android-sdk.sh
+mise exec -- bash ./app/scripts/test-provision-android-sdk.sh
 mise exec -- ./app/gradlew -p app ktlintCheck detekt :app:lintDebug :app:testDebugUnitTest
-mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel2Api27DebugAndroidTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel6Api37DebugAndroidTest
 docker compose -f docker-compose.yml -f docker-compose.test.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up --build --wait
 ```
@@ -412,7 +414,7 @@ app PostgreSQL pool 固定最多 10 个连接、普通语句 `statement_timeout=
 | pnpm | 11.17.0；根与服务端 `packageManager` 固定相同精确版本，本地与 CI 均通过 mise 的 Node + Corepack 执行 |
 | JDK | Temurin 21.0.7+6；由仓库 mise 配置固定 vendor/版本，并作为 Gradle 的运行 JDK |
 | Android Studio | 仅作为 IDE；必须兼容仓库固定的 AGP，不能成为构建版本来源 |
-| Android SDK | `minSdk=26`、`compileSdk=37`、`targetSdk=37`；`app/scripts/provision-android-sdk.sh` 在本地与 CI 固定安装稳定包 `platforms/android-37.0`、`build-tools/37.0.0`。Gradle Managed Devices 自动获取 API 27 AOSP 与 API 37 Google APIs 16KB 系统镜像 |
+| Android SDK | `minSdk=26`、`compileSdk=37`、`targetSdk=37`；`app/scripts/provision-android-sdk.sh` 在本地与 CI 固定安装稳定包 `platforms/android-37.0`、`build-tools/37.0.0`、`system-images/android-27/default/x86_64@1` 与 `system-images/android-37.0/google_apis_ps16k/x86_64@6`，并校验 emulator 元数据与非空 payload；managed-device 测试按设备串行执行并使用 `swiftshader_indirect` |
 | Gradle / AGP / Kotlin / Compose | Gradle 9.6.1、AGP 9.3.1、Kotlin 2.4.10、Compose BOM 2026.06.01；Wrapper、Version Catalog 与 BOM 均固定精确版本，不使用动态版本 |
 | Docker Engine | ≥ 24 |
 | Docker Compose plugin | ≥ 2.20；必须支持 `--wait` 和长格式 `depends_on.condition` |

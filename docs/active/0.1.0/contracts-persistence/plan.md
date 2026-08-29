@@ -907,7 +907,9 @@ mise exec -- corepack pnpm --dir server test:integration
 DB_PASSWORD=contract_generation mise exec -- corepack pnpm --dir server db:migrations:check
 mise exec -- ./app/gradlew -p app :app:checkContractModels :app:ktlintCheck :app:detekt :app:lintDebug :app:testDebugUnitTest
 bash app/scripts/test-check-contract-models.sh
-mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app pixel2Api27DebugAndroidTest pixel6Api37DebugAndroidTest
+mise exec -- bash ./app/scripts/test-provision-android-sdk.sh
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel2Api27DebugAndroidTest
+mise exec -- bash ./app/scripts/run-managed-device-tests.sh ./app/gradlew -p app --no-parallel -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect pixel6Api37DebugAndroidTest
 mise exec -- corepack pnpm --dir server contract:final-gate
 git diff --exit-code -- contracts/v1/generated server/src/contracts/generated app/app/src/main/java/io/yggdrasil/labs/mealmate/lite/contract/generated
 git log --oneline "${MEALMATE_BASELINE_SHA}..HEAD"
