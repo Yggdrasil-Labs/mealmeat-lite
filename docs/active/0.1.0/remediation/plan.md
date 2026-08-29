@@ -409,16 +409,16 @@ Expected: **PASS**
 - [ ] 撤销连接最多一次 probe，401 导回加入页，网络失败不伪造未授权。
 
 **Execution:**
-- **Status:** pending
+- **Status:** in-progress
 - **Commit SHAs:** []
 - **Dispatch Base SHA:** null
 - **Dispatch Ref:** null
-- **Attempts:** 0
-- **Blocked Reason:** null
-- **Red Result:** null
-- **Verify Result:** null
-- **AC Result:** null
-- **Concerns:** none
+- **Attempts:** 1
+- **Blocked Reason:** local Android Gradle dependency cache/network gate; source verification can continue, device acceptance cannot yet run.
+- **Red Result:** BLOCKED — validator/repository/ViewModel tests were added before the production vertical slice, but the required Red command stopped during Android dependency resolution before compiling or executing the failing assertions; no test-level Red output is claimed.
+- **Verify Result:** BLOCKED — `git diff --check`, contract model freshness, and server unit baseline pass; Android Gradle compilation/ktlint cannot resolve the cached `kotlinx-coroutines-core-jvm:1.8.0` artifact in the isolated writable cache, and the online retry did not produce task output before termination.
+- **AC Result:** PARTIAL — source and test coverage now encode terminal-only/current-generation persistence, one protected probe with 401-only invalidation, strict frame/request-id checks, retry ID reuse, and atomic Room writes; Android JVM/instrumentation execution remains pending the Gradle dependency gate.
+- **Concerns:** Android compile, JVM SSE tests, and managed-device ChatViewModel tests still require a writable/populated Gradle dependency cache (and emulator for instrumentation).
 
 **Task Completion Gate:**
 - [ ] Expected failing Red evidence exists
@@ -440,8 +440,8 @@ Run: `mise exec -- ./gradlew -p app :app:testDebugUnitTest --tests '*SseStreamVa
 Expected: **PASS**
 
 **AC Verification:**
-- [ ] AC1: frame/Room tests assert terminal-only persistence and current generation only → PASS.
-- [ ] AC2: MockWebServer revocation test asserts one probe and no fake SSE error → PASS.
+- [ ] AC1: frame/Room tests assert terminal-only persistence and current generation only → DEFERRED — Android dependency/device gate remains open.
+- [ ] AC2: MockWebServer revocation test asserts one probe and no fake SSE error → DEFERRED — JVM test execution remains blocked by Android dependency resolution.
 
 **Step 4: Commit**
 `feat(app-chat): 接入流式聊天与撤销恢复` with `Task-ID: T6`.
