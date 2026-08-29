@@ -241,6 +241,23 @@ class SessionManager(
             usableCredential(generation) != null
         }
 
+    /**
+     * Runs a generation-owned local write while fencing session invalidation.
+     * The invalidation transaction cannot overtake the block, so stale writes
+     * are either rejected before they start or are cleared by the invalidation.
+     */
+    internal suspend fun <T> withCurrentGeneration(
+        generation: Long,
+        block: suspend () -> T,
+    ): T? {
+        mutex.lock()
+        return try {
+            if (usableCredential(generation) == null) null else block()
+        } finally {
+            mutex.unlock()
+        }
+    }
+
     fun tokenSnapshot(): String? =
         credential
             ?.takeIf { credentialUsable && it.state == CredentialState.ACTIVE }

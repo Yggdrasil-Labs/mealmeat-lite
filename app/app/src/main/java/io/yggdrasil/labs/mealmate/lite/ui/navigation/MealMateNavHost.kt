@@ -31,6 +31,7 @@ import io.yggdrasil.labs.mealmate.lite.ui.auth.FamilyCodeScreen
 import io.yggdrasil.labs.mealmate.lite.ui.auth.JoinRecoveryScreen
 import io.yggdrasil.labs.mealmate.lite.ui.auth.ProvisioningScreen
 import io.yggdrasil.labs.mealmate.lite.ui.chat.ChatScreen
+import io.yggdrasil.labs.mealmate.lite.ui.chat.ChatViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.plans.PlansScreen
 import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipeEditorViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipesScreen
@@ -84,7 +85,12 @@ fun MealMateRoot(
 
             AuthUiState.Authenticated -> {
                 val container = (LocalContext.current.applicationContext as MealMateApp).container
-                MealMateNavHost(settingsViewModel, container.recipeEditorViewModel, container.syncFailureViewModel)
+                MealMateNavHost(
+                    settingsViewModel,
+                    container.recipeEditorViewModel,
+                    container.syncFailureViewModel,
+                    container.chatViewModel,
+                )
             }
         }
     }
@@ -95,6 +101,7 @@ fun MealMateNavHost(
     settingsViewModel: io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel,
     recipeEditorViewModel: RecipeEditorViewModel,
     syncFailureViewModel: SyncFailureViewModel,
+    chatViewModel: ChatViewModel,
 ) {
     val navController = rememberNavController()
 
@@ -129,7 +136,7 @@ fun MealMateNavHost(
                 startDestination = TopLevelRoute.Chat.route,
                 modifier = Modifier.padding(innerPadding),
             ) {
-                composable(TopLevelRoute.Chat.route) { ChatScreen() }
+                composable(TopLevelRoute.Chat.route) { ChatScreen(chatViewModel) }
                 composable(TopLevelRoute.Recipes.route) { RecipesScreen(recipeEditorViewModel, syncFailureViewModel) }
                 composable(TopLevelRoute.Plans.route) { PlansScreen() }
                 composable(TopLevelRoute.Settings.route) { SettingsScreen(settingsViewModel) }

@@ -3,6 +3,7 @@ package io.yggdrasil.labs.mealmate.lite.data.remote
 import io.yggdrasil.labs.mealmate.lite.contract.contractJson
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.BootstrapRequest
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.BootstrapResponse
+import io.yggdrasil.labs.mealmate.lite.contract.generated.models.ChatRequest
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.DeviceListResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.ErrorResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.LogoutResponse
@@ -19,6 +20,7 @@ import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.ResponseBody
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
@@ -29,6 +31,7 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 import retrofit2.Response as RetrofitResponse
 
 @Serializable
@@ -55,6 +58,14 @@ interface MealMateApi {
     @GET("api/v1/models")
     suspend fun listModels(): RetrofitResponse<ModelListResponse>
 
+    @Streaming
+    @POST("api/v1/chat")
+    @Headers("Content-Type: application/json", "Accept: text/event-stream")
+    suspend fun chat(
+        @Body request: ChatRequest,
+        @Header("Authorization") authorization: String? = null,
+    ): RetrofitResponse<ResponseBody>
+
     @POST("api/v1/auth/bootstrap")
     @Headers("Content-Type: application/json")
     suspend fun bootstrap(
@@ -71,7 +82,9 @@ interface MealMateApi {
     suspend fun logout(): RetrofitResponse<SuccessEnvelope<LogoutResponse>>
 
     @GET("api/v1/auth/devices")
-    suspend fun listDevices(): RetrofitResponse<SuccessEnvelope<DeviceListResponse>>
+    suspend fun listDevices(
+        @Header("Authorization") authorization: String? = null,
+    ): RetrofitResponse<SuccessEnvelope<DeviceListResponse>>
 
     @DELETE("api/v1/auth/devices/{id}")
     suspend fun revokeDevice(
@@ -111,6 +124,7 @@ class ApiCallException(
     val statusCode: Int,
     val errorCode: String? = null,
     message: String,
+    val retryable: Boolean? = null,
 ) : IllegalStateException(message)
 
 private fun <T> RetrofitResponse<T>.requireBody(): T {
@@ -132,7 +146,7 @@ suspend fun <T> RetrofitResponse<SuccessEnvelope<T>>.requireSuccessData(): T {
 
 private fun apiFailure(error: ApiCallException): Nothing = throw error
 
-private fun <T> RetrofitResponse<T>.asApiCallException(): ApiCallException {
+internal fun <T> RetrofitResponse<T>.asApiCallException(): ApiCallException {
     val error =
         errorBody()
             ?.use { body ->
@@ -142,6 +156,7 @@ private fun <T> RetrofitResponse<T>.asApiCallException(): ApiCallException {
         statusCode = code(),
         errorCode = error?.errCode,
         message = error?.errMessage ?: "MealMate API request failed: ${code()}",
+        retryable = error?.retryable,
     )
 }
 

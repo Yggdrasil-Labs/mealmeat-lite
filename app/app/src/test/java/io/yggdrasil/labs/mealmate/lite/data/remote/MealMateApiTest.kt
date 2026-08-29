@@ -3,12 +3,15 @@ package io.yggdrasil.labs.mealmate.lite.data.remote
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.BootstrapResponse
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsRequest
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import retrofit2.Response
 import java.util.UUID
 
 class MealMateApiTest {
@@ -108,4 +111,23 @@ class MealMateApiTest {
             assertEquals("/api/v1/sync/actions", request.requestUrl?.encodedPath)
             assertEquals("Bearer captured-action-token", request.getHeader("Authorization"))
         }
+
+    @Test
+    fun `api errors preserve the generated retryable flag`() {
+        val response =
+            Response.error<Any>(
+                422,
+                """
+                {
+                  "success":false,"errCode":"MODEL_UNAVAILABLE","errMessage":"model unavailable",
+                  "requestId":"req-1","retryable":false
+                }
+                """.trimIndent().toResponseBody("application/json".toMediaType()),
+            )
+
+        val error = response.asApiCallException()
+
+        assertEquals("MODEL_UNAVAILABLE", error.errorCode)
+        assertEquals(false, error.retryable)
+    }
 }

@@ -6,6 +6,8 @@ import dagger.hilt.android.HiltAndroidApp
 import io.yggdrasil.labs.mealmate.lite.data.auth.AndroidDeviceCredentialStore
 import io.yggdrasil.labs.mealmate.lite.data.auth.AuthRepository
 import io.yggdrasil.labs.mealmate.lite.data.auth.SessionManager
+import io.yggdrasil.labs.mealmate.lite.data.chat.RoomChatLocalStore
+import io.yggdrasil.labs.mealmate.lite.data.chat.SseChatRepository
 import io.yggdrasil.labs.mealmate.lite.data.local.MIGRATION_1_2
 import io.yggdrasil.labs.mealmate.lite.data.local.MealMateDatabase
 import io.yggdrasil.labs.mealmate.lite.data.local.RoomSessionLocalStore
@@ -23,6 +25,7 @@ import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncActionStore
 import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncFailureRepository
 import io.yggdrasil.labs.mealmate.lite.data.sync.RoomSyncPageStore
 import io.yggdrasil.labs.mealmate.lite.ui.auth.AuthViewModel
+import io.yggdrasil.labs.mealmate.lite.ui.chat.ChatViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.recipes.RecipeEditorViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.settings.SettingsViewModel
 import io.yggdrasil.labs.mealmate.lite.ui.sync.SyncFailureViewModel
@@ -71,6 +74,12 @@ class AppContainer(
             syncCoordinator,
         )
     val settingsViewModel = SettingsViewModel(SettingsRepository(api, sessionManager), sessionManager)
+    val chatViewModel =
+        ChatViewModel(
+            SseChatRepository(api, sessionManager),
+            sessionManager,
+            RoomChatLocalStore(database),
+        )
     val recipeEditorViewModel =
         RecipeEditorViewModel(RoomOfflineRecipeRepository(database)) {
             MealMateSyncWorker.enqueueNow(application)

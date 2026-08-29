@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.ChatDraftEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ClientSessionState
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.ConversationMessageEntity
@@ -66,6 +67,21 @@ abstract class ContractCacheDao {
 
     @Query("SELECT * FROM conversation_messages ORDER BY localSequence ASC")
     abstract suspend fun getConversationMessages(): List<ConversationMessageEntity>
+
+    @Query("SELECT * FROM conversation_messages ORDER BY localSequence ASC")
+    abstract fun observeConversationMessages(): Flow<List<ConversationMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertChatDraft(entity: ChatDraftEntity)
+
+    @Query("SELECT * FROM chat_draft WHERE singletonId = 0")
+    abstract suspend fun getChatDraft(): ChatDraftEntity?
+
+    @Query("SELECT * FROM chat_draft WHERE singletonId = 0")
+    abstract fun observeChatDraft(): Flow<ChatDraftEntity?>
+
+    @Query("DELETE FROM chat_draft WHERE singletonId = 0")
+    abstract suspend fun deleteChatDraft(): Int
 
     @Query(
         "DELETE FROM conversation_messages " +
@@ -354,6 +370,24 @@ abstract class ContractCacheDao {
         }
         insertConversationMessageUnchecked(entity)
         retainLatestConversationMessages()
+    }
+
+    @Transaction
+    open suspend fun appendConversationTurn(
+        user: ConversationMessageEntity,
+        assistant: ConversationMessageEntity,
+    ) {
+        appendConversationMessage(user)
+        appendConversationMessage(assistant)
+    }
+
+    @Transaction
+    open suspend fun appendConversationTurnAndClearDraft(
+        user: ConversationMessageEntity,
+        assistant: ConversationMessageEntity,
+    ) {
+        appendConversationTurn(user, assistant)
+        deleteChatDraft()
     }
 
     @Transaction
