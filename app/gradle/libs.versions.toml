@@ -1,6 +1,6 @@
 [versions]
 # Core — AGP 9 内建 Kotlin，版本仍供 KSP/serialization/Compose 插件使用
-agp = "9.3.1"
+agp = "9.3.2"
 kotlin = "2.4.10"
 ksp = "2.3.11"
 
