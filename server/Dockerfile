@@ -1,5 +1,5 @@
 # === Build stage ===
-FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
+FROM node:24.20.0-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS build
 
 RUN npm install --global corepack@0.35.0 \
     && corepack enable \
@@ -20,7 +20,7 @@ RUN pnpm build
 RUN cp -rL src/db/migrations dist/db/migrations
 
 # === Production stage ===
-FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS production
+FROM node:24.20.0-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS production
 
 # tini 作为 PID 1 — 正确处理 SIGTERM 信号转发和 zombie 进程回收
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
