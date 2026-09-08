@@ -375,39 +375,40 @@ class RoomContractTest {
         }
 
     @Test
-    fun conversation_turn_and_draft_clear_are_atomic() = runBlocking {
-        val database =
-            Room
-                .inMemoryDatabaseBuilder(
-                    InstrumentationRegistry.getInstrumentation().targetContext,
-                    MealMateDatabase::class.java,
-                ).allowMainThreadQueries()
-                .build()
-        try {
-            val dao = database.contractCacheDao()
-            val user = ConversationMessageEntity(role = "user", content = "question", createdAt = now.toString())
-            val assistant =
-                ConversationMessageEntity(role = "assistant", content = "answer", createdAt = now.toString())
-            dao.upsertChatDraft(ChatDraftEntity(text = "question"))
+    fun conversation_turn_and_draft_clear_are_atomic() =
+        runBlocking {
+            val database =
+                Room
+                    .inMemoryDatabaseBuilder(
+                        InstrumentationRegistry.getInstrumentation().targetContext,
+                        MealMateDatabase::class.java,
+                    ).allowMainThreadQueries()
+                    .build()
+            try {
+                val dao = database.contractCacheDao()
+                val user = ConversationMessageEntity(role = "user", content = "question", createdAt = now.toString())
+                val assistant =
+                    ConversationMessageEntity(role = "assistant", content = "answer", createdAt = now.toString())
+                dao.upsertChatDraft(ChatDraftEntity(text = "question"))
 
-            assertIllegalArgument {
-                runBlocking {
-                    dao.appendConversationTurnAndClearDraft(
-                        user,
-                        assistant.copy(content = "x".repeat(10_001)),
-                    )
+                assertIllegalArgument {
+                    runBlocking {
+                        dao.appendConversationTurnAndClearDraft(
+                            user,
+                            assistant.copy(content = "x".repeat(10_001)),
+                        )
+                    }
                 }
-            }
-            assertTrue(dao.getConversationMessages().isEmpty())
-            assertEquals("question", dao.getChatDraft()?.text)
+                assertTrue(dao.getConversationMessages().isEmpty())
+                assertEquals("question", dao.getChatDraft()?.text)
 
-            dao.appendConversationTurnAndClearDraft(user, assistant)
-            assertEquals(listOf("user", "assistant"), dao.getConversationMessages().map { it.role })
-            assertNull(dao.getChatDraft())
-        } finally {
-            database.close()
+                dao.appendConversationTurnAndClearDraft(user, assistant)
+                assertEquals(listOf("user", "assistant"), dao.getConversationMessages().map { it.role })
+                assertNull(dao.getChatDraft())
+            } finally {
+                database.close()
+            }
         }
-    }
 
     private inline fun assertIllegalArgument(block: () -> Unit) {
         try {

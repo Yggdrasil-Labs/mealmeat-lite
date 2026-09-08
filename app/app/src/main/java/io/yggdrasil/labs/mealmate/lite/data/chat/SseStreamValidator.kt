@@ -5,9 +5,13 @@ import io.yggdrasil.labs.mealmate.lite.contract.contractJson
 import io.yggdrasil.labs.mealmate.lite.contract.generated.GeneratedProtocolCatalog
 import java.math.BigInteger
 
-class SseProtocolException(message: String) : IllegalStateException(message)
+class SseProtocolException(
+    message: String,
+) : IllegalStateException(message)
 
-class SseIncompleteException(message: String) : IllegalStateException(message)
+class SseIncompleteException(
+    message: String,
+) : IllegalStateException(message)
 
 /** Incremental validator for the frozen server SSE trace contract. */
 class SseStreamValidator {
@@ -16,6 +20,7 @@ class SseStreamValidator {
     private var previousEventId = BigInteger.ZERO
     private var terminalSeen = false
 
+    @Suppress("ThrowsCount")
     fun accept(frame: SseFrame) {
         if (terminalSeen) throw SseProtocolException("SSE frame appears after terminal event")
         val definition =
@@ -47,7 +52,9 @@ class SseStreamValidator {
         previousEventId = eventId
         if (definition.isTerminal) {
             terminalSeen = true
-            val result = io.yggdrasil.labs.mealmate.lite.contract.validateSseTrace(frames)
+            val result =
+                io.yggdrasil.labs.mealmate.lite.contract
+                    .validateSseTrace(frames)
             if (!result.success) {
                 throw SseProtocolException(result.errors.joinToString("; "))
             }

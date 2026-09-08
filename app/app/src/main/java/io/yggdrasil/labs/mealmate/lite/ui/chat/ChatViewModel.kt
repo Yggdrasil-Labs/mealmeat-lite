@@ -108,11 +108,9 @@ class ChatViewModel(
 
     fun send() {
         val text = mutableState.value.draft.trim()
-        if (
-            text.isEmpty() ||
-                mutableState.value.sending ||
-                (mutableState.value.error != null && !mutableState.value.retryable)
-        ) return
+        if (text.isEmpty()) return
+        if (mutableState.value.sending) return
+        if (mutableState.value.error != null && !mutableState.value.retryable) return
         val session = sessionManager.state.value
         val currentGeneration = session.generation ?: return
         val generation = currentGeneration
@@ -136,6 +134,7 @@ class ChatViewModel(
         activeJob = job.takeUnless { it.isCompleted }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun runAttempt(
         requestId: UUID,
         modelId: String,
@@ -158,16 +157,15 @@ class ChatViewModel(
                         }
                     }
 
-                    is ChatEvent.TransportClosed -> handleTransportClosed(event, text, generation, attempt)
+                    is ChatEvent.TransportClosed -> {
+                        handleTransportClosed(event, text, generation, attempt)
+                    }
                 }
             }
-            if (activeAttempt == attempt &&
-                sessionManager.isCurrent(generation) &&
-                completed &&
-                !terminalError
-            ) {
-                persistCompleted(text, assistant.toString(), generation, attempt)
-            }
+            if (activeAttempt != attempt) return
+            if (!sessionManager.isCurrent(generation)) return
+            if (!completed || terminalError) return
+            persistCompleted(text, assistant.toString(), generation, attempt)
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -191,12 +189,13 @@ class ChatViewModel(
 
     private fun retryable(error: Exception): Boolean =
         when (error) {
-            is ApiCallException -> error.retryable ?: (error.statusCode >= 500)
+            is ApiCallException -> error.retryable ?: (error.statusCode >= SERVER_ERROR_MIN_STATUS)
             is SseProtocolException -> false
             is SerializationException -> false
             else -> true
         }
 
+    @Suppress("LongParameterList")
     private suspend fun handleFrame(
         frame: SseFrame,
         requestId: UUID,
@@ -252,11 +251,16 @@ class ChatViewModel(
                 FrameResult.Completed
             }
 
-            else -> throw SseProtocolException("Unsupported SSE schema")
+            else -> {
+                throw SseProtocolException("Unsupported SSE schema")
+            }
         }
     }
 
-    private fun requireSse(condition: Boolean, message: String) {
+    private fun requireSse(
+        condition: Boolean,
+        message: String,
+    ) {
         if (!condition) throw SseProtocolException(message)
     }
 
@@ -299,6 +303,10 @@ class ChatViewModel(
                 mutableState.value = mutableState.value.copy(draft = "", streamingText = "")
             }
         }
+    }
+
+    private companion object {
+        const val SERVER_ERROR_MIN_STATUS = 500
     }
 
     private enum class FrameResult {

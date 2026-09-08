@@ -33,154 +33,161 @@ class SseChatRepositoryTest {
     }
 
     @Test
-    fun `valid terminal trace does not issue a session probe`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """
-                id: 1
-                event: start
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
+    fun `valid terminal trace does not issue a session probe`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    id: 1
+                    event: start
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
 
-                id: 2
-                event: delta
-                data: {"text":"hello"}
+                    id: 2
+                    event: delta
+                    data: {"text":"hello"}
 
-                id: 3
-                event: done
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444"}
+                    id: 3
+                    event: done
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444"}
 
-                """.trimIndent() + "\n\n",
-            ),
-        )
-        val manager = activeSession()
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
-        val events = SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
+                    """.trimIndent() + "\n\n",
+                ),
+            )
+            val manager = activeSession()
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+            val events = SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
 
-        assertEquals(3, events.count { it is ChatEvent.Frame })
-        assertTrue(events.none { it is ChatEvent.TransportClosed })
-        assertEquals(1, server.requestCount)
-        assertEquals(SessionPhase.Active, manager.state.value.phase)
-    }
-
-    @Test
-    fun `truncated stream probes once and only unauthorized invalidates`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """
-                id: 1
-                event: start
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
-
-                """.trimIndent() + "\n\n",
-            ),
-        )
-        server.enqueue(MockResponse().setResponseCode(401).setBody("{"))
-        val manager = activeSession()
-        val generation = manager.state.value.generation!!
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
-        val events = SseChatRepository(api, manager).send(request(), generation).toList()
-
-        assertTrue(events.last() is ChatEvent.TransportClosed)
-        assertEquals(2, server.requestCount)
-        assertEquals(SessionPhase.Unauthenticated, manager.state.value.phase)
-    }
+            assertEquals(3, events.count { it is ChatEvent.Frame })
+            assertTrue(events.none { it is ChatEvent.TransportClosed })
+            assertEquals(1, server.requestCount)
+            assertEquals(SessionPhase.Active, manager.state.value.phase)
+        }
 
     @Test
-    fun `network failure probes once without invalidating an active session`() = runBlocking {
-        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
-        server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":{\"items\":[]}}"))
-        val manager = activeSession()
-        val generation = manager.state.value.generation!!
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+    fun `truncated stream probes once and only unauthorized invalidates`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    id: 1
+                    event: start
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
 
-        val events = SseChatRepository(api, manager).send(request(), generation).toList()
+                    """.trimIndent() + "\n\n",
+                ),
+            )
+            server.enqueue(MockResponse().setResponseCode(401).setBody("{"))
+            val manager = activeSession()
+            val generation = manager.state.value.generation!!
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+            val events = SseChatRepository(api, manager).send(request(), generation).toList()
 
-        assertTrue(events.single() is ChatEvent.TransportClosed)
-        assertEquals(2, server.requestCount)
-        assertEquals(SessionPhase.Active, manager.state.value.phase)
-    }
-
-    @Test
-    fun `stream read failure probes once without fabricating unauthorized`() = runBlocking {
-        server.enqueue(
-            MockResponse()
-                .setBody(
-                    "id: 1\nevent: start\ndata: " +
-                        "{\"chatRequestId\":\"44444444-4444-4444-8444-444444444444\"," +
-                        "\"replayed\":false,\"resumed\":false}\n\n",
-                ).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY),
-        )
-        server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":{\"items\":[]}}"))
-        val manager = activeSession()
-        val generation = manager.state.value.generation!!
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
-
-        val events = SseChatRepository(api, manager).send(request(), generation).toList()
-
-        assertEquals(1, events.count { it is ChatEvent.Frame })
-        assertTrue(events.last() is ChatEvent.TransportClosed)
-        assertEquals(2, server.requestCount)
-        assertEquals(SessionPhase.Active, manager.state.value.phase)
-    }
+            assertTrue(events.last() is ChatEvent.TransportClosed)
+            assertEquals(2, server.requestCount)
+            assertEquals(SessionPhase.Unauthenticated, manager.state.value.phase)
+        }
 
     @Test
-    fun `error terminal is delivered without a probe`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """
-                id: 1
-                event: start
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
+    fun `network failure probes once without invalidating an active session`() =
+        runBlocking {
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":{\"items\":[]}}"))
+            val manager = activeSession()
+            val generation = manager.state.value.generation!!
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
 
-                id: 2
-                event: error
-                data: {"errCode":"PROVIDER_ERROR","errMessage":"provider unavailable",
-                data: "retryable":true,"requestId":"request-1"}
+            val events = SseChatRepository(api, manager).send(request(), generation).toList()
 
-                """.trimIndent() + "\n\n",
-            ),
-        )
-        val manager = activeSession()
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
-
-        val events = SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
-
-        assertEquals(2, events.count { it is ChatEvent.Frame })
-        assertTrue(events.none { it is ChatEvent.TransportClosed })
-        assertEquals(1, server.requestCount)
-        assertEquals(SessionPhase.Active, manager.state.value.phase)
-    }
+            assertTrue(events.single() is ChatEvent.TransportClosed)
+            assertEquals(2, server.requestCount)
+            assertEquals(SessionPhase.Active, manager.state.value.phase)
+        }
 
     @Test
-    fun `partial frame after terminal is rejected instead of completing the turn`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """
-                id: 1
-                event: start
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
+    fun `stream read failure probes once without fabricating unauthorized`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse()
+                    .setBody(
+                        "id: 1\nevent: start\ndata: " +
+                            "{\"chatRequestId\":\"44444444-4444-4444-8444-444444444444\"," +
+                            "\"replayed\":false,\"resumed\":false}\n\n" +
+                            ":" + "padding".repeat(128) + "\n",
+                    ).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY),
+            )
+            server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":{\"items\":[]}}"))
+            val manager = activeSession()
+            val generation = manager.state.value.generation!!
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
 
-                id: 2
-                event: done
-                data: {"chatRequestId":"44444444-4444-4444-8444-444444444444"}
+            val events = SseChatRepository(api, manager).send(request(), generation).toList()
 
-                id: 3
-                event: delta
-                data: {"text":"trailing"
-                """.trimIndent(),
-            ),
-        )
-        val manager = activeSession()
-        val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+            assertEquals(1, events.count { it is ChatEvent.Frame })
+            assertTrue(events.last() is ChatEvent.TransportClosed)
+            assertEquals(2, server.requestCount)
+            assertEquals(SessionPhase.Active, manager.state.value.phase)
+        }
 
-        val failure =
-            runCatching {
-                SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
-            }.exceptionOrNull()
-        assertTrue(failure is SseProtocolException)
-        assertEquals(1, server.requestCount)
-        assertEquals(SessionPhase.Active, manager.state.value.phase)
-    }
+    @Test
+    fun `error terminal is delivered without a probe`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    id: 1
+                    event: start
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
+
+                    id: 2
+                    event: error
+                    data: {"errCode":"PROVIDER_ERROR","errMessage":"provider unavailable",
+                    data: "retryable":true,"requestId":"request-1"}
+
+                    """.trimIndent() + "\n\n",
+                ),
+            )
+            val manager = activeSession()
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+
+            val events = SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
+
+            assertEquals(2, events.count { it is ChatEvent.Frame })
+            assertTrue(events.none { it is ChatEvent.TransportClosed })
+            assertEquals(1, server.requestCount)
+            assertEquals(SessionPhase.Active, manager.state.value.phase)
+        }
+
+    @Test
+    fun `partial frame after terminal is rejected instead of completing the turn`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    id: 1
+                    event: start
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444","replayed":false,"resumed":false}
+
+                    id: 2
+                    event: done
+                    data: {"chatRequestId":"44444444-4444-4444-8444-444444444444"}
+
+                    id: 3
+                    event: delta
+                    data: {"text":"trailing"
+                    """.trimIndent(),
+                ),
+            )
+            val manager = activeSession()
+            val api = createMealMateApi(server.url("/").toString(), manager::tokenSnapshot)
+
+            val failure =
+                runCatching {
+                    SseChatRepository(api, manager).send(request(), manager.state.value.generation!!).toList()
+                }.exceptionOrNull()
+            assertTrue(failure is SseProtocolException)
+            assertEquals(1, server.requestCount)
+            assertEquals(SessionPhase.Active, manager.state.value.phase)
+        }
 
     private fun request() = ChatRequest(UUID.fromString("44444444-4444-4444-8444-444444444444"), "model-a", "hello")
 

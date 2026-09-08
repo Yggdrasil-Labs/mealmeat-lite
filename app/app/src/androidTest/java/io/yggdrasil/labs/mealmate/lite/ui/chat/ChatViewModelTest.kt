@@ -33,182 +33,215 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class ChatViewModelTest {
     @Test
-    fun persists_one_turn_only_after_done_for_current_generation() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val sender = FakeChatSender(
-            listOf(
-                ChatEvent.Frame(frame("start", START_ID, START_DATA)),
-                ChatEvent.Frame(frame("delta", "2", "{\"text\":\"reply\"}")),
-                ChatEvent.Frame(frame("done", "3", DONE_DATA)),
-            ),
-        )
-        val viewModel = ChatViewModel(sender, session, store, testScope())
-
-        viewModel.updateDraft("question")
-        viewModel.send()
-
-        assertEquals(
-            listOf(Turn("user", "question"), Turn("assistant", "reply")),
-            store.turns,
-        )
-        assertEquals(null, store.draft.value)
-    }
-
-    @Test
-    fun does_not_persist_done_event_from_old_generation() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val sender = object : ChatSender {
-            override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> = flow {
-                emit(ChatEvent.Frame(frame("start", START_ID, startData(request.chatRequestId))))
-                session.startProvisioning("new-device", "new-token")
-                emit(ChatEvent.Frame(frame("delta", "2", "{\"text\":\"stale\"}")))
-                emit(ChatEvent.Frame(frame("done", "3", doneData(request.chatRequestId))))
-            }
-        }
-        val viewModel = ChatViewModel(sender, session, store, testScope())
-
-        viewModel.updateDraft("old question")
-        viewModel.send()
-
-        assertTrue(store.turns.isEmpty())
-        assertEquals("old question", store.draft.value?.text)
-    }
-
-    @Test
-    fun error_terminal_keeps_draft_and_exposes_server_message() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val sender = FakeChatSender(
-            listOf(
-                ChatEvent.Frame(frame("start", START_ID, START_DATA)),
-                ChatEvent.Frame(
-                    frame(
-                        "error",
-                        "2",
-                        "{\"errCode\":\"PROVIDER_ERROR\",\"errMessage\":\"provider unavailable\",\n" +
-                            "\"retryable\":true,\"requestId\":\"request-1\"}",
+    fun persists_one_turn_only_after_done_for_current_generation() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val sender =
+                FakeChatSender(
+                    listOf(
+                        ChatEvent.Frame(frame("start", START_ID, START_DATA)),
+                        ChatEvent.Frame(frame("delta", "2", "{\"text\":\"reply\"}")),
+                        ChatEvent.Frame(frame("done", "3", DONE_DATA)),
                     ),
-                ),
-            ),
-        )
-        val viewModel = ChatViewModel(sender, session, store, testScope())
+                )
+            val viewModel = ChatViewModel(sender, session, store, testScope())
 
-        viewModel.updateDraft("question")
-        viewModel.send()
+            viewModel.updateDraft("question")
+            viewModel.send()
 
-        assertTrue(store.turns.isEmpty())
-        assertEquals("question", store.draft.value?.text)
-        assertEquals("provider unavailable", viewModel.state.value.error)
-    }
+            assertEquals(
+                listOf(Turn("user", "question"), Turn("assistant", "reply")),
+                store.turns,
+            )
+            assertEquals(null, store.draft.value)
+        }
 
     @Test
-    fun request_id_mismatch_is_rejected_without_persisting_a_turn() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val sender = object : ChatSender {
-            override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> = flowOf(
-                ChatEvent.Frame(frame("start", "1", START_DATA)),
-                ChatEvent.Frame(frame("done", "2", DONE_DATA)),
+    fun does_not_persist_done_event_from_old_generation() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> =
+                        flow {
+                            emit(ChatEvent.Frame(frame("start", START_ID, startData(request.chatRequestId))))
+                            session.startProvisioning("new-device", "new-token")
+                            emit(ChatEvent.Frame(frame("delta", "2", "{\"text\":\"stale\"}")))
+                            emit(ChatEvent.Frame(frame("done", "3", doneData(request.chatRequestId))))
+                        }
+                }
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("old question")
+            viewModel.send()
+
+            assertTrue(store.turns.isEmpty())
+            assertEquals("old question", store.draft.value?.text)
+        }
+
+    @Test
+    fun error_terminal_keeps_draft_and_exposes_server_message() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val sender =
+                FakeChatSender(
+                    listOf(
+                        ChatEvent.Frame(frame("start", START_ID, START_DATA)),
+                        ChatEvent.Frame(
+                            frame(
+                                "error",
+                                "2",
+                                "{\"errCode\":\"PROVIDER_ERROR\",\"errMessage\":\"provider unavailable\",\n" +
+                                    "\"retryable\":true,\"requestId\":\"request-1\"}",
+                            ),
+                        ),
+                    ),
+                )
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+
+            assertTrue(store.turns.isEmpty())
+            assertEquals("question", store.draft.value?.text)
+            assertEquals("provider unavailable", viewModel.state.value.error)
+        }
+
+    @Test
+    fun request_id_mismatch_is_rejected_without_persisting_a_turn() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> =
+                        flowOf(
+                            ChatEvent.Frame(frame("start", "1", START_DATA)),
+                            ChatEvent.Frame(frame("done", "2", DONE_DATA)),
+                        )
+                }
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+
+            assertTrue(store.turns.isEmpty())
+            assertEquals("question", store.draft.value?.text)
+            assertEquals("SSE start request id mismatch", viewModel.state.value.error)
+            assertEquals(false, viewModel.state.value.retryable)
+        }
+
+    @Test
+    fun retry_reuses_request_id_after_transport_close() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val requestIds = mutableListOf<UUID>()
+            var attempt = 0
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> {
+                        requestIds += request.chatRequestId
+                        attempt += 1
+                        return if (attempt == 1) {
+                            flowOf(
+                                ChatEvent.Frame(frame("start", "1", startData(request.chatRequestId))),
+                                ChatEvent.TransportClosed(IllegalStateException("socket closed")),
+                            )
+                        } else {
+                            flowOf(
+                                ChatEvent.Frame(frame("start", "1", startData(request.chatRequestId))),
+                                ChatEvent.Frame(frame("delta", "2", "{\"text\":\"reply\"}")),
+                                ChatEvent.Frame(frame("done", "3", doneData(request.chatRequestId))),
+                            )
+                        }
+                    }
+                }
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+            viewModel.send()
+
+            assertEquals(2, requestIds.size)
+            assertEquals(requestIds[0], requestIds[1])
+            assertEquals(
+                listOf(Turn("user", "question"), Turn("assistant", "reply")),
+                store.turns,
             )
         }
-        val viewModel = ChatViewModel(sender, session, store, testScope())
-
-        viewModel.updateDraft("question")
-        viewModel.send()
-
-        assertTrue(store.turns.isEmpty())
-        assertEquals("question", store.draft.value?.text)
-        assertEquals("SSE start request id mismatch", viewModel.state.value.error)
-        assertEquals(false, viewModel.state.value.retryable)
-    }
 
     @Test
-    fun retry_reuses_request_id_after_transport_close() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val requestIds = mutableListOf<UUID>()
-        var attempt = 0
-        val sender = object : ChatSender {
-            override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> {
-                requestIds += request.chatRequestId
-                attempt += 1
-                return if (attempt == 1) {
-                    flowOf(
-                        ChatEvent.Frame(frame("start", "1", startData(request.chatRequestId))),
-                        ChatEvent.TransportClosed(IllegalStateException("socket closed")),
-                    )
-                } else {
-                    flowOf(
-                        ChatEvent.Frame(frame("start", "1", startData(request.chatRequestId))),
-                        ChatEvent.Frame(frame("delta", "2", "{\"text\":\"reply\"}")),
-                        ChatEvent.Frame(frame("done", "3", doneData(request.chatRequestId))),
-                    )
+    fun non_retryable_api_error_disables_retry() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            var sends = 0
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> =
+                        flow {
+                            sends += 1
+                            throw ApiCallException(422, "MODEL_UNAVAILABLE", "model unavailable")
+                        }
                 }
-            }
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+
+            assertEquals("model unavailable", viewModel.state.value.error)
+            assertEquals(false, viewModel.state.value.retryable)
+            viewModel.send()
+            assertEquals(1, sends)
         }
-        val viewModel = ChatViewModel(sender, session, store, testScope())
-
-        viewModel.updateDraft("question")
-        viewModel.send()
-        viewModel.send()
-
-        assertEquals(2, requestIds.size)
-        assertEquals(requestIds[0], requestIds[1])
-        assertEquals(
-            listOf(Turn("user", "question"), Turn("assistant", "reply")),
-            store.turns,
-        )
-    }
 
     @Test
-    fun non_retryable_api_error_disables_retry() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        var sends = 0
-        val sender = object : ChatSender {
-            override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> = flow {
-                sends += 1
-                throw ApiCallException(422, "MODEL_UNAVAILABLE", "model unavailable")
-            }
-        }
-        val viewModel = ChatViewModel(sender, session, store, testScope())
-
-        viewModel.updateDraft("question")
-        viewModel.send()
-
-        assertEquals("model unavailable", viewModel.state.value.error)
-        assertEquals(false, viewModel.state.value.retryable)
-        viewModel.send()
-        assertEquals(1, sends)
-    }
-
-    @Test
-    fun generation_change_cancels_the_active_sender_job() = runBlocking {
-        val session = activeSession()
-        val store = FakeChatLocalStore()
-        val cancelled = CompletableDeferred<Unit>()
-        val sender = object : ChatSender {
-            override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> = flow {
-                try {
-                    emit(ChatEvent.Frame(frame("start", START_ID, startData(request.chatRequestId))))
-                    awaitCancellation()
-                } finally {
-                    cancelled.complete(Unit)
+    fun generation_change_cancels_the_active_sender_job() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val cancelled = CompletableDeferred<Unit>()
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> =
+                        flow {
+                            try {
+                                emit(ChatEvent.Frame(frame("start", START_ID, startData(request.chatRequestId))))
+                                awaitCancellation()
+                            } finally {
+                                cancelled.complete(Unit)
+                            }
+                        }
                 }
-            }
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            val viewModel = ChatViewModel(sender, session, store, scope)
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+            session.startProvisioning("new-device", "new-token")
+
+            withTimeout(1_000) { cancelled.await() }
+            scope.cancel()
         }
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val viewModel = ChatViewModel(sender, session, store, scope)
-
-        viewModel.updateDraft("question")
-        viewModel.send()
-        session.startProvisioning("new-device", "new-token")
-
-        withTimeout(1_000) { cancelled.await() }
-        scope.cancel()
-    }
 
     private fun activeSession(): SessionManager {
         val manager = SessionManager(FakeDeviceCredentialStore())
@@ -222,7 +255,11 @@ class ChatViewModelTest {
 
     private fun testScope() = CoroutineScope(Dispatchers.Unconfined)
 
-    private fun frame(event: String, eventId: String, data: String) = SseFrame(event, data, eventId)
+    private fun frame(
+        event: String,
+        eventId: String,
+        data: String,
+    ) = SseFrame(event, data, eventId)
 
     private fun startData(requestId: UUID) = START_DATA.replace(FIXED_CHAT_ID, requestId.toString())
 
@@ -231,22 +268,26 @@ class ChatViewModelTest {
     private class FakeChatSender(
         private val events: List<ChatEvent>,
     ) : ChatSender {
-        override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> =
+        override fun send(
+            request: ChatRequest,
+            generation: Long,
+        ): Flow<ChatEvent> =
             flowOf(
-                *events.map { event ->
-                    if (event is ChatEvent.Frame &&
-                        (event.frame.event == "start" || event.frame.event == "done")
-                    ) {
-                        event.copy(
-                            frame =
-                                event.frame.copy(
-                                    data = event.frame.data.replace(FIXED_CHAT_ID, request.chatRequestId.toString()),
-                                ),
-                        )
-                    } else {
-                        event
-                    }
-                }.toTypedArray(),
+                *events
+                    .map { event ->
+                        if (event is ChatEvent.Frame &&
+                            (event.frame.event == "start" || event.frame.event == "done")
+                        ) {
+                            event.copy(
+                                frame =
+                                    event.frame.copy(
+                                        data = event.frame.data.replace(FIXED_CHAT_ID, request.chatRequestId.toString()),
+                                    ),
+                            )
+                        } else {
+                            event
+                        }
+                    }.toTypedArray(),
             )
     }
 
@@ -286,7 +327,10 @@ class ChatViewModelTest {
         }
     }
 
-    private data class Turn(val role: String, val content: String)
+    private data class Turn(
+        val role: String,
+        val content: String,
+    )
 
     private companion object {
         const val START_ID = "1"

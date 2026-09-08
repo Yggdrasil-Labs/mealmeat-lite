@@ -19,13 +19,20 @@ import okhttp3.ResponseBody
 import okio.BufferedSource
 
 sealed interface ChatEvent {
-    data class Frame(val frame: SseFrame) : ChatEvent
+    data class Frame(
+        val frame: SseFrame,
+    ) : ChatEvent
 
-    data class TransportClosed(val cause: Throwable? = null) : ChatEvent
+    data class TransportClosed(
+        val cause: Throwable? = null,
+    ) : ChatEvent
 }
 
 interface ChatSender {
-    fun send(request: ChatRequest, generation: Long): Flow<ChatEvent>
+    fun send(
+        request: ChatRequest,
+        generation: Long,
+    ): Flow<ChatEvent>
 }
 
 interface ChatLocalStore {
@@ -45,76 +52,83 @@ class SseChatRepository(
     private val api: MealMateApi,
     private val sessionManager: SessionManager,
 ) : ChatSender {
-    override fun send(request: ChatRequest, generation: Long): Flow<ChatEvent> = flow {
-        val credential = sessionManager.currentCredential(generation) ?: return@flow
-        val authorization = "Bearer ${credential.token}"
-        var probeAttempted = false
-        suspend fun probeAfterClose(cause: Throwable?) {
-            if (probeAttempted) return
-            probeAttempted = true
-            try {
-                api.listDevices(authorization).requireSuccessData()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: ApiCallException) {
-                if (error.statusCode == UNAUTHORIZED_STATUS) sessionManager.invalidate(generation)
-            } catch (_: Exception) {
-                // A failed probe is deliberately not treated as revocation.
-            }
-            emit(ChatEvent.TransportClosed(cause))
-        }
+    override fun send(
+        request: ChatRequest,
+        generation: Long,
+    ): Flow<ChatEvent> =
+        flow {
+            val credential = sessionManager.currentCredential(generation) ?: return@flow
+            val authorization = "Bearer ${credential.token}"
+            var probeAttempted = false
 
-        val response =
-            try {
-                api.chat(request, authorization)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: java.io.IOException) {
-                probeAfterClose(error)
-                return@flow
-            }
-        if (!response.isSuccessful) {
-            val error = response.asApiCallException()
-            if (response.code() == UNAUTHORIZED_STATUS) sessionManager.invalidate(generation)
-            throw error
-        }
-
-        val body = response.body() ?: run {
-            probeAfterClose(IllegalStateException("Chat response had no body"))
-            return@flow
-        }
-        var terminalFrameReceived = false
-        val parseResult =
-            try {
-                body.use {
-                    parseStream(it) { event ->
-                        if (!sessionManager.isCurrent(generation)) {
-                            throw CancellationException("Session is no longer current")
-                        }
-                        if (event is ChatEvent.Frame &&
-                            GeneratedProtocolCatalog.sseEventMap.getValue(event.frame.event).isTerminal
-                        ) {
-                            terminalFrameReceived = true
-                        }
-                        emit(event)
-                    }
+            suspend fun probeAfterClose(cause: Throwable?) {
+                if (probeAttempted) return
+                probeAttempted = true
+                try {
+                    api.listDevices(authorization).requireSuccessData()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: ApiCallException) {
+                    if (error.statusCode == UNAUTHORIZED_STATUS) sessionManager.invalidate(generation)
+                } catch (_: Exception) {
+                    // A failed probe is deliberately not treated as revocation.
                 }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: java.io.IOException) {
-                if (!terminalFrameReceived) {
+                emit(ChatEvent.TransportClosed(cause))
+            }
+
+            val response =
+                try {
+                    api.chat(request, authorization)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: java.io.IOException) {
                     probeAfterClose(error)
                     return@flow
                 }
-                // The terminal frame has already been delivered. A close failure cannot
-                // turn a completed trace into a transport failure or trigger a probe.
-                ParseResult(terminal = true, cause = null)
+            if (!response.isSuccessful) {
+                val error = response.asApiCallException()
+                if (response.code() == UNAUTHORIZED_STATUS) sessionManager.invalidate(generation)
+                throw error
             }
-        // A clean EOF without a terminal frame is a transport failure. The probe is the
-        // only place where an already-established stream may invalidate the session.
-        if (!parseResult.terminal && !terminalFrameReceived) probeAfterClose(parseResult.cause)
-    }.flowOn(Dispatchers.IO)
 
+            val body =
+                response.body() ?: run {
+                    probeAfterClose(IllegalStateException("Chat response had no body"))
+                    return@flow
+                }
+            var terminalFrameReceived = false
+            val parseResult =
+                try {
+                    body.use {
+                        parseStream(it) { event ->
+                            if (!sessionManager.isCurrent(generation)) {
+                                throw CancellationException("Session is no longer current")
+                            }
+                            if (event is ChatEvent.Frame &&
+                                GeneratedProtocolCatalog.sseEventMap.getValue(event.frame.event).isTerminal
+                            ) {
+                                terminalFrameReceived = true
+                            }
+                            emit(event)
+                        }
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: java.io.IOException) {
+                    if (!terminalFrameReceived) {
+                        probeAfterClose(error)
+                        return@flow
+                    }
+                    // The terminal frame has already been delivered. A close failure cannot
+                    // turn a completed trace into a transport failure or trigger a probe.
+                    ParseResult(terminal = true, cause = null)
+                }
+            // A clean EOF without a terminal frame is a transport failure. The probe is the
+            // only place where an already-established stream may invalidate the session.
+            if (!parseResult.terminal && !terminalFrameReceived) probeAfterClose(parseResult.cause)
+        }.flowOn(Dispatchers.IO)
+
+    @Suppress("RethrowCaughtException")
     private suspend fun parseStream(
         body: ResponseBody,
         emit: suspend (ChatEvent) -> Unit,
@@ -138,6 +152,7 @@ class SseChatRepository(
         }
     }
 
+    @Suppress("RethrowCaughtException", "ThrowsCount")
     private suspend fun readFrames(
         source: BufferedSource,
         isTerminalSeen: () -> Boolean,
@@ -146,6 +161,7 @@ class SseChatRepository(
         var eventId: String? = null
         var event: String? = null
         val data = mutableListOf<String>()
+
         fun hasPendingFrame(): Boolean = eventId != null || event != null || data.isNotEmpty()
 
         suspend fun dispatch() {

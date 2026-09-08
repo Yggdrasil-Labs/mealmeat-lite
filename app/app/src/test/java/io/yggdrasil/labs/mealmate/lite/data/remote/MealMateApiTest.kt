@@ -4,9 +4,9 @@ import io.yggdrasil.labs.mealmate.lite.contract.generated.models.BootstrapRespon
 import io.yggdrasil.labs.mealmate.lite.contract.generated.models.SyncActionsRequest
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
