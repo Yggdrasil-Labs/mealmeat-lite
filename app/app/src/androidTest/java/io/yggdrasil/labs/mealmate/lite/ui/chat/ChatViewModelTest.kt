@@ -114,6 +114,40 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun mismatched_error_request_id_is_rejected_without_persisting_a_turn() =
+        runBlocking {
+            val session = activeSession()
+            val store = FakeChatLocalStore()
+            val sender =
+                object : ChatSender {
+                    override fun send(
+                        request: ChatRequest,
+                        generation: Long,
+                    ): Flow<ChatEvent> =
+                        flowOf(
+                            ChatEvent.Frame(frame("start", "1", startData(request.chatRequestId))),
+                            ChatEvent.Frame(
+                                frame(
+                                    "error",
+                                    "2",
+                                    "{\"errCode\":\"PROVIDER_ERROR\",\"errMessage\":\"stale provider error\",\n" +
+                                        "\"retryable\":true,\"requestId\":\"55555555-5555-4555-8555-555555555555\"}",
+                                ),
+                            ),
+                        )
+                }
+            val viewModel = ChatViewModel(sender, session, store, testScope())
+
+            viewModel.updateDraft("question")
+            viewModel.send()
+
+            assertTrue(store.turns.isEmpty())
+            assertEquals("question", store.draft.value?.text)
+            assertEquals("SSE error request id mismatch", viewModel.state.value.error)
+            assertEquals(false, viewModel.state.value.retryable)
+        }
+
+    @Test
     fun request_id_mismatch_is_rejected_without_persisting_a_turn() =
         runBlocking {
             val session = activeSession()
@@ -275,17 +309,18 @@ class ChatViewModelTest {
             flowOf(
                 *events
                     .map { event ->
-                        if (event is ChatEvent.Frame &&
-                            (event.frame.event == "start" || event.frame.event == "done")
-                        ) {
+                        if (event !is ChatEvent.Frame || event.frame.event !in REQUEST_BOUND_EVENTS) {
+                            event
+                        } else {
                             event.copy(
                                 frame =
                                     event.frame.copy(
-                                        data = event.frame.data.replace(FIXED_CHAT_ID, request.chatRequestId.toString()),
+                                        data =
+                                            event.frame.data
+                                                .replace(FIXED_CHAT_ID, request.chatRequestId.toString())
+                                                .replace("request-1", request.chatRequestId.toString()),
                                     ),
                             )
-                        } else {
-                            event
                         }
                     }.toTypedArray(),
             )
@@ -333,6 +368,7 @@ class ChatViewModelTest {
     )
 
     private companion object {
+        val REQUEST_BOUND_EVENTS = setOf("start", "done", "error")
         const val START_ID = "1"
         const val FIXED_CHAT_ID = "44444444-4444-4444-8444-444444444444"
         const val START_DATA =

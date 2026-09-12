@@ -232,6 +232,7 @@ class ChatViewModel(
 
             "SseErrorEvent" -> {
                 val serverError = contractJson.decodeFromString<SseErrorEvent>(frame.data)
+                requireSse(serverError.requestId == requestId.toString(), "SSE error request id mismatch")
                 sessionManager.withCurrentGeneration(generation) {
                     if (activeAttempt == attempt) {
                         localStore.saveDraft(text)
