@@ -9,7 +9,7 @@
 
 	log {
 		output stdout
-		format json {
+		format filter {
 			fields {
 				request>headers delete
 				request>body delete

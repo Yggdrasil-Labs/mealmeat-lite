@@ -54,6 +54,21 @@ services:
       context: ./server
       target: production
     restart: unless-stopped
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        ca_path="$${NODE_EXTRA_CA_CERTS:-}"
+        mounted_ca=/run/provider/provider-ca.crt
+        if [ -n "$$ca_path" ] && [ ! -f "$$ca_path" ]; then
+          echo "MEALMATE_PROVIDER_CA_CERT_PATH requires a regular CA file at $$ca_path." >&2
+          exit 1
+        fi
+        if [ -z "$$ca_path" ] && [ -f "$$mounted_ca" ]; then
+          echo "MEALMATE_PROVIDER_CA_FILE requires MEALMATE_PROVIDER_CA_CERT_PATH." >&2
+          exit 1
+        fi
+        exec node dist/index.js
     depends_on:
       db:
         condition: service_healthy
@@ -67,15 +82,28 @@ services:
       DB_PASSWORD_FILE: /run/secrets/db_password
       MEALMATE_BOOTSTRAP_SECRET_FILE: /run/secrets/bootstrap_secret
       MEALMATE_MODELS_FILE: /run/config/models.json
-      MEALMATE_PUBLIC_DOMAIN: ${MEALMATE_PUBLIC_DOMAIN}
+      MEALMATE_PUBLIC_DOMAIN: ${MEALMATE_PUBLIC_DOMAIN:?MEALMATE_PUBLIC_DOMAIN must be set}
+      # Optional trust anchor for private/provider-mock HTTPS endpoints. Set
+      # MEALMATE_PROVIDER_CA_FILE and MEALMATE_PROVIDER_CA_CERT_PATH together;
+      # public provider certificates use the image's normal CA bundle.
+      NODE_EXTRA_CA_CERTS: ${MEALMATE_PROVIDER_CA_CERT_PATH:-}
       TZ: Asia/Shanghai
+    # The catalog's apiKeyEnv is deliberately dynamic. Deployments provide an
+    # env file containing those provider variables; no provider name is baked
+    # into this Compose file and the file itself is never copied into an image.
+    env_file:
+      - ${MEALMATE_PROVIDER_ENV_FILE:-/dev/null}
     secrets:
       - db_password
       - bootstrap_secret
     volumes:
       - ${MEALMATE_MODELS_FILE}:/run/config/models.json:ro
+      - ${MEALMATE_PROVIDER_CA_FILE:-/dev/null}:/run/provider/provider-ca.crt:ro
     networks:
       - internal
+      # Only the app may use the explicitly declared egress network to reach a
+      # configured model provider. DB and migration stay on internal only.
+      - egress
     healthcheck:
       test: ["CMD", "node", "dist/healthcheck.js", "ready"]
       interval: 10s
@@ -97,6 +125,8 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    environment:
+      MEALMATE_PUBLIC_DOMAIN: ${MEALMATE_PUBLIC_DOMAIN:?MEALMATE_PUBLIC_DOMAIN must be set}
     command: ["sh", "-c", "caddy validate --config /etc/caddy/Caddyfile && caddy run --config /etc/caddy/Caddyfile"]
     ports:
       - "80:80"
@@ -119,6 +149,70 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  provider-mock:
+    # CI-only scripted OpenAI-compatible endpoint; never enabled in production.
+    # Run as the owner of its ephemeral, host-mounted private key. CI supplies
+    # this UID/GID; defaults retain a valid Compose config outside CI.
+    user: "${MEALMATE_SMOKE_PROVIDER_UID:-1001}:${MEALMATE_SMOKE_PROVIDER_GID:-1001}"
+    build:
+      context: ./server
+      target: production
+    image: mealmate-lite-server:0.1.0
+    profiles: [smoke]
+    restart: "no"
+    command:
+      - node
+      - --input-type=module
+      - -e
+      - |
+        import { readFileSync } from 'node:fs'
+        import { writeFileSync } from 'node:fs'
+        import { createServer } from 'node:https'
+        const server = createServer({
+          key: readFileSync('/run/provider/tls.key'),
+          cert: readFileSync('/run/provider/tls.crt'),
+        }, (request, response) => {
+          if (request.url === '/health') {
+            response.writeHead(200)
+            response.end('ok')
+            return
+          }
+          if (request.method !== 'POST' || request.url !== '/v1/chat/completions') {
+            response.writeHead(404)
+            response.end()
+            return
+          }
+          const chunks = []
+          request.on('data', chunk => chunks.push(chunk))
+          request.on('end', () => {
+            writeFileSync('/tmp/provider-requested', Buffer.concat(chunks).toString('utf8'))
+            response.writeHead(200, { 'cache-control': 'no-cache', 'content-type': 'text/event-stream' })
+            response.end('data: {"choices":[{"delta":{"content":"ok","tool_calls":[{"function":{"name":"no_op","arguments":"{}"}}]}}]}\n\ndata: [DONE]\n\n')
+          })
+        })
+        server.listen(8443, '0.0.0.0')
+    volumes:
+      - ${MEALMATE_SMOKE_PROVIDER_CERT_FILE:-/dev/null}:/run/provider/tls.crt:ro
+      - ${MEALMATE_SMOKE_PROVIDER_KEY_FILE:-/dev/null}:/run/provider/tls.key:ro
+    networks:
+      - internal
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          require('node:https').get({ hostname: '127.0.0.1', port: 8443, path: '/health', rejectUnauthorized: false }, response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 secrets:
   db_password:
     file: ${MEALMATE_DB_PASSWORD_FILE}
@@ -134,3 +228,4 @@ networks:
   edge:
   internal:
     internal: true
+  egress:

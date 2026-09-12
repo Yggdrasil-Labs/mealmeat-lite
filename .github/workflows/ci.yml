@@ -151,6 +151,7 @@ jobs:
             'MEALMATE_BOOTSTRAP_SECRET_FILE=/dev/null' \
             'MEALMATE_MODELS_FILE=/dev/null' \
             'MEALMATE_PUBLIC_DOMAIN=localhost' \
+            'MEALMATE_PROVIDER_ENV_FILE=/dev/null' \
             > .env
 
       - name: Validate Compose config (production)
@@ -167,3 +168,75 @@ jobs:
 
       - name: Build Caddy health-probe image
         run: docker compose -f docker-compose.yml build caddy
+
+      - name: Compose runtime smoke with scripted provider (no real provider)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          smoke_dir="${RUNNER_TEMP}/mealmate-compose-smoke"
+          mkdir -p "$smoke_dir"
+          openssl rand -hex 16 > "$smoke_dir/db-password"
+          openssl rand -hex 32 > "$smoke_dir/bootstrap-secret"
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$smoke_dir/provider.key" \
+            -out "$smoke_dir/provider.crt" \
+            -days 1 \
+            -subj '/CN=provider-mock' \
+            -addext 'subjectAltName=DNS:provider-mock'
+          chmod 600 "$smoke_dir/provider.key"
+          chmod 644 "$smoke_dir/provider.crt"
+
+          printf '%s\n' 'CI_PROVIDER_API_KEY=ci-no-real-provider' > "$smoke_dir/provider.env"
+
+          printf '%s\n' \
+            '{' \
+            '  "models": [' \
+            '    {' \
+            '      "id": "ci-smoke",' \
+            '      "displayName": "CI smoke provider",' \
+            '      "baseURL": "https://provider-mock:8443/v1",' \
+            '      "model": "ci-smoke-model",' \
+            '      "apiKeyEnv": "CI_PROVIDER_API_KEY",' \
+            '      "enabled": true,' \
+            '      "isDefault": true,' \
+            '      "capabilities": { "streaming": true, "tools": true }' \
+            '    }' \
+            '  ]' \
+            '}' > "$smoke_dir/models.json"
+
+          printf '%s\n' \
+            "DB_NAME=mealmate" \
+            "DB_USER=mealmate" \
+            "MEALMATE_DB_PASSWORD_FILE=$smoke_dir/db-password" \
+            "MEALMATE_BOOTSTRAP_SECRET_FILE=$smoke_dir/bootstrap-secret" \
+            "MEALMATE_MODELS_FILE=$smoke_dir/models.json" \
+            "MEALMATE_PUBLIC_DOMAIN=localhost" \
+            "MEALMATE_PROVIDER_ENV_FILE=$smoke_dir/provider.env" \
+            "MEALMATE_PROVIDER_CA_FILE=$smoke_dir/provider.crt" \
+            'MEALMATE_PROVIDER_CA_CERT_PATH=/run/provider/provider-ca.crt' \
+            "MEALMATE_SMOKE_PROVIDER_CERT_FILE=$smoke_dir/provider.crt" \
+            "MEALMATE_SMOKE_PROVIDER_KEY_FILE=$smoke_dir/provider.key" \
+            "MEALMATE_SMOKE_PROVIDER_UID=$(id -u)" \
+            "MEALMATE_SMOKE_PROVIDER_GID=$(id -g)" \
+            > .env
+
+          compose=(docker compose --env-file .env -f docker-compose.yml --profile production --profile smoke)
+          cleanup() {
+            "${compose[@]}" down --volumes --remove-orphans
+          }
+          trap cleanup EXIT
+
+          "${compose[@]}" up --build --wait
+          curl --fail --silent --show-error http://127.0.0.1/health/live
+          curl --fail --silent --show-error --insecure --resolve localhost:443:127.0.0.1 https://localhost/health/ready
+          curl --fail --silent --show-error --insecure --resolve localhost:443:127.0.0.1 https://localhost/
+          "${compose[@]}" exec -T app node dist/cli.js models verify
+          provider_payload=$("${compose[@]}" exec -T provider-mock cat /tmp/provider-requested)
+          case "$provider_payload" in
+            *'"model":"ci-smoke-model"'*'"stream":true'*'"tools":'*) ;;
+            *)
+              echo 'Provider smoke did not receive the expected app probe request.' >&2
+              exit 1
+              ;;
+          esac
