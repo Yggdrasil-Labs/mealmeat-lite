@@ -53,7 +53,7 @@ interface MealMateApi {
     suspend fun syncActions(
         @Body request: SyncActionsRequest,
         @Header("Authorization") authorization: String? = null,
-    ): RetrofitResponse<SyncActionsResponse>
+    ): RetrofitResponse<SuccessEnvelope<SyncActionsResponse>>
 
     @GET("api/v1/models")
     suspend fun listModels(): RetrofitResponse<ModelListResponse>

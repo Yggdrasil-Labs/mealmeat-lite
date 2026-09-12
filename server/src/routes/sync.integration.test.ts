@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { canonicalizeRfc8785 } from '../security/crypto.js'
+import { canonicalizeRfc8785, sha256Hex } from '../security/crypto.js'
 import {
   authedGet,
   bootstrapDevice,
@@ -489,6 +489,87 @@ describe('sync 离线动作（AC6）', () => {
     const body = (await res.json()) as EnvelopeBody<unknown>
     expect(body.errCode).toBe('IDEMPOTENCY_KEY_REUSED')
     expect((body.details ?? [])[0]?.field).toBe('actionId')
+  })
+
+  it('回执哈希覆盖 type 与 payload 且排除 createdAt；跨类型重放被拒绝', async () => {
+    const id = recipeId(56)
+    await seedRecipeSeq(pg.sql, id, 'cross-type-replay')
+    const action = {
+      actionId: actionId(14),
+      type: 'recipe.patch',
+      createdAt: CREATED_AT,
+      payload: { recipeId: id, patch: { name: 'patched-once' } },
+    }
+
+    const applied = await postActions(app, deviceA.deviceToken, [action])
+    expect(applied.status).toBe(200)
+
+    const receipts = await pg.sql.unsafe(
+      'select payload_hash from sync_action_receipts where device_id = $1 and action_id = $2',
+      [deviceA.deviceId, action.actionId],
+    )
+    expect(receipts[0]?.payload_hash).toBe(
+      sha256Hex(canonicalizeRfc8785({ type: action.type, payload: action.payload })),
+    )
+
+    const crossType = {
+      actionId: action.actionId,
+      type: 'recipe.delete',
+      createdAt: '2099-01-01T00:00:00Z',
+      payload: { recipeId: id },
+    }
+    const replay = await postActions(app, deviceA.deviceToken, [crossType])
+    expect(replay.status).toBe(409)
+    expect(((await replay.json()) as EnvelopeBody<unknown>).errCode).toBe('IDEMPOTENCY_KEY_REUSED')
+
+    const recipe = await pg.sql.unsafe('select deleted_at from recipes where id = $1', [id])
+    expect(recipe[0]?.deleted_at).toBeNull()
+  })
+
+  it('兼容旧版仅按 payload 计算的回执哈希；同 type/payload 重放为 duplicate，跨 type 仍拒绝', async () => {
+    const id = recipeId(57)
+    await seedRecipeSeq(pg.sql, id, 'legacy-receipt-replay')
+    const action = {
+      actionId: actionId(15),
+      type: 'recipe.patch',
+      createdAt: CREATED_AT,
+      payload: { recipeId: id, patch: { name: 'patched-once' } },
+    }
+
+    const applied = await postActions(app, deviceA.deviceToken, [action])
+    expect(applied.status).toBe(200)
+    const appliedBody = (await applied.json()) as {
+      data: { results: Array<{ serverVersion: string }> }
+    }
+
+    // 模拟部署新哈希公式前写入的历史回执。
+    await pg.sql.unsafe(
+      'update sync_action_receipts set payload_hash = $1 where device_id = $2 and action_id = $3',
+      [sha256Hex(canonicalizeRfc8785(action.payload)), deviceA.deviceId, action.actionId],
+    )
+
+    const replay = await postActions(app, deviceA.deviceToken, [action])
+    expect(replay.status).toBe(200)
+    const replayBody = (await replay.json()) as {
+      data: { results: Array<Record<string, unknown>> }
+    }
+    expect(replayBody.data.results[0]).toMatchObject({
+      actionId: action.actionId,
+      status: 'duplicate',
+      original: { status: 'applied', serverVersion: appliedBody.data.results[0]?.serverVersion },
+    })
+
+    const crossType = {
+      actionId: action.actionId,
+      type: 'recipe.delete',
+      createdAt: '2099-01-01T00:00:00Z',
+      payload: { recipeId: id },
+    }
+    const conflicting = await postActions(app, deviceA.deviceToken, [crossType])
+    expect(conflicting.status).toBe(409)
+    expect(((await conflicting.json()) as EnvelopeBody<unknown>).errCode).toBe(
+      'IDEMPOTENCY_KEY_REUSED',
+    )
   })
 
   it('patch 不存在的菜谱 → rejected requiresFullResync；重放同 actionId → duplicate', async () => {

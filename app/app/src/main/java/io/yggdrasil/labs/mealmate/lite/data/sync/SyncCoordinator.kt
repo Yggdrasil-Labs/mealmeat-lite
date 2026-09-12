@@ -17,16 +17,20 @@ import io.yggdrasil.labs.mealmate.lite.data.local.SyncApplyResult
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncPageApplier
 import io.yggdrasil.labs.mealmate.lite.data.local.SyncSessionFence
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.entity.PendingActionState
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncDiagnosticKind
 import io.yggdrasil.labs.mealmate.lite.data.local.entity.SyncFailureEntity
+import io.yggdrasil.labs.mealmate.lite.data.local.mapper.decodeAuthoritativeSnapshot
 import io.yggdrasil.labs.mealmate.lite.data.local.mapper.decodePendingActionPayload
 import io.yggdrasil.labs.mealmate.lite.data.remote.ApiCallException
 import io.yggdrasil.labs.mealmate.lite.data.remote.MealMateApi
+import io.yggdrasil.labs.mealmate.lite.data.remote.asApiCallException
 import io.yggdrasil.labs.mealmate.lite.data.remote.requireSuccessData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
+import java.math.BigInteger
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -162,11 +166,11 @@ class InitialSyncCoordinator(
     private val store: SyncPageStore,
     private val actionClient: SyncActionClient? = null,
     private val actionStore: SyncActionStore? = null,
-    private val mutationMutex: Mutex = StateMutationMutex.instance,
+    private val syncMutex: Mutex = Mutex(),
 ) : SyncCoordinator {
     override suspend fun sync(reason: SyncReason): SyncRunResult {
         val expectedGeneration = sessionManager.state.value.generation ?: return SyncRunResult.SessionChanged
-        return mutationMutex.withLock {
+        return syncMutex.withLock {
             syncLocked(reason, expectedGeneration)
         }
     }
@@ -268,12 +272,15 @@ class InitialSyncCoordinator(
     ): SyncRunResult? {
         val client = actionClient ?: return null
         val actions = actionStore ?: return null
+        var uploadedActions = false
         actions.recoverStaleClaims(Instant.now().minus(STALE_CLAIM_MINUTES, ChronoUnit.MINUTES).toString())
         while (true) {
             if (!sessionManager.isCurrent(generation)) return SyncRunResult.SessionChanged
             val attemptId = UUID.randomUUID().toString()
             val claimed = actions.claim(attemptId, Instant.now().toString(), MAX_ACTIONS_PER_BATCH)
-            if (claimed.isEmpty()) return null
+            if (claimed.isEmpty()) {
+                return if (uploadedActions) syncLocked(reason, generation) else null
+            }
             val payloads =
                 try {
                     claimed.map { decodePendingActionPayload(it.payloadSchemaVersion, it.payloadJson) }
@@ -286,6 +293,29 @@ class InitialSyncCoordinator(
                     client.submit(payloads, token)
                 } catch (error: CancellationException) {
                     throw error
+                } catch (error: ApiCallException) {
+                    if (error.statusCode == UNAUTHORIZED_STATUS || error.retryable != false) {
+                        actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
+                    } else {
+                        claimed.forEach { pending ->
+                            actions.reject(
+                                pending.actionId,
+                                attemptId,
+                                SyncFailureEntity(
+                                    pending.actionId,
+                                    error.errorCode ?: "HTTP_${error.statusCode}",
+                                    error.message ?: "Action upload rejected",
+                                    null,
+                                    null,
+                                    null,
+                                    true,
+                                    Instant.now().toString(),
+                                ),
+                            )
+                        }
+                        actions.resetForFullResync()
+                    }
+                    return classifyApiFailure(error, generation, fence)
                 } catch (error: IOException) {
                     actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
                     return transportFailure("ACTION_NETWORK_ERROR", error.message)
@@ -294,10 +324,8 @@ class InitialSyncCoordinator(
                     return failure(fence, SyncFailureKind.PROTOCOL, SyncDiagnosticKind.PROTOCOL, "ACTION_RESPONSE_REJECTED", error.message)
                 }
             val ids = response.results.map(::actionResultId)
-            if (!SyncActionAcknowledgements.hasExactlyClaimedIds(claimed.map(PendingActionEntity::actionId).toSet(), ids.toSet()) ||
-                ids.size != ids.toSet().size
-            ) {
-                actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
+            if (ids != claimed.map(PendingActionEntity::actionId)) {
+                actions.release(claimed.map(PendingActionEntity::actionId), attemptId)
                 return failure(
                     fence,
                     SyncFailureKind.PROTOCOL,
@@ -306,7 +334,22 @@ class InitialSyncCoordinator(
                     "Action ACK ids do not match claimed batch",
                 )
             }
-            val actionOutcomes = response.results.map { result -> applyActionResult(result, attemptId, actions) }
+            val actionOutcomes =
+                try {
+                    response.results.map { result -> applyActionResult(result, attemptId, actions) }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
+                    return failure(
+                        fence,
+                        SyncFailureKind.PROTOCOL,
+                        SyncDiagnosticKind.PROTOCOL,
+                        "ACTION_ACK_INVALID",
+                        error.message ?: "Action acknowledgement was rejected",
+                    )
+                }
+            uploadedActions = true
             if (actionOutcomes.any { it == ActionResultApply.ClaimLost }) {
                 actions.quarantine(claimed.map(PendingActionEntity::actionId), attemptId)
                 return failure(
@@ -542,7 +585,7 @@ class InitialSyncCoordinator(
                 error.message,
             )
         }
-        return transportFailure("HTTP_${error.statusCode}", error.message)
+        return transportFailure(error.errorCode ?: "HTTP_${error.statusCode}", error.message)
     }
 
     private fun validateCursor(
@@ -604,8 +647,8 @@ class RetrofitSyncActionClient(
         token: String,
     ): SyncActionsResponse {
         val response = api.syncActions(SyncActionsRequest(actions), authorization = "Bearer $token")
-        if (!response.isSuccessful) throw ApiCallException(response.code(), message = "MealMate action sync failed: ${response.code()}")
-        return requireNotNull(response.body()) { "MealMate action sync returned an empty body" }
+        if (!response.isSuccessful) throw response.asApiCallException()
+        return response.requireSuccessData()
     }
 }
 
@@ -670,10 +713,17 @@ class RoomSyncActionStore(
         serverVersion: String?,
     ): Boolean =
         database.withTransaction {
+            val pending = database.claimedAction(actionId, attemptId) ?: return@withTransaction false
+            require((resource == null) == (serverVersion == null)) {
+                "Acknowledged action must provide both authoritative resource and server version"
+            }
+            val authoritative = requireNotNull(resource) { "Acknowledged action is missing authoritative resource" }
+            val version = requireNotNull(serverVersion) { "Acknowledged action is missing server version" }
+            validateAuthoritativeForAction(pending, authoritative, version)
             if (!dao.acknowledgeAction(actionId, attemptId)) {
                 false
             } else {
-                if (resource != null && serverVersion != null) applyAuthoritative(resource, serverVersion)
+                applyAuthoritative(authoritative, version)
                 true
             }
         }
@@ -682,7 +732,17 @@ class RoomSyncActionStore(
         actionId: String,
         attemptId: String,
         failure: SyncFailureEntity,
-    ): Boolean = dao.rejectAction(actionId, attemptId, failure)
+    ): Boolean =
+        database.withTransaction {
+            val pending = database.claimedAction(actionId, attemptId) ?: return@withTransaction false
+            val authoritative = validateRejectedFailure(pending, failure)
+            if (!dao.rejectAction(actionId, attemptId, failure)) {
+                false
+            } else {
+                authoritative?.let { applyAuthoritative(it, requireNotNull(failure.serverVersion)) }
+                true
+            }
+        }
 
     override suspend fun release(
         actionIds: List<String>,
@@ -700,6 +760,17 @@ class RoomSyncActionStore(
         resource: AppliedResultDtoResource,
         serverVersion: String,
     ) {
+        val (resourceId, resourceVersion) =
+            when (resource) {
+                is AppliedResultDtoResource.RecipeViewValue -> resource.value.id.toString() to resource.value.serverVersion
+                is AppliedResultDtoResource.RecipeTombstoneValue -> resource.value.id.toString() to resource.value.serverVersion
+            }
+        require(resourceVersion == serverVersion) {
+            "Authoritative resource version does not match acknowledgement version"
+        }
+        val storedVersion =
+            dao.getReplicaVersion("recipe", resourceId)?.serverVersion ?: dao.getRecipe(resourceId)?.serverVersion
+        if (storedVersion != null && BigInteger(serverVersion) <= BigInteger(storedVersion)) return
         when (resource) {
             is AppliedResultDtoResource.RecipeViewValue -> {
                 val recipe = resource.value
@@ -741,6 +812,74 @@ class RoomSyncActionStore(
                         serverVersion,
                     ),
                 )
+            }
+        }
+    }
+}
+
+private suspend fun MealMateDatabase.claimedAction(
+    actionId: String,
+    attemptId: String,
+): PendingActionEntity? =
+    contractCacheDao().getPendingAction(actionId)?.takeIf {
+        it.state == PendingActionState.SENDING && it.attemptId == attemptId
+    }
+
+private fun validateRejectedFailure(
+    pending: PendingActionEntity,
+    failure: SyncFailureEntity,
+): AppliedResultDtoResource? {
+    require(failure.actionId == pending.actionId) { "Failure must belong to rejected action" }
+    val hasAuthoritative = failure.authoritativeSchemaVersion != null || failure.authoritativeJson != null
+    if (failure.requiresFullResync) {
+        require(!hasAuthoritative && failure.serverVersion == null) {
+            "Full-resync rejection must not include authoritative data"
+        }
+        return null
+    }
+    require(hasAuthoritative && failure.serverVersion != null) {
+        "Rejected action must include authoritative data and server version"
+    }
+    val serverVersion = requireNotNull(failure.serverVersion)
+    val authoritative =
+        decodeAuthoritativeSnapshot(
+            requireNotNull(failure.authoritativeSchemaVersion),
+            requireNotNull(failure.authoritativeJson),
+        )
+    validateAuthoritativeForAction(pending, authoritative, serverVersion)
+    return authoritative
+}
+
+private fun validateAuthoritativeForAction(
+    pending: PendingActionEntity,
+    resource: AppliedResultDtoResource,
+    serverVersion: String,
+) {
+    val pendingPayload = decodePendingActionPayload(pending.payloadSchemaVersion, pending.payloadJson)
+    when (pendingPayload) {
+        is SyncActionDto.SyncActionDtoOneOfValue -> {
+            val recipe =
+                (resource as? AppliedResultDtoResource.RecipeViewValue)
+                    ?.value
+                    ?: throw IllegalArgumentException("Recipe patch must acknowledge a recipe view")
+            require(recipe.id == pendingPayload.value.payload.recipeId) {
+                "Authoritative recipe does not match the pending patch target"
+            }
+            require(recipe.serverVersion == serverVersion) {
+                "Authoritative recipe version does not match acknowledgement version"
+            }
+        }
+
+        is SyncActionDto.SyncActionDtoOneOf1Value -> {
+            val tombstone =
+                (resource as? AppliedResultDtoResource.RecipeTombstoneValue)
+                    ?.value
+                    ?: throw IllegalArgumentException("Recipe delete must acknowledge a recipe tombstone")
+            require(tombstone.id == pendingPayload.value.payload.recipeId) {
+                "Authoritative tombstone does not match the pending delete target"
+            }
+            require(tombstone.serverVersion == serverVersion) {
+                "Authoritative tombstone version does not match acknowledgement version"
             }
         }
     }

@@ -274,7 +274,10 @@ export class SyncService {
   }
 
   private async applyAction(deviceId: string, action: SyncActionDto): Promise<SyncActionResultDto> {
-    const payloadHash = sha256Hex(canonicalizeRfc8785(action.payload))
+    const payloadHash = sha256Hex(
+      canonicalizeRfc8785({ type: action.type, payload: action.payload }),
+    )
+    const legacyPayloadHash = sha256Hex(canonicalizeRfc8785(action.payload))
     await this.deps.beforeActionReceiptCheck?.()
     const existing = await this.db
       .select()
@@ -287,7 +290,7 @@ export class SyncService {
       )
     const receipt = existing[0]
     if (receipt !== undefined) {
-      return this.replayReceipt(action, payloadHash, receipt)
+      return this.replayReceipt(action, payloadHash, legacyPayloadHash, receipt)
     }
 
     try {
@@ -310,7 +313,7 @@ export class SyncService {
           )
         const receipt = rows[0]
         if (receipt !== undefined) {
-          return this.replayReceipt(action, payloadHash, receipt)
+          return this.replayReceipt(action, payloadHash, legacyPayloadHash, receipt)
         }
       }
       throw err
@@ -320,9 +323,12 @@ export class SyncService {
   private replayReceipt(
     action: SyncActionDto,
     payloadHash: string,
+    legacyPayloadHash: string,
     receipt: typeof syncActionReceipts.$inferSelect,
   ): SyncActionResultDto {
-    if (receipt.actionType !== action.type || receipt.payloadHash !== payloadHash) {
+    const payloadMatches =
+      receipt.payloadHash === payloadHash || receipt.payloadHash === legacyPayloadHash
+    if (receipt.actionType !== action.type || !payloadMatches) {
       throw new PublicError('IDEMPOTENCY_KEY_REUSED', {
         details: [{ field: 'actionId', reason: action.actionId }],
       })

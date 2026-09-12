@@ -97,13 +97,17 @@ class MealMateApiTest {
             server.enqueue(
                 MockResponse()
                     .setResponseCode(200)
-                    .setBody("""{"results":[]}"""),
+                    .setBody("""{"success":true,"data":{"results":[]}}"""),
             )
             val api = createMealMateApi(server.url("/").toString()) { "newer-token" }
 
             assertEquals(
                 emptyList<Any>(),
-                api.syncActions(SyncActionsRequest(emptyList()), "Bearer captured-action-token").body()?.results,
+                api
+                    .syncActions(SyncActionsRequest(emptyList()), "Bearer captured-action-token")
+                    .body()
+                    ?.data
+                    ?.results,
             )
 
             val request = server.takeRequest()

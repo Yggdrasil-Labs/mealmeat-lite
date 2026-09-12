@@ -180,6 +180,7 @@ class InitialSyncCoordinatorTest {
         runBlocking {
             val fixture = actionFixture(acknowledgeResult = false)
             fixture.client.pages += SyncResponse(emptyList(), false, null)
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
 
             val result = fixture.coordinator.sync(SyncReason.InitialProvisioning)
 
@@ -190,7 +191,7 @@ class InitialSyncCoordinatorTest {
         }
 
     @Test
-    fun `invalid action acknowledgement records a diagnostic without returning the action to the queue`() =
+    fun `invalid action acknowledgement records a diagnostic and returns the batch to the queue`() =
         runBlocking {
             val fixture = actionFixture(responseActionId = "44444444-4444-4444-8444-444444444444")
             fixture.client.pages += SyncResponse(emptyList(), false, null)
@@ -200,8 +201,91 @@ class InitialSyncCoordinatorTest {
             val failed = assertInstanceOf(SyncRunResult.Failed::class.java, result)
             assertEquals(SyncFailureKind.PROTOCOL, failed.kind)
             assertEquals("ACTION_ACK_INVALID", failed.errorCode)
-            assertEquals(emptyList<String>(), fixture.actionStore.releasedActionIds)
-            assertEquals(listOf("33333333-3333-4333-8333-333333333333"), fixture.actionStore.quarantinedActionIds)
+            assertEquals(
+                listOf("33333333-3333-4333-8333-333333333333"),
+                fixture.actionStore.releasedActionIds,
+            )
+            assertEquals(emptyList<String>(), fixture.actionStore.quarantinedActionIds)
+        }
+
+    @Test
+    fun `unauthorized action response invalidates the session and releases the claimed action`() =
+        runBlocking {
+            val fixture =
+                actionFixture(
+                    actionFailure = ApiCallException(401, "UNAUTHORIZED", "token expired"),
+                )
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+
+            val result = fixture.coordinator.sync(SyncReason.InitialProvisioning)
+
+            assertEquals(SyncRunResult.SessionChanged, result)
+            assertEquals(SessionPhase.Unauthenticated, fixture.sessionManager.state.value.phase)
+            assertEquals(
+                listOf("33333333-3333-4333-8333-333333333333"),
+                fixture.actionStore.releasedActionIds,
+            )
+            assertEquals(emptyList<String>(), fixture.actionStore.quarantinedActionIds)
+        }
+
+    @Test
+    fun `retryable action response returns a network failure and releases the claimed action`() =
+        runBlocking {
+            val fixture =
+                actionFixture(
+                    actionFailure = ApiCallException(429, "RATE_LIMITED", "try later", retryable = true),
+                )
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+
+            val result = fixture.coordinator.sync(SyncReason.InitialProvisioning)
+
+            val failed = assertInstanceOf(SyncRunResult.Failed::class.java, result)
+            assertEquals(SyncFailureKind.NETWORK, failed.kind)
+            assertEquals("RATE_LIMITED", failed.errorCode)
+            assertEquals("try later", failed.message)
+            assertEquals(
+                listOf("33333333-3333-4333-8333-333333333333"),
+                fixture.actionStore.releasedActionIds,
+            )
+            assertEquals(emptyList<String>(), fixture.actionStore.quarantinedActionIds)
+        }
+
+    @Test
+    fun `non retryable action response fails each claimed action and preserves its error`() =
+        runBlocking {
+            val fixture =
+                actionFixture(
+                    actionFailure = ApiCallException(409, "CONFLICT", "stale recipe", retryable = false),
+                )
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+
+            val result = fixture.coordinator.sync(SyncReason.InitialProvisioning)
+
+            val failed = assertInstanceOf(SyncRunResult.Failed::class.java, result)
+            assertEquals(SyncFailureKind.PROTOCOL, failed.kind)
+            assertEquals("CONFLICT", failed.errorCode)
+            assertEquals("stale recipe", failed.message)
+            assertEquals(
+                listOf("33333333-3333-4333-8333-333333333333"),
+                fixture.actionStore.rejectedActionIds,
+            )
+            val failure = fixture.actionStore.failures.single()
+            assertEquals("CONFLICT", failure.errCode)
+            assertEquals("stale recipe", failure.errMessage)
+            assertEquals(true, failure.requiresFullResync)
+            assertEquals(true, fixture.actionStore.resetForFullResync)
+        }
+
+    @Test
+    fun `action drain performs a final pull after all actions are acknowledged`() =
+        runBlocking {
+            val fixture = actionFixture()
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+            fixture.client.pages += SyncResponse(emptyList(), false, null)
+
+            assertInstanceOf(SyncRunResult.Success::class.java, fixture.coordinator.sync(SyncReason.InitialProvisioning))
+
+            assertEquals(listOf(null, null), fixture.client.requestedCursors)
         }
 
     private suspend fun fixture(): Fixture {
@@ -224,6 +308,7 @@ class InitialSyncCoordinatorTest {
     private suspend fun actionFixture(
         acknowledgeResult: Boolean = true,
         responseActionId: String = "33333333-3333-4333-8333-333333333333",
+        actionFailure: Throwable? = null,
     ): ActionFixture {
         val credentialStore = FakeCredentialStore()
         val localStore = FakeSessionLocalStore()
@@ -239,8 +324,9 @@ class InitialSyncCoordinatorTest {
         val client = FakeSyncPageClient()
         val store = FakeSyncPageStore(localStore, credentialStore)
         val actionStore = FakeSyncActionStore(acknowledgeResult)
-        val actionClient = FakeSyncActionClient(responseActionId)
+        val actionClient = FakeSyncActionClient(responseActionId, actionFailure)
         return ActionFixture(
+            manager,
             client,
             actionStore,
             InitialSyncCoordinator(manager, client, store, actionClient, actionStore),
@@ -255,6 +341,7 @@ class InitialSyncCoordinatorTest {
     )
 
     private data class ActionFixture(
+        val sessionManager: SessionManager,
         val client: FakeSyncPageClient,
         val actionStore: FakeSyncActionStore,
         val coordinator: InitialSyncCoordinator,
@@ -263,11 +350,13 @@ class InitialSyncCoordinatorTest {
 
 private class FakeSyncActionClient(
     private val responseActionId: String = "33333333-3333-4333-8333-333333333333",
+    private val actionFailure: Throwable? = null,
 ) : SyncActionClient {
     override suspend fun submit(
         actions: List<SyncActionDto>,
         token: String,
     ): SyncActionsResponse {
+        actionFailure?.let { throw it }
         check(
             actions.single().let { action ->
                 when (action) {
@@ -294,6 +383,9 @@ private class FakeSyncActionStore(
     var claimed = false
     val releasedActionIds = mutableListOf<String>()
     val quarantinedActionIds = mutableListOf<String>()
+    val rejectedActionIds = mutableListOf<String>()
+    val failures = mutableListOf<SyncFailureEntity>()
+    var resetForFullResync = false
 
     override suspend fun recoverStaleClaims(staleBefore: String): Int = 0
 
@@ -320,7 +412,11 @@ private class FakeSyncActionStore(
         actionId: String,
         attemptId: String,
         failure: SyncFailureEntity,
-    ): Boolean = true
+    ): Boolean {
+        rejectedActionIds += actionId
+        failures += failure
+        return true
+    }
 
     override suspend fun release(
         actionIds: List<String>,
@@ -336,7 +432,9 @@ private class FakeSyncActionStore(
         quarantinedActionIds += actionIds
     }
 
-    override suspend fun resetForFullResync() = Unit
+    override suspend fun resetForFullResync() {
+        resetForFullResync = true
+    }
 }
 
 private class FakeSyncPageClient : SyncPageClient {
