@@ -15,6 +15,9 @@ import io.yggdrasil.labs.mealmate.lite.data.local.entity.RecipeEntity
 import io.yggdrasil.labs.mealmate.lite.data.local.mapper.decodePendingActionPayload
 import io.yggdrasil.labs.mealmate.lite.data.local.mapper.pendingActionEntityFromPayload
 import io.yggdrasil.labs.mealmate.lite.data.sync.StateMutationMutex
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import java.time.OffsetDateTime
@@ -49,6 +52,8 @@ sealed interface LocalMutationResult {
 }
 
 interface OfflineRecipeRepository {
+    fun observeRecipes(): Flow<List<RecipeEntity>> = emptyFlow()
+
     suspend fun patch(
         recipeId: String,
         patch: RecipePatchCommand,
@@ -68,6 +73,15 @@ class RoomOfflineRecipeRepository(
     private val actionIdSource: () -> UUID = UUID::randomUUID,
     private val now: () -> OffsetDateTime = { OffsetDateTime.now(ZoneOffset.UTC) },
 ) : OfflineRecipeRepository {
+    override fun observeRecipes(): Flow<List<RecipeEntity>> =
+        combine(
+            database.contractCacheDao().observeRecipes(),
+            database.invalidationTracker.createFlow("pending_actions"),
+        ) { recipes, _ ->
+            val actions = database.contractCacheDao().getOutstandingActions()
+            recipes.mapNotNull { effectiveProjection(it, actions) }
+        }
+
     override suspend fun patch(
         recipeId: String,
         patch: RecipePatchCommand,
@@ -79,48 +93,56 @@ class RoomOfflineRecipeRepository(
         failedActionId: String,
         recipeId: String,
         patch: RecipePatchCommand,
-    ): LocalMutationResult =
-        StateMutationMutex.instance.withLock {
-            database.withTransaction {
-                val dao = database.contractCacheDao()
-                val recipe = dao.getRecipe(recipeId) ?: return@withTransaction LocalMutationResult.Missing
-                if (recipe.deletedAt != null) return@withTransaction LocalMutationResult.Tombstoned
-                if (effectiveProjection(recipe, dao.getOutstandingActions()) == null) {
-                    return@withTransaction LocalMutationResult.Tombstoned
+    ): LocalMutationResult {
+        val result =
+            StateMutationMutex.instance.withLock {
+                database.withTransaction {
+                    val dao = database.contractCacheDao()
+                    val recipe = dao.getRecipe(recipeId) ?: return@withTransaction LocalMutationResult.Missing
+                    if (recipe.deletedAt != null) return@withTransaction LocalMutationResult.Tombstoned
+                    if (effectiveProjection(recipe, dao.getOutstandingActions()) == null) {
+                        return@withTransaction LocalMutationResult.Tombstoned
+                    }
+                    if (!dao.discardActionFailure(failedActionId)) {
+                        return@withTransaction LocalMutationResult.SessionChanged
+                    }
+                    val recipeUuid =
+                        runCatching { UUID.fromString(recipeId) }.getOrNull()
+                            ?: return@withTransaction LocalMutationResult.Missing
+                    val entity = pendingActionEntityFromPayload(patchAction(recipeUuid, now(), patch))
+                    dao.insertPendingAction(entity)
+                    LocalMutationResult.Applied(
+                        entity.actionId,
+                        effectiveProjection(recipe, dao.getOutstandingActions()),
+                    )
                 }
-                if (!dao.discardActionFailure(failedActionId)) return@withTransaction LocalMutationResult.SessionChanged
-                val recipeUuid =
-                    runCatching { UUID.fromString(recipeId) }.getOrNull()
-                        ?: return@withTransaction LocalMutationResult.Missing
-                val entity = pendingActionEntityFromPayload(patchAction(recipeUuid, now(), patch))
-                dao.insertPendingAction(entity)
-                LocalMutationResult.Applied(
-                    entity.actionId,
-                    effectiveProjection(recipe, dao.getOutstandingActions()),
-                )
             }
-        }
+        return result
+    }
 
     private suspend fun mutate(
         recipeId: String,
         action: (UUID, OffsetDateTime) -> SyncActionDto,
-    ): LocalMutationResult =
-        StateMutationMutex.instance.withLock {
-            database.withTransaction {
-                val dao = database.contractCacheDao()
-                val recipe = dao.getRecipe(recipeId) ?: return@withTransaction LocalMutationResult.Missing
-                if (recipe.deletedAt != null) return@withTransaction LocalMutationResult.Tombstoned
-                if (effectiveProjection(recipe, dao.getOutstandingActions()) == null) {
-                    return@withTransaction LocalMutationResult.Tombstoned
+    ): LocalMutationResult {
+        val result =
+            StateMutationMutex.instance.withLock {
+                database.withTransaction {
+                    val dao = database.contractCacheDao()
+                    val recipe = dao.getRecipe(recipeId) ?: return@withTransaction LocalMutationResult.Missing
+                    if (recipe.deletedAt != null) return@withTransaction LocalMutationResult.Tombstoned
+                    if (effectiveProjection(recipe, dao.getOutstandingActions()) == null) {
+                        return@withTransaction LocalMutationResult.Tombstoned
+                    }
+                    val recipeUuid =
+                        runCatching { UUID.fromString(recipeId) }.getOrNull()
+                            ?: return@withTransaction LocalMutationResult.Missing
+                    val entity = pendingActionEntityFromPayload(action(recipeUuid, now()))
+                    dao.insertPendingAction(entity)
+                    LocalMutationResult.Applied(entity.actionId, effectiveProjection(recipe, dao.getOutstandingActions()))
                 }
-                val recipeUuid =
-                    runCatching { UUID.fromString(recipeId) }.getOrNull()
-                        ?: return@withTransaction LocalMutationResult.Missing
-                val entity = pendingActionEntityFromPayload(action(recipeUuid, now()))
-                dao.insertPendingAction(entity)
-                LocalMutationResult.Applied(entity.actionId, effectiveProjection(recipe, dao.getOutstandingActions()))
             }
-        }
+        return result
+    }
 
     private fun effectiveProjection(
         authoritative: RecipeEntity,
@@ -136,9 +158,9 @@ class RoomOfflineRecipeRepository(
                     ) {
                         val patch = payload.value.payload.patch
                         effective =
-                            effective?.copy(
-                                name = patch.name ?: effective?.name.orEmpty(),
-                                tagsJson = patch.tags?.let(contractJson::encodeToString) ?: effective?.tagsJson.orEmpty(),
+                            effective.copy(
+                                name = patch.name ?: effective.name,
+                                tagsJson = patch.tags?.let(contractJson::encodeToString) ?: effective.tagsJson,
                             )
                     }
                 }

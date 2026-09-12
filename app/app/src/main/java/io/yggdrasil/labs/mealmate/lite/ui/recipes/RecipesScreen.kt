@@ -3,6 +3,10 @@ package io.yggdrasil.labs.mealmate.lite.ui.recipes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -14,8 +18,8 @@ import io.yggdrasil.labs.mealmate.lite.data.sync.SyncIssueView
 import io.yggdrasil.labs.mealmate.lite.ui.sync.SyncFailureViewModel
 
 /**
- * 菜品库页面 — 浏览、搜索、查看详情
- * 阶段 4 实现完整列表和搜索
+ * 菜品库页面 — 从本地 Room 缓存选择菜品并离线编辑。
+ * 完整搜索和详情体验留给后续阶段。
  */
 @Composable
 fun RecipesScreen(
@@ -25,16 +29,38 @@ fun RecipesScreen(
     val editorState = editorViewModel.state.collectAsStateWithLifecycle().value
     val issues = failureViewModel.issues.collectAsStateWithLifecycle().value
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("菜品库")
+        if (editorState.recipes.isEmpty()) {
+            Text("暂无已同步菜品")
+        } else {
+            Text("本地菜品")
+            editorState.recipes.forEach { recipe ->
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { editorViewModel.selectRecipe(recipe) },
+                ) {
+                    Column {
+                        Text(recipe.name)
+                        Text(recipe.id)
+                    }
+                }
+            }
+        }
         editorState.message?.let { message -> Text(message) }
-        OutlinedTextField(editorState.recipeId, editorViewModel::updateRecipeId, label = { Text("菜品 ID") })
-        OutlinedTextField(editorState.name, editorViewModel::updateName, label = { Text("名称（可选）") })
+        if (editorState.recipeId.isNotBlank()) Text("当前菜品：${editorState.recipeId}")
+        OutlinedTextField(editorState.name, editorViewModel::updateName, label = { Text("名称") })
         OutlinedTextField(editorState.tags, editorViewModel::updateTags, label = { Text("标签，逗号分隔（可选）") })
-        Button(onClick = editorViewModel::submitPatch) { Text("离线保存") }
-        Button(onClick = editorViewModel::submitDelete) { Text("离线删除") }
+        Button(
+            enabled = editorState.recipeId.isNotBlank(),
+            onClick = editorViewModel::submitPatch,
+        ) { Text("离线保存") }
+        Button(
+            enabled = editorState.recipeId.isNotBlank(),
+            onClick = editorViewModel::submitDelete,
+        ) { Text("离线删除") }
         issues.forEach { issue ->
             when (issue) {
                 is SyncIssueView.ActionFailure -> {
