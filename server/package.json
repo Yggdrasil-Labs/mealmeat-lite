@@ -35,7 +35,7 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.8",
+    "@biomejs/biome": "2.5.9",
     "@types/node": "24.13.3",
     "drizzle-kit": "0.31.10",
     "json-schema-to-ts": "3.1.1",
